@@ -31,7 +31,7 @@ namespace abchotel.Services
             {
                 try
                 {
-                    // Vì BackgroundService sống mãi mãi, ta phải tạo một "Scope" mới để gọi Database an toàn
+                    // Vì BackgroundService sống mãi mãi, phải tạo một "Scope" mới để gọi Database an toàn
                     using (var scope = _serviceProvider.CreateScope())
                     {
                         var dbContext = scope.ServiceProvider.GetRequiredService<HotelDbContext>();

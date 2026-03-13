@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-
+using System.ComponentModel.DataAnnotations.Schema;
 namespace abchotel.Models;
 
 public partial class Booking
@@ -21,6 +21,7 @@ public partial class Booking
 
     public string? Status { get; set; }
     // THÊM DÒNG NÀY:
+    [Column("created_at")]
     public DateTime? Created_at { get; set; }
 
     public virtual ICollection<BookingDetail> BookingDetails { get; set; } = new List<BookingDetail>();

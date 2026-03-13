@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace abchotel.Models;
 
@@ -32,7 +33,11 @@ public partial class User
     public virtual ICollection<Review> Reviews { get; set; } = new List<Review>();
 
     public virtual Role? Role { get; set; }
+    
+    [Column("total_points")]
     public int TotalPoints { get; set; }
+
+    [Column("last_activity_date")]
     public DateTime? LastActivityDate { get; set; }
     public virtual ICollection<PointHistory> PointHistories { get; set; } = new List<PointHistory>();
     }
