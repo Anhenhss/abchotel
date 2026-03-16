@@ -1,21 +1,15 @@
 # abchotel
 Sử dung .NET 10.0 SDK
-Bước 1: Chạy SQL
-Bước 2: Chạy các thư viện sau
-dotnet add package Microsoft.EntityFrameworkCore --version 9.0.0
-dotnet add package Microsoft.EntityFrameworkCore.SqlServer --version 9.0.0
-dotnet add package Microsoft.EntityFrameworkCore.Tools --version 9.0.0
-dotnet add package Microsoft.EntityFrameworkCore.Design --version 9.0.0
-dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer
-dotnet add package BCrypt.Net-Next --version 4.0.3
-dotnet add package AutoMapper --version 12.0.1
-dotnet add package AutoMapper.Extensions.Microsoft.DependencyInjection --version 12.0.1
-dotnet add package Google.Apis.Auth
+Bước 1: Chạy SQL create database, use database, execute hết các dữ liệu
+Bước 2: Chạy lệnh sau
 dotnet tool install --global dotnet-ef
-Bước 3: create database, use database, execute hết các dữ liệu
-Bước 4: Nếu Models đã có 20 class rồi thì không cần chạy câu lệnh này
+dotnet restore
+dotnet clean
+dotnet build
+ 
+Bước 3: Nếu Models đã có 20 class rồi thì không cần chạy câu lệnh này
 dotnet ef dbcontext scaffold "Server=.\SQLEXPRESS;Database=HotelManagementDB;Trusted_Connection=True;TrustServerCertificate=True;" Microsoft.EntityFrameworkCore.SqlServer -o Models --context-dir Data -c HotelDbContext --namespace abchotel.Models --context-namespace abchotel.Data --data-annotations -f
-Bước 5:
+Bước 4:
 
 
 
@@ -29,3 +23,16 @@ const BASE_URL = 'https://localhost:5035/api';
 lưu ý dotnet run phần backend thì fontend mới chạy
 
 
+
+
+
+THƯ VIỆN không cài đặt nó tự có sẵn khi cùng net
+dotnet add package Microsoft.EntityFrameworkCore 
+dotnet add package Microsoft.EntityFrameworkCore.Design 
+dotnet add package Microsoft.EntityFrameworkCore.SqlServer 
+dotnet add package Microsoft.EntityFrameworkCore.Tools 
+dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer
+dotnet add package BCrypt.Net-Next --version 4.0.3
+dotnet add package AutoMapper
+dotnet add package Google.Apis.Auth
+dotnet add package Swashbuckle.AspNetCore
