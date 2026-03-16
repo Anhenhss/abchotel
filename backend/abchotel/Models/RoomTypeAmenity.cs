@@ -6,21 +6,17 @@ using Microsoft.EntityFrameworkCore;
 
 namespace abchotel.Models;
 
-[Table("Room_Images")]
-public partial class RoomImage
+[PrimaryKey("RoomTypeId", "AmenityId")]
+[Table("RoomType_Amenities")]
+public partial class RoomTypeAmenity
 {
     [Key]
-    [Column("id")]
-    public int Id { get; set; }
-
     [Column("room_type_id")]
-    public int? RoomTypeId { get; set; }
+    public int RoomTypeId { get; set; }
 
-    [Column("image_url")]
-    public string ImageUrl { get; set; } = null!;
-
-    [Column("is_primary")]
-    public bool? IsPrimary { get; set; }
+    [Key]
+    [Column("amenity_id")]
+    public int AmenityId { get; set; }
 
     [Column("created_at", TypeName = "datetime")]
     public DateTime? CreatedAt { get; set; }
@@ -34,10 +30,11 @@ public partial class RoomImage
     [Column("updated_by")]
     public int? UpdatedBy { get; set; }
 
-    [Column("is_active")]
-    public bool IsActive { get; set; }
+    [ForeignKey("AmenityId")]
+    [InverseProperty("RoomTypeAmenities")]
+    public virtual Amenity Amenity { get; set; } = null!;
 
     [ForeignKey("RoomTypeId")]
-    [InverseProperty("RoomImages")]
-    public virtual RoomType? RoomType { get; set; }
+    [InverseProperty("RoomTypeAmenities")]
+    public virtual RoomType RoomType { get; set; } = null!;
 }

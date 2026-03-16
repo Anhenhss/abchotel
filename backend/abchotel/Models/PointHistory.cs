@@ -1,11 +1,15 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
 
 namespace abchotel.Models;
 
-[Table("Point_Histories")] 
+[Table("Point_Histories")]
 public partial class PointHistory
 {
+    [Key]
     [Column("id")]
     public int Id { get; set; }
 
@@ -25,11 +29,17 @@ public partial class PointHistory
     public int PointsExpired { get; set; }
 
     [Column("description")]
+    [StringLength(255)]
     public string? Description { get; set; }
 
-    [Column("created_at")]
+    [Column("created_at", TypeName = "datetime")]
     public DateTime? CreatedAt { get; set; }
 
+    [ForeignKey("InvoiceId")]
+    [InverseProperty("PointHistories")]
+    public virtual Invoice? Invoice { get; set; }
+
     [ForeignKey("UserId")]
-    public virtual User? User { get; set; }
+    [InverseProperty("PointHistories")]
+    public virtual User User { get; set; } = null!;
 }
