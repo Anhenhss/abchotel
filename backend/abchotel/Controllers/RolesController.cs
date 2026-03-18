@@ -8,7 +8,7 @@ namespace abchotel.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Admin")] // Chỉ Admin mới được can thiệp vào Role
+    [Authorize(Policy = "MANAGE_ROLES")]
     public class RolesController : ControllerBase
     {
         private readonly IRoleService _roleService;
@@ -25,6 +25,14 @@ namespace abchotel.Controllers
             return Ok(roles);
         }
 
+        // API này để Frontend gọi lấy danh sách Checkbox phân quyền
+        [HttpGet("permissions")]
+        public async Task<IActionResult> GetPermissions()
+        {
+            var permissions = await _roleService.GetAllPermissionsAsync();
+            return Ok(permissions);
+        }
+
         [HttpPost]
         public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequest request)
         {
@@ -35,9 +43,9 @@ namespace abchotel.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateRole(int id, [FromBody] UpdateRoleRequest request)
         {
-            var role = await _roleService.UpdateRoleAsync(id, request);
-            if (role == null) return NotFound(new { message = "Không tìm thấy Role." });
-            return Ok(new { message = "Cập nhật Role thành công.", data = role });
+            var success = await _roleService.UpdateRoleAsync(id, request);
+            if (!success) return NotFound(new { message = "Không tìm thấy Role." });
+            return Ok(new { message = "Cập nhật Role thành công." });
         }
 
         [HttpDelete("{id}")]

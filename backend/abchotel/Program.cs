@@ -31,7 +31,19 @@ builder.Services.AddControllers();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<IUserService, UserService>();
-
+// builder.Services.AddScoped<IUserProfileService, UserProfileService>();
+// builder.Services.AddScoped<IShiftService, ShiftService>();
+// builder.Services.AddScoped<IAuditReportService, AuditReportService>();
+// builder.Services.AddScoped<IMediaService, MediaService>();
+// builder.Services.AddScoped<IArticleCategoryService, ArticleCategoryService>();
+// builder.Services.AddScoped<IArticleService, ArticleService>();
+// builder.Services.AddScoped<IAttractionService, AttractionService>();
+// builder.Services.AddScoped<IRoomTypeService, RoomTypeService>();
+// builder.Services.AddScoped<IRoomService, RoomService>();
+// builder.Services.AddScoped<IRoomInventoryService, RoomInventoryService>();
+// builder.Services.AddScoped<ILossDamageService, LossDamageService>();
+// builder.Services.AddScoped<IAmenityService, AmenityService>();
+// builder.Services.AddScoped<IReviewService, ReviewService>();
 // // Nhóm Module 2 (Rooms, Vouchers, Loyalty - Của đợt trước)
 // builder.Services.AddScoped<IRoomService, RoomService>();
 // builder.Services.AddScoped<IVoucherService, VoucherService>();
@@ -69,8 +81,20 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-// Thêm quyền Authorization
-builder.Services.AddAuthorization();
+// Cấu hình Policy cho từng Permission
+builder.Services.AddAuthorization(options =>
+{
+    var permissions = new[] { 
+        "VIEW_DASHBOARD", "MANAGE_USERS", "MANAGE_ROLES", "MANAGE_ROOMS", 
+        "MANAGE_BOOKINGS", "MANAGE_INVOICES", "MANAGE_SERVICES", "VIEW_REPORTS", 
+        "MANAGE_CONTENT", "MANAGE_INVENTORY", "MANAGE_SHIFTS", "VIEW_AUDIT_LOGS", "MANAGE_VOUCHERS" 
+    };
+
+    foreach (var permission in permissions)
+    {
+        options.AddPolicy(permission, policy => policy.RequireClaim("Permission", permission));
+    }
+});
 
 // ==========================================
 // 4. CẤU HÌNH CORS (Cho phép Frontend gọi API)

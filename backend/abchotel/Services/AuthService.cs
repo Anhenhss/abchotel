@@ -17,6 +17,7 @@ namespace abchotel.Services
 {
     public interface IAuthService
     {
+        Task<(bool IsSuccess, string Message)> RegisterAsync(RegisterRequest request);
         Task<(bool IsSuccess, string Message, TokenResponse Data)> LoginAsync(LoginRequest request);
         Task<(bool IsSuccess, string Message, TokenResponse Data)> RefreshTokenAsync(RefreshTokenRequest request);
         Task<UserProfileResponse> GetMeAsync(int userId);
@@ -34,10 +35,38 @@ namespace abchotel.Services
             _config = config;
         }
 
+
+        public async Task<(bool IsSuccess, string Message)> RegisterAsync(RegisterRequest request)
+        {
+            if (await _context.Users.AnyAsync(u => u.Email == request.Email))
+            {
+                return (false, "Email này đã được sử dụng. Vui lòng đăng nhập.");
+            }
+
+            var guestRole = await _context.Roles.FirstOrDefaultAsync(r => r.Name == "Guest");
+
+            var user = new User
+            {
+                FullName = request.FullName,
+                Email = request.Email,
+                Phone = request.Phone,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password), // Băm mật khẩu an toàn
+                RoleId = guestRole?.Id, // Gán Role mặc định
+                IsActive = true,
+                CreatedAt = DateTime.Now
+            };
+
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+            return (true, "Đăng ký tài khoản thành công. Bạn có thể đăng nhập ngay bây giờ.");
+        }
+
         public async Task<(bool IsSuccess, string Message, TokenResponse Data)> LoginAsync(LoginRequest request)
         {
             var user = await _context.Users
                 .Include(u => u.Role)
+                    .ThenInclude(r => r.RolePermissions)
+                    .ThenInclude(rp => rp.Permission)
                 .FirstOrDefaultAsync(u => u.Email == request.Email);
 
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
@@ -108,6 +137,12 @@ namespace abchotel.Services
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim(ClaimTypes.Role, user.Role?.Name ?? "Guest")
             };
+
+            var permissions = user.Role?.RolePermissions.Select(rp => rp.Permission.Name).ToList() ?? new List<string>();
+            foreach (var perm in permissions)
+            {
+                authClaims.Add(new Claim("Permission", perm)); 
+            }
 
             var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
 

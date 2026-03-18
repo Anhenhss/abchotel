@@ -36,3 +36,4 @@ dotnet add package BCrypt.Net-Next --version 4.0.3
 dotnet add package AutoMapper
 dotnet add package Google.Apis.Auth
 dotnet add package Swashbuckle.AspNetCore
+dotnet add package CloudinaryDotNet

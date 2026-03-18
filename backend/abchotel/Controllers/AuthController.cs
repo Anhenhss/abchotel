@@ -18,6 +18,16 @@ namespace abchotel.Controllers
             _authService = authService;
         }
 
+        [HttpPost("register")]
+        [AllowAnonymous] // Ai cũng vào đăng ký được
+        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+        {
+            var result = await _authService.RegisterAsync(request);
+            if (!result.IsSuccess) return BadRequest(new { message = result.Message });
+            return Ok(new { message = result.Message });
+        }
+
+
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {

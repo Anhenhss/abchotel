@@ -8,7 +8,7 @@ namespace abchotel.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Admin")] // Phải là Admin mới quản lý được nhân sự/người dùng
+    [Authorize(Policy = "MANAGE_USERS")]
     public class UserManagementController : ControllerBase
     {
         private readonly IUserService _userService;

@@ -16,6 +16,12 @@ public partial class ArticleCategory
     [Column("name")]
     [StringLength(255)]
     public string Name { get; set; } = null!;
+    [Column("slug")]
+    [StringLength(255)]
+    public string? Slug { get; set; }
+
+    [Column("description")]
+    public string? Description { get; set; }
 
     [Column("created_at", TypeName = "datetime")]
     public DateTime? CreatedAt { get; set; }

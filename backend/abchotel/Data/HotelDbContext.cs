@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using abchotel.Models;
+using System.Threading;
 
 namespace abchotel.Data;
 
@@ -69,47 +67,15 @@ public partial class HotelDbContext : DbContext
 
     public virtual DbSet<ServiceCategory> ServiceCategories { get; set; }
 
+    public virtual DbSet<Shift> Shifts { get; set; }
+
     public virtual DbSet<User> Users { get; set; }
 
     public virtual DbSet<Voucher> Vouchers { get; set; }
 
-    // =========================================================================
-    // CẤU HÌNH 2: TỰ ĐỘNG TRACKING THỜI GIAN KHI LƯU DỮ LIỆU (AUDIT LOG CORE)
-    // =========================================================================
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        var entries = ChangeTracker.Entries()
-            .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
-
-        foreach (var entityEntry in entries)
-        {
-            // Tự động cập nhật trường UpdatedAt khi sửa dữ liệu
-            var updatedAtProperty = entityEntry.Metadata.FindProperty("UpdatedAt");
-            if (updatedAtProperty != null && entityEntry.State == EntityState.Modified)
-            {
-                entityEntry.Property("UpdatedAt").CurrentValue = DateTime.Now;
-            }
-
-            // Tự động gán CreatedAt khi thêm mới (nếu EF chưa gán)
-            var createdAtProperty = entityEntry.Metadata.FindProperty("CreatedAt");
-            if (createdAtProperty != null && entityEntry.State == EntityState.Added)
-            {
-                // Chỉ gán nếu giá trị đang null hoặc là MinValue
-                if (entityEntry.Property("CreatedAt").CurrentValue == null || 
-                    (DateTime)entityEntry.Property("CreatedAt").CurrentValue == DateTime.MinValue)
-                {
-                    entityEntry.Property("CreatedAt").CurrentValue = DateTime.Now;
-                }
-            }
-        }
-
-        return base.SaveChangesAsync(cancellationToken);
-    }
-    // =========================================================================
-
-//     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-// #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-//         => optionsBuilder.UseSqlServer("Server=.\\SQLEXPRESS;Database=HotelManagementDB;Trusted_Connection=True;TrustServerCertificate=True;");
+    //     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    // #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
+    //         => optionsBuilder.UseSqlServer("Server=.\\SQLEXPRESS;Database=HotelManagementDB;Trusted_Connection=True;TrustServerCertificate=True;");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -118,6 +84,7 @@ public partial class HotelDbContext : DbContext
             entity.HasKey(e => e.Id).HasName("PK__Amenitie__3213E83F8CF8D4D6");
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
         });
 
         modelBuilder.Entity<Article>(entity =>
@@ -125,6 +92,7 @@ public partial class HotelDbContext : DbContext
             entity.HasKey(e => e.Id).HasName("PK__Articles__3213E83F41D01CE6");
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.PublishedAt).HasDefaultValueSql("(getdate())");
 
             entity.HasOne(d => d.Author).WithMany(p => p.Articles).HasConstraintName("FK__Articles__author__00200768");
@@ -137,6 +105,7 @@ public partial class HotelDbContext : DbContext
             entity.HasKey(e => e.Id).HasName("PK__Article___3213E83F86F6A5FF");
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
         });
 
         modelBuilder.Entity<Attraction>(entity =>
@@ -144,6 +113,7 @@ public partial class HotelDbContext : DbContext
             entity.HasKey(e => e.Id).HasName("PK__Attracti__3213E83F3028DE2D");
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
         });
 
         modelBuilder.Entity<AuditLog>(entity =>
@@ -217,7 +187,7 @@ public partial class HotelDbContext : DbContext
             entity.HasKey(e => e.Id).HasName("PK__Membersh__3213E83FEDBCB1C6");
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
-            entity.Property(e => e.DiscountPercent).HasDefaultValue(0m);
+            entity.Property(e => e.DiscountPercent).HasDefaultValue(0.00m);
             entity.Property(e => e.MinPoints).HasDefaultValue(0);
         });
 
@@ -279,6 +249,7 @@ public partial class HotelDbContext : DbContext
             entity.HasKey(e => e.Id).HasName("PK__Reviews__3213E83F2040F557");
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.IsVisible).HasDefaultValue(true);
 
             entity.HasOne(d => d.RoomType).WithMany(p => p.Reviews).HasConstraintName("FK__Reviews__room_ty__0E6E26BF");
@@ -314,6 +285,7 @@ public partial class HotelDbContext : DbContext
 
             entity.Property(e => e.CleaningStatus).HasDefaultValue("Clean");
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.Status).HasDefaultValue("Available");
 
             entity.HasOne(d => d.RoomType).WithMany(p => p.Rooms).HasConstraintName("FK__Rooms__room_type__14270015");
@@ -324,6 +296,7 @@ public partial class HotelDbContext : DbContext
             entity.HasKey(e => e.Id).HasName("PK__Room_Ima__3213E83F92838867");
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.IsPrimary).HasDefaultValue(false);
 
             entity.HasOne(d => d.RoomType).WithMany(p => p.RoomImages).HasConstraintName("FK__Room_Imag__room___123EB7A3");
@@ -334,6 +307,7 @@ public partial class HotelDbContext : DbContext
             entity.HasKey(e => e.Id).HasName("PK__Room_Inv__3213E83F686910FF");
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.PriceIfLost).HasDefaultValue(0m);
             entity.Property(e => e.Quantity).HasDefaultValue(1);
 
@@ -345,6 +319,7 @@ public partial class HotelDbContext : DbContext
             entity.HasKey(e => e.Id).HasName("PK__Room_Typ__3213E83FB855C336");
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
         });
 
         modelBuilder.Entity<RoomTypeAmenity>(entity =>
@@ -367,6 +342,7 @@ public partial class HotelDbContext : DbContext
             entity.HasKey(e => e.Id).HasName("PK__Services__3213E83FAB2B8473");
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
 
             entity.HasOne(d => d.Category).WithMany(p => p.Services).HasConstraintName("FK__Services__catego__17036CC0");
         });
@@ -378,11 +354,24 @@ public partial class HotelDbContext : DbContext
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
         });
 
+        modelBuilder.Entity<Shift>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PK__Shifts__3213E83F6C7A9F21");
+
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+
+            entity.HasOne(d => d.User).WithMany(p => p.Shifts)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK__Shifts__user_id__625A9A57");
+        });
+
         modelBuilder.Entity<User>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("PK__Users__3213E83FA7CB9A52");
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.LastActivityDate).HasDefaultValueSql("(getdate())");
             entity.Property(e => e.Status).HasDefaultValue(true);
 
@@ -403,26 +392,28 @@ public partial class HotelDbContext : DbContext
             entity.HasOne(d => d.RoomType).WithMany(p => p.Vouchers).HasConstraintName("FK__Vouchers__room_t__3A4CA8FD");
         });
 
-        // =========================================================================
-        // CẤU HÌNH 1: GLOBAL QUERY FILTER CHO SOFT DELETE 
-        // Lọc tự động các dữ liệu chưa bị xóa mềm (IsActive = true)
-        // =========================================================================
-        modelBuilder.Entity<User>().HasQueryFilter(x => x.IsActive);
-        modelBuilder.Entity<Room>().HasQueryFilter(x => x.IsActive);
-        modelBuilder.Entity<RoomType>().HasQueryFilter(x => x.IsActive);
-        modelBuilder.Entity<RoomImage>().HasQueryFilter(x => x.IsActive);
-        modelBuilder.Entity<RoomInventory>().HasQueryFilter(x => x.IsActive);
-        modelBuilder.Entity<Amenity>().HasQueryFilter(x => x.IsActive);
-        modelBuilder.Entity<Service>().HasQueryFilter(x => x.IsActive);
-        modelBuilder.Entity<Voucher>().HasQueryFilter(x => x.IsActive);
-        modelBuilder.Entity<ArticleCategory>().HasQueryFilter(x => x.IsActive);
-        modelBuilder.Entity<Article>().HasQueryFilter(x => x.IsActive);
-        modelBuilder.Entity<Attraction>().HasQueryFilter(x => x.IsActive);
-        modelBuilder.Entity<Review>().HasQueryFilter(x => x.IsActive);
-        // =========================================================================
-
         OnModelCreatingPartial(modelBuilder);
     }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
+    // Mở file HotelDbContext.cs và override lại hàm SaveChangesAsync
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        // Bắt toàn bộ các record đang bị Thêm, Sửa, Xóa trước khi lưu
+        var modifiedEntities = ChangeTracker.Entries()
+            .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified || e.State == EntityState.Deleted)
+            .ToList();
+
+        foreach (var entry in modifiedEntities)
+        {
+            // Loại trừ việc log chính cái bảng AuditLog để tránh vòng lặp vô tận
+            if (entry.Entity is AuditLog) continue; 
+
+            // Lấy thông tin bảng, hành động (Insert/Update/Delete)...
+            // Sinh ra record AuditLog và nhét vào DB.
+            // ... (Logic trích xuất OldValue, NewValue bằng JSON)
+        }
+
+        return await base.SaveChangesAsync(cancellationToken);
+    }
 }

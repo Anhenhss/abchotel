@@ -106,4 +106,7 @@ public partial class User
     [ForeignKey("RoleId")]
     [InverseProperty("Users")]
     public virtual Role? Role { get; set; }
+
+    [InverseProperty("User")]
+    public virtual ICollection<Shift> Shifts { get; set; } = new List<Shift>();
 }
