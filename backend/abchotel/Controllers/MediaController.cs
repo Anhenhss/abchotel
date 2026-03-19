@@ -35,14 +35,6 @@ namespace abchotel.Controllers
             }
         }
 
-        [HttpDelete("{publicId}")]
-        public async Task<IActionResult> DeleteImage(string publicId)
-        {
-            // publicId trên URL có thể chứa dấu "/", cần decode nếu cần thiết.
-            var success = await _mediaService.DeleteImageAsync(publicId);
-            if (!success) return BadRequest(new { message = "Xóa ảnh thất bại hoặc không tìm thấy ảnh." });
-            
-            return Ok(new { message = "Đã xóa ảnh trên hệ thống." });
-        }
+        
     }
 }

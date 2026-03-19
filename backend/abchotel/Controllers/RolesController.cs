@@ -51,9 +51,17 @@ namespace abchotel.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteRole(int id)
         {
-            var success = await _roleService.DeleteRoleAsync(id);
-            if (!success) return NotFound(new { message = "Không tìm thấy Role." });
-            return Ok(new { message = "Xóa Role thành công." });
+            try
+            {
+                var success = await _roleService.DeleteRoleAsync(id);
+                if (!success) return NotFound(new { message = "Không tìm thấy Role." });
+                return Ok(new { message = "Xóa Role thành công." });
+            }
+            catch (System.Exception ex)
+            {
+                // Bắt lỗi khóa ngoại hoặc lỗi logic và trả về HTTP 400
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         [HttpPost("assign-permission")]

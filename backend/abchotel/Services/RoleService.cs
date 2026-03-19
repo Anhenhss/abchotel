@@ -80,10 +80,25 @@ namespace abchotel.Services
 
         public async Task<bool> DeleteRoleAsync(int id)
         {
-            var role = await _context.Roles.FindAsync(id);
+            var role = await _context.Roles
+                .Include(r => r.RolePermissions)
+                .Include(r => r.Users)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
             if (role == null) return false;
 
+            if (role.Users != null && role.Users.Any())
+            {
+                throw new System.Exception($"Không thể xóa! Đang có {role.Users.Count} nhân viên giữ chức vụ này. Vui lòng đổi chức vụ của họ trước.");
+            }
+
+            if (role.RolePermissions != null && role.RolePermissions.Any())
+            {
+                _context.RolePermissions.RemoveRange(role.RolePermissions);
+            }
+
             _context.Roles.Remove(role);
+            
             await _context.SaveChangesAsync();
             return true;
         }

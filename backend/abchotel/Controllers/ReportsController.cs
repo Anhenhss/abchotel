@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -25,9 +26,9 @@ namespace abchotel.Controllers
         }
 
         [HttpGet("staff-performance")]
-        public async Task<IActionResult> GetStaffPerformance()
+        public async Task<IActionResult> GetStaffPerformance([FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate)
         {
-            var report = await _auditReportService.GetStaffPerformanceReportAsync();
+            var report = await _auditReportService.GetStaffPerformanceReportAsync(startDate, endDate);
             return Ok(report);
         }
     }

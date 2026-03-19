@@ -52,9 +52,16 @@ namespace abchotel.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateRoom(int id, [FromBody] UpdateRoomRequest request)
         {
-            var success = await _roomService.UpdateRoomAsync(id, request);
-            if (!success) return BadRequest(new { message = "Lỗi cập nhật. Số phòng có thể đã tồn tại hoặc phòng không tìm thấy." });
-            return Ok(new { message = "Cập nhật thông tin phòng thành công." });
+            try
+            {
+                var success = await _roomService.UpdateRoomAsync(id, request);
+                if (!success) return NotFound(new { message = "Không tìm thấy phòng." });
+                return Ok(new { message = "Cập nhật thông tin phòng thành công." });
+            }
+            catch (System.Exception ex)
+            {
+                return BadRequest(new { message = ex.Message }); 
+            }
         }
 
         [HttpDelete("{id}")]

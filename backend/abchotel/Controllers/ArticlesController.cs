@@ -27,7 +27,7 @@ namespace abchotel.Controllers
         {
             // Mặc định khách vãng lai chỉ thấy bài Đã xuất bản. 
             // Nếu là Admin muốn xem bản nháp, Frontend sẽ truyền onlyPublished = false kèm JWT
-            var articles = await _articleService.GetAllArticlesAsync(onlyPublished);
+            var articles = await _articleService.GetAllArticlesAsync(onlyPublished, categoryId); 
             return Ok(articles);
         }
 

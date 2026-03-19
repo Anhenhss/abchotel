@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -11,7 +12,8 @@ namespace abchotel.Services
     public interface IAuditReportService
     {
         Task<List<AuditLogResponse>> GetSystemAuditLogsAsync(string tableName = null, int top = 100);
-        Task<object> GetStaffPerformanceReportAsync();
+        // Bổ sung tham số thời gian để lọc báo cáo
+        Task<object> GetStaffPerformanceReportAsync(DateTime? startDate = null, DateTime? endDate = null);
     }
 
     public class AuditReportService : IAuditReportService
@@ -47,21 +49,37 @@ namespace abchotel.Services
                 .ToListAsync();
         }
 
-        public async Task<object> GetStaffPerformanceReportAsync()
+        public async Task<object> GetStaffPerformanceReportAsync(DateTime? startDate = null, DateTime? endDate = null)
         {
-            // Báo cáo hiệu suất giữ nguyên vì em viết logic rất tốt
-            var performance = await _context.Shifts
-                .Where(s => s.CheckOutTime != null)
-                .Include(s => s.User)
-                .GroupBy(s => new { s.UserId, s.User.FullName })
-                .Select(g => new
+            // Thiết lập mặc định là lấy dữ liệu của tháng hiện tại nếu Frontend không truyền ngày
+            var start = startDate ?? new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            var end = endDate ?? start.AddMonths(1).AddTicks(-1);
+
+            // Truy vấn trung tâm từ bảng Users (Chỉ lấy Nhân viên, bỏ qua Khách hàng Role = 10)
+            var performance = await _context.Users
+                .Where(u => u.RoleId != 10 && u.IsActive == true)
+                .Select(staff => new
                 {
-                    UserId = g.Key.UserId,
-                    FullName = g.Key.FullName,
-                    TotalShifts = g.Count(),
-                    TotalHours = g.Sum(s => EF.Functions.DateDiffMinute(s.CheckInTime, s.CheckOutTime)) / 60.0
+                    StaffId = staff.Id,
+                    FullName = staff.FullName,
+                    RoleName = staff.Role != null ? staff.Role.Name : "N/A",
+                    
+                    // 1. Tính tổng số ca làm việc
+                    TotalShifts = _context.Shifts
+                        .Count(s => s.UserId == staff.Id && s.CheckInTime >= start && s.CheckInTime <= end),
+                    
+                    // 2. Tính tổng số Booking đã xử lý
+                    TotalBookingsHandled = _context.Bookings
+                        .Count(b => b.CreatedBy == staff.Id && b.CreatedAt >= start && b.CreatedAt <= end),
+                    
+                    // 3. Tính tổng doanh thu đem về từ các hóa đơn đã thanh toán
+                    TotalRevenueGenerated = _context.Invoices
+                        .Where(i => i.CreatedBy == staff.Id && i.Status == "Paid" && i.CreatedAt >= start && i.CreatedAt <= end)
+                        .Sum(i => (decimal?)i.FinalTotal) ?? 0
                 })
-                .OrderByDescending(p => p.TotalHours)
+                .Where(report => report.TotalShifts > 0 || report.TotalBookingsHandled > 0) // Chỉ hiện nhân viên có hoạt động
+                .OrderByDescending(report => report.TotalRevenueGenerated)
+                .ThenByDescending(report => report.TotalBookingsHandled)
                 .ToListAsync();
 
             return performance;

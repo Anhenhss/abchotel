@@ -125,9 +125,17 @@ namespace abchotel.Services
             var room = await _context.Rooms.FindAsync(id);
             if (room == null) return false;
 
-            // Kiểm tra trùng lặp số phòng nếu đổi sang số khác
-            if (room.RoomNumber != request.RoomNumber && await _context.Rooms.AnyAsync(r => r.RoomNumber == request.RoomNumber))
-                return false;
+            var roomTypeExists = await _context.RoomTypes.AnyAsync(rt => rt.Id == request.RoomTypeId);
+            if (!roomTypeExists)
+            {
+                throw new System.Exception("Loại phòng không tồn tại trong hệ thống. Vui lòng kiểm tra lại RoomTypeId.");
+            }
+            // Kiểm tra trùng số phòng 
+            if (room.RoomNumber != request.RoomNumber)
+            {
+                var isDuplicate = await _context.Rooms.AnyAsync(r => r.RoomNumber == request.RoomNumber);
+                if (isDuplicate) throw new System.Exception("Số phòng này đã tồn tại trong hệ thống.");
+            }
 
             room.RoomTypeId = request.RoomTypeId;
             room.RoomNumber = request.RoomNumber;

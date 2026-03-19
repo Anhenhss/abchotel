@@ -396,22 +396,43 @@ public partial class HotelDbContext : DbContext
     }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
-    // Mở file HotelDbContext.cs và override lại hàm SaveChangesAsync
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        // Bắt toàn bộ các record đang bị Thêm, Sửa, Xóa trước khi lưu
-        var modifiedEntities = ChangeTracker.Entries()
+        // 1. Lấy UserId từ đâu đó (Tạm thời để 1 hoặc lấy từ Claims nếu có)
+        // Nếu có dùng HttpContextAccessor thì lấy UserId từ Token ở đây
+        int currentUserId = 1; 
+
+        var auditEntries = new List<AuditLog>();
+        var entries = ChangeTracker.Entries()
             .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified || e.State == EntityState.Deleted)
             .ToList();
 
-        foreach (var entry in modifiedEntities)
+        foreach (var entry in entries)
         {
-            // Loại trừ việc log chính cái bảng AuditLog để tránh vòng lặp vô tận
-            if (entry.Entity is AuditLog) continue; 
+            if (entry.Entity is AuditLog) continue;
 
-            // Lấy thông tin bảng, hành động (Insert/Update/Delete)...
-            // Sinh ra record AuditLog và nhét vào DB.
-            // ... (Logic trích xuất OldValue, NewValue bằng JSON)
+            var log = new AuditLog
+            {
+                UserId = currentUserId,
+                Action = entry.State.ToString().ToUpper(),
+                TableName = entry.Metadata.GetTableName(),
+                CreatedAt = DateTime.Now,
+                
+                // Ép kiểu an toàn về số nguyên (int), nếu lỗi hoặc null thì gán bằng 0
+                RecordId = int.TryParse(entry.Properties.FirstOrDefault(p => p.Metadata.IsPrimaryKey())?.CurrentValue?.ToString(), out int parsedId) ? parsedId : 0,
+                
+                OldValue = entry.State == EntityState.Modified || entry.State == EntityState.Deleted 
+                        ? System.Text.Json.JsonSerializer.Serialize(entry.OriginalValues.ToObject()) : "{}",
+                NewValue = entry.State == EntityState.Added || entry.State == EntityState.Modified 
+                        ? System.Text.Json.JsonSerializer.Serialize(entry.CurrentValues.ToObject()) : "{}"
+            };
+                auditEntries.Add(log);
+            }
+
+        // 2. Thêm các dòng log vào bảng AuditLogs
+        if (auditEntries.Any())
+        {
+            await AuditLogs.AddRangeAsync(auditEntries);
         }
 
         return await base.SaveChangesAsync(cancellationToken);

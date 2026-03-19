@@ -18,15 +18,20 @@ namespace abchotel.Services
 
         // Chức năng Hình ảnh (RoomImages)
         Task<(bool IsSuccess, string Message)> AddRoomImageAsync(int roomTypeId, AddRoomImageRequest request);
-        Task<bool> ToggleRoomImageSoftDeleteAsync(int imageId);
+        Task<bool> DeleteRoomImageAsync(int imageId);
         Task<bool> SetPrimaryImageAsync(int roomTypeId, int imageId);
     }
 
     public class RoomTypeService : IRoomTypeService
     {
         private readonly HotelDbContext _context;
+        private readonly IMediaService _mediaService;
 
-        public RoomTypeService(HotelDbContext context) => _context = context;
+        public RoomTypeService(HotelDbContext context, IMediaService mediaService) // Thêm tham số vào đây
+        {
+            _context = context;
+            _mediaService = mediaService;
+        }
 
         public async Task<List<RoomTypeResponse>> GetAllRoomTypesAsync(bool onlyActive = false)
         {
@@ -171,12 +176,23 @@ namespace abchotel.Services
             return (true, "Thêm ảnh thành công.");
         }
 
-        public async Task<bool> ToggleRoomImageSoftDeleteAsync(int imageId)
+        public async Task<bool> DeleteRoomImageAsync(int imageId) 
         {
             var image = await _context.RoomImages.FindAsync(imageId);
             if (image == null) return false;
 
-            image.IsActive = !image.IsActive;
+            // BƯỚC 1: Lấy PublicId từ URL lưu trong DB
+            string publicId = _mediaService.ExtractPublicIdFromUrl(image.ImageUrl);
+
+            // BƯỚC 2: Gọi MediaService để xóa file trên Cloudinary
+            if (!string.IsNullOrEmpty(publicId))
+            {
+                await _mediaService.DeleteImageAsync(publicId);
+            }
+
+            // BƯỚC 3: Xóa dòng dữ liệu trong Database
+            _context.RoomImages.Remove(image);
+            
             await _context.SaveChangesAsync();
             return true;
         }

@@ -81,9 +81,12 @@ namespace abchotel.Controllers
         [Authorize(Policy = "MANAGE_ROOMS")]
         public async Task<IActionResult> DeleteRoomImage(int imageId)
         {
-            var success = await _roomTypeService.ToggleRoomImageSoftDeleteAsync(imageId);
-            if (!success) return NotFound(new { message = "Không tìm thấy hình ảnh." });
-            return Ok(new { message = "Đã thay đổi trạng thái hiển thị của ảnh." });
+            // Gọi hàm xóa thật sự, bao gồm cả xóa trên Cloudinary
+            var success = await _roomTypeService.DeleteRoomImageAsync(imageId);
+            
+            if (!success) return NotFound(new { message = "Không tìm thấy hình ảnh để xóa." });
+            
+            return Ok(new { message = "Đã xóa ảnh vĩnh viễn trên hệ thống và Cloudinary." });
         }
 
         [HttpPatch("{roomTypeId}/images/{imageId}/set-primary")]
