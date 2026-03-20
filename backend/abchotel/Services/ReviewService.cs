@@ -82,6 +82,21 @@ namespace abchotel.Services
             var roomTypeExists = await _context.RoomTypes.AnyAsync(rt => rt.Id == request.RoomTypeId);
             if (!roomTypeExists) return (false, "Loại phòng không tồn tại.");
 
+            // ==============================================================
+            // BỔ SUNG LOGIC: CHỈ CHO PHÉP ĐÁNH GIÁ KHI ĐÃ ĐẶT VÀ Ở XONG
+            // ==============================================================
+            var hasStayed = await _context.BookingDetails
+                .Include(bd => bd.Booking)
+                .AnyAsync(bd => bd.Booking.UserId == userId 
+                             && bd.RoomTypeId == request.RoomTypeId 
+                             && bd.Booking.Status == "Completed"); // Chỉ duyệt những đơn đã hoàn tất (Check-out xong)
+
+            if (!hasStayed)
+            {
+                return (false, "Hệ thống từ chối: Bạn chỉ có thể đánh giá loại phòng này sau khi đã đặt và hoàn tất kỳ nghỉ tại khách sạn.");
+            }
+            // ==============================================================
+
             var review = new Review
             {
                 UserId = userId, // Trích xuất từ JWT, chống mạo danh
