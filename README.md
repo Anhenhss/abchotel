@@ -37,3 +37,4 @@ dotnet add package AutoMapper
 dotnet add package Google.Apis.Auth
 dotnet add package Swashbuckle.AspNetCore
 dotnet add package CloudinaryDotNet
+dotnet add package MailKit

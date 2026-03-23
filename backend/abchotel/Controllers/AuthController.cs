@@ -68,5 +68,13 @@ namespace abchotel.Controllers
             await _authService.LogoutAsync(userId);
             return Ok(new { message = "Đã đăng xuất, thu hồi Token thành công." });
         }
+        [HttpPost("forgot-password")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+        {
+            var result = await _authService.ForgotPasswordAsync(request.Email);
+            if (!result.IsSuccess) return BadRequest(new { message = result.Message });
+            return Ok(new { message = result.Message });
+        }
     }
 }

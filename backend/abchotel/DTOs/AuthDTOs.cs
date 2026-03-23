@@ -42,4 +42,10 @@ namespace abchotel.DTOs
         [MinLength(6, ErrorMessage = "Mật khẩu phải có ít nhất 6 ký tự.")]
         public string Password { get; set; }
     }
+    public class ForgotPasswordRequest
+    {
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; }
+    }
 }

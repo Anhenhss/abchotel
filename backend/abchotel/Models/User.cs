@@ -109,4 +109,5 @@ public partial class User
 
     [InverseProperty("User")]
     public virtual ICollection<Shift> Shifts { get; set; } = new List<Shift>();
+    public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
 }

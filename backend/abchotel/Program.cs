@@ -44,6 +44,8 @@ builder.Services.AddScoped<IRoomInventoryService, RoomInventoryService>();
 builder.Services.AddScoped<ILossDamageService, LossDamageService>();
 builder.Services.AddScoped<IAmenityService, AmenityService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 // // Nhóm Module 2 (Rooms, Vouchers, Loyalty - Của đợt trước)
 // builder.Services.AddScoped<IRoomService, RoomService>();
 // builder.Services.AddScoped<IVoucherService, VoucherService>();
@@ -53,6 +55,7 @@ builder.Services.AddScoped<IReviewService, ReviewService>();
 // builder.Services.AddHostedService<RoomHoldCleanupService>();
 // builder.Services.AddHostedService<LoyaltyDowngradeWorker>();
 
+builder.Services.AddSignalR();
 // ==========================================
 // 3. CẤU HÌNH AUTHENTICATION & JWT (Bảo mật)
 // ==========================================

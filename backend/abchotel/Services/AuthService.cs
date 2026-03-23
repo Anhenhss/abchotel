@@ -22,6 +22,7 @@ namespace abchotel.Services
         Task<(bool IsSuccess, string Message, TokenResponse Data)> RefreshTokenAsync(RefreshTokenRequest request);
         Task<UserProfileResponse> GetMeAsync(int userId);
         Task<bool> LogoutAsync(int userId);
+        Task<(bool IsSuccess, string Message)> ForgotPasswordAsync(string email);
     }
 
     public class AuthService : IAuthService
@@ -29,11 +30,14 @@ namespace abchotel.Services
         private readonly HotelDbContext _context;
         private readonly IConfiguration _config;
 
-        public AuthService(HotelDbContext context, IConfiguration config)
+        private readonly IEmailService _emailService;
+        public AuthService(HotelDbContext context, IConfiguration config, IEmailService emailService)
         {
             _context = context;
             _config = config;
+            _emailService = emailService;
         }
+
 
 
         public async Task<(bool IsSuccess, string Message)> RegisterAsync(RegisterRequest request)
@@ -87,7 +91,7 @@ namespace abchotel.Services
             if (!int.TryParse(userIdStr, out int userId)) return (false, "Token lỗi.", null);
 
             var user = await _context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == userId);
-            
+
             if (user == null || user.RefreshToken != request.RefreshToken || user.RefreshTokenExpiry <= DateTime.Now)
             {
                 return (false, "Refresh Token không hợp lệ hoặc đã hết hạn.", null);
@@ -128,6 +132,25 @@ namespace abchotel.Services
             await _context.SaveChangesAsync();
             return true;
         }
+        public async Task<(bool IsSuccess, string Message)> ForgotPasswordAsync(string email)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+            if (user == null)
+            {
+                return (false, "Email không tồn tại trong hệ thống.");
+            }
+
+            // Sinh mật khẩu mới
+            string newRawPassword = "NewPass@" + new Random().Next(1000, 9999).ToString();
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newRawPassword);
+            
+            await _context.SaveChangesAsync();
+
+            string emailBody = $"<h3>Chào {user.FullName},</h3><p>Mật khẩu của bạn đã được reset.</p><p>Mật khẩu mới: <b>{newRawPassword}</b></p><p>Vui lòng đăng nhập và đổi lại mật khẩu.</p>";
+            await _emailService.SendEmailAsync(user.Email, "Reset mật khẩu ABC Hotel", emailBody);
+
+            return (true, "Mật khẩu mới đã được gửi đến email của bạn.");
+        }
 
         private async Task<TokenResponse> GenerateTokensAsync(User user)
         {
@@ -141,7 +164,7 @@ namespace abchotel.Services
             var permissions = user.Role?.RolePermissions.Select(rp => rp.Permission.Name).ToList() ?? new List<string>();
             foreach (var perm in permissions)
             {
-                authClaims.Add(new Claim("Permission", perm)); 
+                authClaims.Add(new Claim("Permission", perm));
             }
 
             var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
@@ -180,7 +203,7 @@ namespace abchotel.Services
                 ValidateIssuer = false,
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"])),
-                ValidateLifetime = false 
+                ValidateLifetime = false
             };
 
             var tokenHandler = new JwtSecurityTokenHandler();
@@ -190,5 +213,7 @@ namespace abchotel.Services
 
             return principal;
         }
+        
     }
+    
 }

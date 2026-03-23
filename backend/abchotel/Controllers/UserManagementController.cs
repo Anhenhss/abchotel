@@ -19,10 +19,10 @@ namespace abchotel.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetUsers()
+        public async Task<IActionResult> GetUsers([FromQuery] UserFilterRequest filter)
         {
-            var users = await _userService.GetAllUsersAsync();
-            return Ok(users);
+            var result = await _userService.GetUsersAsync(filter);
+            return Ok(result);
         }
 
         [HttpPost]

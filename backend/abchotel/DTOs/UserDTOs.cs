@@ -43,4 +43,22 @@ namespace abchotel.DTOs
     {
         public int NewRoleId { get; set; }
     }
+
+    public class UserFilterRequest
+    {
+        public string Search { get; set; }
+        public int? RoleId { get; set; }
+        public bool? IsActive { get; set; }
+        public int Page { get; set; } = 1;
+        public int PageSize { get; set; } = 10;
+    }
+
+    public class PaginatedUserResponse
+    {
+        public int Total { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+        public System.Collections.Generic.List<UserResponse> Items { get; set; }
+    }
+
 }
