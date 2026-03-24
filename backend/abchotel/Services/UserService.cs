@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http; // Bắt buộc thêm để đọc Token
+using System.Security.Claims;    // Bắt buộc thêm để đọc Claims
 using abchotel.Data;
 using abchotel.DTOs;
 using abchotel.Models;
@@ -11,7 +13,6 @@ namespace abchotel.Services
 {
     public interface IUserService
     {
-       
         Task<PaginatedUserResponse> GetUsersAsync(UserFilterRequest filter);
         Task<(bool IsSuccess, string Message)> CreateUserAsync(CreateUserRequest request);
         Task<bool> UpdateUserAsync(int id, UpdateUserRequest request);
@@ -24,12 +25,30 @@ namespace abchotel.Services
         private readonly HotelDbContext _context;
         private readonly IEmailService _emailService;
         private readonly INotificationService _notificationService;
+        private readonly IHttpContextAccessor _httpContextAccessor; // Thêm biến này
 
-        public UserService(HotelDbContext context, IEmailService emailService, INotificationService notificationService)
+        // Cập nhật Constructor
+        public UserService(HotelDbContext context, IEmailService emailService, INotificationService notificationService, IHttpContextAccessor httpContextAccessor)
         {
             _context = context;
             _emailService = emailService;
             _notificationService = notificationService;
+            _httpContextAccessor = httpContextAccessor;
+        }
+
+        // ==========================================
+        // HÀM PHỤ TRỢ: LẤY TÊN NGƯỜI ĐANG THAO TÁC
+        // ==========================================
+        private async Task<string> GetCurrentUserNameAsync()
+        {
+            // Đọc ID từ JWT Token của người đang thao tác
+            var userIdStr = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(userIdStr, out int userId))
+            {
+                var user = await _context.Users.FindAsync(userId);
+                return user?.FullName ?? "Một quản trị viên";
+            }
+            return "Hệ thống";
         }
 
         public async Task<PaginatedUserResponse> GetUsersAsync(UserFilterRequest filter)
@@ -103,18 +122,18 @@ namespace abchotel.Services
             string emailBody = $"<h3>Chào {user.FullName},</h3><p>Tài khoản của bạn đã được tạo.</p><p>Email: {user.Email}</p><p>Mật khẩu: <b>{rawPassword}</b></p>";
             await _emailService.SendEmailAsync(user.Email, "Tài khoản mới", emailBody);
 
-            // Đẩy thông báo Realtime
-            await _notificationService.SendToRolesAsync(
-                new List<string> { "Admin", "Manager" },
+            // Đẩy thông báo Realtime kèm tên người thao tác
+            string currentUserName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_USERS",
                 "Tài khoản mới",
-                $"Nhân viên {user.FullName} vừa được thêm.",
+                $"Quản lý [{currentUserName}] vừa tạo mới tài khoản cho nhân viên {user.FullName}.",
                 "Success"
             );
 
             return (true, "Tạo người dùng thành công. Mật khẩu đã gửi qua mail.");
         }
 
-        // Các hàm khác giữ nguyên
         public async Task<bool> UpdateUserAsync(int id, UpdateUserRequest request)
         {
             var user = await _context.Users.FindAsync(id);
@@ -125,6 +144,15 @@ namespace abchotel.Services
             user.AvatarUrl = request.AvatarUrl;
 
             await _context.SaveChangesAsync();
+
+            // Đẩy thông báo Realtime
+            string currentUserName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_USERS", 
+                "Cập nhật Hồ sơ", 
+                $"Quản lý [{currentUserName}] vừa chỉnh sửa thông tin của nhân viên {user.FullName}."
+            );
+
             return true;
         }
 
@@ -135,6 +163,16 @@ namespace abchotel.Services
 
             user.IsActive = !user.IsActive;
             await _context.SaveChangesAsync();
+
+            // Đẩy thông báo Realtime
+            string currentUserName = await GetCurrentUserNameAsync();
+            string statusStr = user.IsActive ? "mở khóa" : "khóa";
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_USERS", 
+                "Cập nhật Trạng thái", 
+                $"Quản lý [{currentUserName}] vừa {statusStr} tài khoản của nhân viên {user.FullName}."
+            );
+
             return true;
         }
 
@@ -145,6 +183,15 @@ namespace abchotel.Services
 
             user.RoleId = newRoleId;
             await _context.SaveChangesAsync();
+
+            // Đẩy thông báo Realtime
+            string currentUserName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_USERS", 
+                "Thay đổi Chức vụ", 
+                $"Quản lý [{currentUserName}] vừa đổi chức vụ của nhân viên {user.FullName}."
+            );
+
             return true;
         }
     }

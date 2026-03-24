@@ -1,98 +1,158 @@
-import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Dropdown, Avatar, Badge, notification, Space, Typography } from 'antd';
+import React, { useState } from 'react';
+import { Layout, Menu, Dropdown, Avatar, Badge, notification, Space, Typography, Button, Popover, List } from 'antd';
 import { 
-  Users, Key, Bed, ListBullets, Article,
-  BellRinging, SignOut, UserCircle, CaretDown 
+  Users, Key, Bed, List as ListIcon, Article, BellRinging, SignOut, UserCircle, CaretDown, 
+  House, SquaresFour, Archive, Star, MapPin, WarningCircle, Clock, ChartLineUp, Door, FileText
 } from '@phosphor-icons/react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-// import { useSignalR } from '../hooks/useSignalR'; // Kích hoạt sau khi làm xong file Hook
+import { useAuthStore } from '../store/authStore';
+import { useSignalR } from '../hooks/useSignalR';
+import logo from '../assets/logo.png';
 
 const { Header, Sider, Content } = Layout;
-const { Text } = Typography;
+const { Text, Title } = Typography;
+const ACCENT_RED = '#8A1538';
 
 export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [collapsed, setCollapsed] = useState(false);
+  const { user, logout } = useAuthStore();
+
+  // STATE QUẢN LÝ THÔNG BÁO SIGNALR
+  const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // 1. CHUÔNG THÔNG BÁO REALTIME (Góc trên)
-  // useSignalR((newNotif) => {
-  //   setUnreadCount(prev => prev + 1);
-  //   // Dùng Notification của Ant Design hiện phía trên màn hình, KHÔNG dùng alert()
-  //   notification.open({
-  //     message: newNotif.title,
-  //     description: newNotif.content,
-  //     placement: 'top',
-  //     icon: <BellRinging color="#52677D" weight="fill" />,
-  //     style: { borderLeft: '4px solid #1C2E4A' }
-  //   });
-  // });
+  // LẮNG NGHE REALTIME
+  useSignalR((newNotif) => {
+    setUnreadCount(prev => prev + 1); 
+    // Thêm thông báo mới vào đầu danh sách (tối đa giữ 10 cái để không nặng máy)
+    setNotifications(prev => [newNotif, ...prev].slice(0, 10));
 
-  // 2. DROPDOWN HỒ SƠ & ĐĂNG XUẤT
-  const userMenuItems = [
-    { key: 'profile', icon: <UserCircle size={18} />, label: 'Hồ sơ cá nhân' },
-    { type: 'divider' },
-    { key: 'logout', icon: <SignOut size={18} color="red" />, label: <span style={{ color: 'red' }}>Đăng xuất</span> },
-  ];
+    // Bắn một popup mỏng nhẹ ở góc trên bên phải cho tín hiệu Realtime
+    notification.info({
+      message: newNotif.title || 'Thông báo hệ thống',
+      description: newNotif.content,
+      placement: 'topRight',
+      icon: <BellRinging color={ACCENT_RED} weight="fill" />, 
+      style: { borderLeft: `4px solid ${ACCENT_RED}` }
+    });
+  });
 
-  const handleUserMenuClick = ({ key }) => {
-    if (key === 'profile') navigate('/admin/profile');
-    if (key === 'logout') {
-      // Logic xóa token ở LocalStorage sẽ viết sau
-      console.log('Đã đăng xuất');
-      navigate('/login');
-    }
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
   };
 
-  // 3. MENU SIDEBAR DÙNG CHUNG CHO CẢ TEAM
+  const userMenuItems = [
+    { key: 'profile', icon: <UserCircle size={18} />, label: 'Hồ sơ cá nhân', onClick: () => navigate('/admin/profile') },
+    { type: 'divider' },
+    { key: 'logout', icon: <SignOut size={18} color={ACCENT_RED} />, label: <span style={{ color: ACCENT_RED, fontWeight: 500 }}>Đăng xuất</span>, onClick: handleLogout },
+  ];
+
+  // GIAO DIỆN BẢNG THẢ XUỐNG KHI BẤM VÀO CHUÔNG
+  const notificationContent = (
+    <div style={{ width: 320 }}>
+      <div style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Text strong>Thông báo mới</Text>
+        <Button type="link" size="small" onClick={() => setUnreadCount(0)}>Đánh dấu đã đọc</Button>
+      </div>
+      <List
+        itemLayout="horizontal"
+        dataSource={notifications}
+        locale={{ emptyText: 'Không có thông báo mới' }}
+        renderItem={item => (
+          <List.Item style={{ padding: '12px 8px', cursor: 'pointer', transition: 'background 0.3s' }} className="notif-item">
+            <List.Item.Meta
+              avatar={<Avatar style={{ backgroundColor: '#e9f0f8', color: ACCENT_RED }} icon={<BellRinging />} />}
+              title={<Text strong style={{ fontSize: 13 }}>{item.title || 'Hệ thống'}</Text>}
+              description={<Text style={{ fontSize: 12, color: '#52677D' }} ellipsis={{ rows: 2 }}>{item.content}</Text>}
+            />
+          </List.Item>
+        )}
+      />
+      <div style={{ marginTop: 8, textAlign: 'center' }}>
+        {/* Nút Xem tất cả sẽ trỏ về trang Audit Logs (Module của Ly) */}
+        <Button type="link" block onClick={() => navigate('/admin/audit-logs')} style={{ color: ACCENT_RED }}>
+          Xem toàn bộ Lịch sử Hệ thống
+        </Button>
+      </div>
+    </div>
+  );
+
+  const renderGroupTitle = (title) => collapsed ? <div style={{ borderBottom: '1px solid #52677D', margin: '16px 8px 8px 8px' }} /> : <span style={{ color: '#52677D', fontWeight: 600, fontSize: 12 }}>{title}</span>;
+
   const sidebarMenuItems = [
-    { key: '/admin/users', icon: <Users size={20} />, label: 'Quản lý Nhân sự' },
-    { key: '/admin/roles', icon: <Key size={20} />, label: 'Quyền hạn' },
-    { key: '/admin/rooms', icon: <Bed size={20} />, label: 'Sơ đồ Phòng' }, // Của Nhung
-    { key: '/admin/articles', icon: <Article size={20} />, label: 'Bài viết' }, // Của Ánh
+    { key: '/admin/dashboard', icon: <SquaresFour size={20} />, label: 'Tổng quan' },
+    { key: 'grp_quy', label: renderGroupTitle('HỆ THỐNG & NHÂN SỰ'), type: 'group', children: [
+      { key: '/admin/users', icon: <Users size={20} />, label: 'Người dùng' },
+      { key: '/admin/roles', icon: <Key size={20} />, label: 'Vai trò & Quyền' },
+    ]},
+    { key: 'grp_nhung_thao', label: renderGroupTitle('QUẢN LÝ LƯU TRÚ'), type: 'group', children: [
+      { key: '/admin/rooms', icon: <Bed size={20} />, label: 'Sơ đồ Phòng' },
+      { key: '/admin/room-types', icon: <Door size={20} />, label: 'Loại phòng' },
+      { key: '/admin/inventory', icon: <Archive size={20} />, label: 'Kho vật tư' },
+      { key: '/admin/loss-damages', icon: <WarningCircle size={20} />, label: 'Ghi nhận Hư hỏng' },
+      { key: '/admin/reviews', icon: <Star size={20} />, label: 'Đánh giá từ khách' },
+      { key: '/admin/attractions', icon: <MapPin size={20} />, label: 'Điểm du lịch' },
+    ]},
+    { key: 'grp_anh', label: renderGroupTitle('QUẢN LÝ NỘI DUNG'), type: 'group', children: [
+      { key: '/admin/categories', icon: <FileText size={20} />, label: 'Danh mục' },
+      { key: '/admin/articles', icon: <Article size={20} />, label: 'Bài viết & Blog' },
+    ]},
+    { key: 'grp_ly', label: renderGroupTitle('BÁO CÁO & GIÁM SÁT'), type: 'group', children: [
+      { key: '/admin/shifts', icon: <Clock size={20} />, label: 'Chấm công ca làm' },
+      { key: '/admin/performance', icon: <ChartLineUp size={20} />, label: 'KPI Nhân viên' },
+      { key: '/admin/audit-logs', icon: <ListIcon size={20} />, label: 'Lịch sử hệ thống' },
+    ]},
   ];
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      {/* THANH MENU BÊN TRÁI (SIDEBAR) */}
-      <Sider width={250} theme="dark" breakpoint="lg" collapsedWidth="0">
-        <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid #1C2E4A' }}>
-           <Text style={{ color: '#D1CFC9', fontSize: 24, fontWeight: 'bold', fontFamily: '"Source Serif 4", serif' }}>
-             abchotel
-           </Text>
+    <Layout style={{ minHeight: '100vh', overflow: 'hidden' }}>
+      <style>{`
+        .custom-sider-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-sider-scroll::-webkit-scrollbar-thumb { background: #52677D; border-radius: 4px; }
+        .notif-item:hover { background-color: #f5f5f5; border-radius: 8px; }
+        .ant-menu-dark .ant-menu-item-selected { background-color: ${ACCENT_RED} !important; border-radius: 8px !important; width: calc(100% - 16px) !important; margin: 4px 8px !important; }
+        .ant-menu-dark .ant-menu-item:hover:not(.ant-menu-item-selected) { background-color: rgba(138, 21, 56, 0.2) !important; border-radius: 8px !important; width: calc(100% - 16px) !important; margin: 4px 8px !important; }
+      `}</style>
+      <Sider trigger={null} collapsible collapsed={collapsed} width={260} theme="dark" style={{ display: 'flex', flexDirection: 'column', height: '100vh', borderRight: '1px solid #0F1A2B' }}>
+        <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', padding: collapsed ? '0' : '0 20px', borderBottom: '1px solid #1C2E4A', flexShrink: 0 }}>
+          <div style={{ backgroundColor: '#FFFFFF', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: collapsed ? 0 : 12 }}><img src={logo} alt="Logo" style={{ width: 24, height: 24, objectFit: 'contain' }} /></div>
+          {!collapsed && <Title level={4} style={{ color: '#FFFFFF', margin: 0, fontFamily: '"Source Serif 4", serif', letterSpacing: '2px' }}>ABCHOTEL</Title>}
         </div>
-        <Menu 
-          theme="dark" 
-          mode="inline" 
-          selectedKeys={[location.pathname]} 
-          items={sidebarMenuItems} 
-          onClick={({ key }) => navigate(key)}
-          style={{ marginTop: 16 }}
-        />
+        <div className="custom-sider-scroll" style={{ flex: 1, overflowY: 'auto' }}>
+          <Menu theme="dark" mode="inline" selectedKeys={[location.pathname]} items={sidebarMenuItems} onClick={({ key }) => navigate(key)} style={{ paddingBottom: 20 }} />
+        </div>
       </Sider>
-
-      <Layout>
-        {/* HEADER DÙNG CHUNG */}
-        <Header style={{ padding: '0 24px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', borderBottom: '1px solid #e9f0f8', boxShadow: '0 1px 4px rgba(0,21,41,0.08)' }}>
+      <Layout style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <Header style={{ padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFFFFF', borderBottom: '1px solid #e9f0f8', flexShrink: 0 }}>
+          <Space size="middle">
+            <Button type="text" icon={<ListIcon size={24} color="#1C2E4A" />} onClick={() => setCollapsed(!collapsed)} />
+            <Button type="text" icon={<House size={20} color="#52677D" />} onClick={() => navigate('/')} style={{ color: '#52677D', fontWeight: 500 }}>Về trang chủ</Button>
+          </Space>
           <Space size="large">
-            {/* Chuông thông báo */}
-            <Badge count={unreadCount} overflowCount={99} size="small">
-              <BellRinging size={24} color="#1C2E4A" weight="regular" style={{ cursor: 'pointer', marginTop: 4 }} />
-            </Badge>
             
-            {/* Avatar và Tên tài khoản có mũi tên thả xuống */}
-            <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenuClick }} placement="bottomRight" arrow>
-              <Space style={{ cursor: 'pointer', padding: '4px 8px', borderRadius: 8, transition: 'background 0.3s' }} className="user-dropdown">
+            {/* POPOVER CHUÔNG THÔNG BÁO */}
+            <Popover content={notificationContent} trigger="click" placement="bottomRight" arrow={false}>
+              <Badge count={unreadCount} overflowCount={99} color={ACCENT_RED}>
+                <BellRinging size={24} color="#1C2E4A" weight="regular" style={{ cursor: 'pointer', marginTop: 4 }} onClick={() => setUnreadCount(0)} />
+              </Badge>
+            </Popover>
+
+            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" arrow>
+              <Space style={{ cursor: 'pointer', padding: '4px 8px', borderRadius: 8 }}>
                 <Avatar icon={<UserCircle />} style={{ backgroundColor: '#52677D' }} />
-                <Text style={{ color: '#0F1A2B', fontWeight: 600 }}>Admin Quý</Text>
-                <CaretDown size={14} color="#0F1A2B" />
+                <div style={{ display: 'flex', flexDirection: 'column', lineHeight: '1.2' }}>
+                  <Text style={{ color: '#0F1A2B', fontWeight: 600, fontSize: '14px' }}>{user?.fullName || 'Người dùng'}</Text>
+                  <Text style={{ color: '#52677D', fontSize: '12px' }}>{user?.roleName || 'Guest'}</Text>
+                </div>
+                <CaretDown size={14} color="#0F1A2B" style={{ marginLeft: 4 }} />
               </Space>
             </Dropdown>
           </Space>
         </Header>
-
-        {/* NỘI DUNG TỪNG TRANG (SẼ ĐƯỢC BƠM VÀO ĐÂY) */}
-        <Content style={{ margin: '24px', background: '#FFFFFF', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', overflow: 'auto' }}>
+        <Content style={{ flex: 1, margin: '24px', background: '#FFFFFF', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', overflowY: 'auto' }}>
           <Outlet /> 
         </Content>
       </Layout>

@@ -26,8 +26,16 @@ export default function AuthPage() {
       localStorage.setItem('refreshToken', res.refreshToken);
       const profile = await authApi.getMe();
       setAuth(profile, res.accessToken, res.refreshToken);
+      
       notification.success({ message: 'Đăng nhập thành công!' });
-      navigate('/admin/users');
+      
+      // XỬ LÝ LOGIC ĐIỀU HƯỚNG TẠI ĐÂY
+      if (profile.roleName === 'Guest') {
+        navigate('/'); // Khách thì cho ra trang chủ
+      } else {
+        navigate('/admin/dashboard'); // Quản trị viên thì vào Dashboard
+      }
+      
     } catch (error) {
       notification.error({ message: 'Đăng nhập thất bại', description: error.response?.data?.message || 'Có lỗi xảy ra' });
     } finally { setLoading(false); }

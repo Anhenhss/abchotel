@@ -24,7 +24,18 @@ lưu ý dotnet run phần backend thì fontend mới chạy
 
 
 
-
+src/
+ ├── api/           # Chứa file axiosClient.js và userApi.js
+ ├── assets/        # Chứa logo.png
+ ├── components/    # (Bổ sung) Các UI dùng chung nhỏ lẻ (Button, Table...)
+ ├── constants/     # Chứa roles, status, messages
+ ├── hooks/         # Chứa useSignalR.js
+ ├── layouts/       # Chứa AdminLayout.jsx (Header, Sidebar chung)
+ ├── pages/         # Chứa UserManagementPage.jsx
+ ├── routes/        # Chứa AppRoutes.jsx (bảo vệ route)
+ ├── store/         # Chứa authStore.js (Zustand)
+ └── utils/         # Chứa các hàm format thời gian, tiền tệ
+ 
 
 THƯ VIỆN không cài đặt nó tự có sẵn khi cùng net
 dotnet add package Microsoft.EntityFrameworkCore 

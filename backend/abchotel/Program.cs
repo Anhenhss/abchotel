@@ -26,7 +26,8 @@ builder.Services.AddDbContext<HotelDbContext>(options =>
 // ==========================================
 // Khai báo cho phép sử dụng Controller
 builder.Services.AddControllers();
-
+// BẬT TÍNH NĂNG NÀY ĐỂ LẤY THÔNG TIN NGƯỜI ĐANG ĐĂNG NHẬP
+builder.Services.AddHttpContextAccessor();
 // Nhóm Module 6.1 (Auth, Roles)
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
@@ -80,7 +81,22 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidAudience = jwtSettings["Audience"],
         ValidateLifetime = true,
-        ClockSkew = TimeSpan.Zero // Token hết hạn là bị từ chối ngay lập tức
+        ClockSkew = TimeSpan.Zero
+    };
+
+    // CHÈN THÊM TOÀN BỘ ĐOẠN NÀY ĐỂ SIGNALR CÓ THỂ ĐỌC ĐƯỢC TOKEN
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notificationHub"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
     };
 });
 
@@ -90,7 +106,8 @@ builder.Services.AddAuthorization(options =>
     var permissions = new[] { 
         "VIEW_DASHBOARD", "MANAGE_USERS", "MANAGE_ROLES", "MANAGE_ROOMS", 
         "MANAGE_BOOKINGS", "MANAGE_INVOICES", "MANAGE_SERVICES", "VIEW_REPORTS", 
-        "MANAGE_CONTENT", "MANAGE_INVENTORY", "MANAGE_SHIFTS", "VIEW_AUDIT_LOGS", "MANAGE_VOUCHERS" 
+        "MANAGE_CONTENT", "MANAGE_INVENTORY", "MANAGE_SHIFTS", "VIEW_AUDIT_LOGS", "MANAGE_VOUCHERS",
+        "VIEW_USERS","VIEW_ROLES", "EDIT_ROLES"
     };
 
     foreach (var permission in permissions)
@@ -107,9 +124,10 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAll",
         policy =>
         {
-            policy.AllowAnyOrigin()
+            policy.WithOrigins("http://localhost:5173") // Phải trỏ đích danh tới port của React
                   .AllowAnyHeader()
-                  .AllowAnyMethod();
+                  .AllowAnyMethod()
+                  .AllowCredentials(); // BẮT BUỘC PHẢI CÓ DÒNG NÀY THÌ SIGNALR MỚI CHẠY ĐƯỢC
         });
 });
 
@@ -178,5 +196,5 @@ app.UseAuthorization();
 
 // Map các Controller thay vì dùng Minimal API (WeatherForecast)
 app.MapControllers();
-
+app.MapHub<abchotel.Hubs.NotificationHub>("/notificationHub");
 app.Run();
