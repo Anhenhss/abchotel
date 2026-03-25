@@ -10,6 +10,18 @@ import ProtectedRoute from './ProtectedRoute';
 import UserManagementPage from '../pages/UserManagementPage';
 import RolesPage from '../pages/RolesPage';
 import RequirePermission from './RequirePermission';
+import ProfilePage from '../pages/ProfilePage';
+import ShiftsPage from '../pages/ShiftsPage';
+import AuditLogsPage from '../pages/AuditLogsPage';
+import CategoriesPage from '../pages/CategoriesPage';
+import ArticlesPage from '../pages/ArticlesPage';
+import RoomTypesPage from '../pages/RoomTypesPage';
+import RoomsPage from '../pages/RoomsPage';
+import AttractionsPage from '../pages/AttractionsPage';
+import AmenitiesPage from '../pages/AmenitiesPage';
+import RoomInventoryPage from '../pages/RoomInventoryPage';
+import LossDamagesPage from '../pages/LossDamagesPage';
+import ReviewsPage from '../pages/ReviewsPage';
 
 export default function AppRoutes() {
   const { checkAuth, isInitialized } = useAuthStore();
@@ -38,6 +50,58 @@ export default function AppRoutes() {
         <Route path="roles" element={
           <RequirePermission requiredPermissions={["MANAGE_ROLES", "VIEW_ROLES"]}>
              <RolesPage />
+          </RequirePermission>
+        } />
+        <Route path="profile" element={<ProfilePage />} />
+        <Route path="shifts" element={<ShiftsPage />} />
+        <Route path="audit-logs" element={
+          <RequirePermission requiredPermissions={["VIEW_AUDIT_LOGS"]}>
+             <AuditLogsPage />
+          </RequirePermission>
+        } />
+        <Route path="categories" element={
+          <RequirePermission requiredPermissions={["MANAGE_CONTENT"]}>
+             <CategoriesPage />
+          </RequirePermission>
+        } />
+        <Route path="articles" element={
+          <RequirePermission requiredPermissions={["MANAGE_CONTENT"]}>
+             <ArticlesPage />
+          </RequirePermission>
+        } />
+        <Route path="room-types" element={
+          <RequirePermission requiredPermissions={["MANAGE_ROOMS"]}>
+             <RoomTypesPage />
+          </RequirePermission>
+        } />
+        <Route path="rooms" element={
+          <RequirePermission requiredPermissions={["MANAGE_ROOMS"]}>
+             <RoomsPage />
+          </RequirePermission>
+        } />
+        <Route path="attractions" element={
+          <RequirePermission requiredPermissions={["MANAGE_CONTENT"]}>
+             <AttractionsPage />
+          </RequirePermission>
+        } />
+        <Route path="amenities" element={
+          <RequirePermission requiredPermissions={["MANAGE_INVENTORY"]}>
+             <AmenitiesPage />
+          </RequirePermission>
+        } />
+        <Route path="inventory" element={
+          <RequirePermission requiredPermissions={["MANAGE_INVENTORY"]}>
+             <RoomInventoryPage />
+          </RequirePermission>
+        } />
+        <Route path="loss-damages" element={
+          <RequirePermission requiredPermissions={["MANAGE_INVENTORY"]}>
+             <LossDamagesPage />
+          </RequirePermission>
+        } />
+        <Route path="reviews" element={
+          <RequirePermission requiredPermissions={["MANAGE_CONTENT", "MANAGE_ROOMS"]}>
+             <ReviewsPage />
           </RequirePermission>
         } />
 

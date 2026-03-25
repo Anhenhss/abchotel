@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http; // Bắt buộc thêm để đọc Token
+using System.Security.Claims;    // Bắt buộc thêm để lấy ID người dùng
 using abchotel.Data;
 using abchotel.DTOs;
 using abchotel.Models;
@@ -21,7 +23,23 @@ namespace abchotel.Services
     public class ShiftService : IShiftService
     {
         private readonly HotelDbContext _context;
-        public ShiftService(HotelDbContext context) => _context = context;
+        private readonly INotificationService _notificationService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+
+        // 1. CẬP NHẬT CONSTRUCTOR ĐỂ NHẬN DỊCH VỤ THÔNG BÁO
+        public ShiftService(HotelDbContext context, INotificationService notificationService, IHttpContextAccessor httpContextAccessor)
+        {
+            _context = context;
+            _notificationService = notificationService;
+            _httpContextAccessor = httpContextAccessor;
+        }
+
+        // 2. HÀM PHỤ TRỢ LẤY TÊN NGƯỜI ĐANG THAO TÁC
+        private async Task<string> GetCurrentUserNameAsync(int userId)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            return user?.FullName ?? "Một nhân viên";
+        }
 
         public async Task<(bool IsSuccess, string Message)> CheckInAsync(int userId)
         {
@@ -38,6 +56,15 @@ namespace abchotel.Services
 
             _context.Shifts.Add(shift);
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO REALTIME CHO QUẢN LÝ
+            string userName = await GetCurrentUserNameAsync(userId);
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_SHIFTS", 
+                "Nhân viên Vào ca", 
+                $"[{userName}] vừa Check-in bắt đầu ca làm việc lúc {shift.CheckInTime:HH:mm}."
+            );
+
             return (true, "Điểm danh vào ca thành công.");
         }
 
@@ -50,6 +77,15 @@ namespace abchotel.Services
 
             currentShift.CheckOutTime = DateTime.Now;
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO REALTIME CHO QUẢN LÝ
+            string userName = await GetCurrentUserNameAsync(userId);
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_SHIFTS", 
+                "Nhân viên Ra ca", 
+                $"[{userName}] vừa Check-out kết thúc ca làm việc."
+            );
+
             return (true, "Kết thúc ca làm việc thành công.");
         }
 
@@ -62,6 +98,15 @@ namespace abchotel.Services
 
             currentShift.HandoverNotes = notes;
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO REALTIME CHO QUẢN LÝ
+            string userName = await GetCurrentUserNameAsync(userId);
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_SHIFTS", 
+                "Biên bản Bàn giao", 
+                $"[{userName}] vừa lập biên bản bàn giao: \"{notes}\""
+            );
+
             return (true, "Lập biên bản bàn giao ca thành công.");
         }
 

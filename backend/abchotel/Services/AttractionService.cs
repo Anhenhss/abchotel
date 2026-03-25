@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http; // Thêm thư viện đọc Token
+using System.Security.Claims;    // Thêm thư viện đọc Claims
 using abchotel.Data;
 using abchotel.DTOs;
 using abchotel.Models;
@@ -20,8 +22,27 @@ namespace abchotel.Services
     public class AttractionService : IAttractionService
     {
         private readonly HotelDbContext _context;
+        private readonly INotificationService _notificationService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public AttractionService(HotelDbContext context) => _context = context;
+        public AttractionService(HotelDbContext context, INotificationService notificationService, IHttpContextAccessor httpContextAccessor)
+        {
+            _context = context;
+            _notificationService = notificationService;
+            _httpContextAccessor = httpContextAccessor;
+        }
+
+        // HÀM PHỤ TRỢ: Lấy tên người thao tác từ Token
+        private async Task<string> GetCurrentUserNameAsync()
+        {
+            var userIdStr = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(userIdStr, out int userId))
+            {
+                var user = await _context.Users.FindAsync(userId);
+                return user?.FullName ?? "Một quản trị viên";
+            }
+            return "Hệ thống";
+        }
 
         public async Task<List<AttractionResponse>> GetAllAttractionsAsync(bool onlyActive = false)
         {
@@ -82,6 +103,14 @@ namespace abchotel.Services
             _context.Attractions.Add(attraction);
             await _context.SaveChangesAsync();
 
+            // 🔔 BẮN THÔNG BÁO REALTIME
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_CONTENT", 
+                "Điểm đến mới", 
+                $"[{userName}] vừa thêm điểm du lịch mới: {attraction.Name}."
+            );
+
             var response = new AttractionResponse
             {
                 Id = attraction.Id,
@@ -112,6 +141,15 @@ namespace abchotel.Services
             attraction.Address = request.Address;
 
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO REALTIME
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_CONTENT", 
+                "Cập nhật Điểm đến", 
+                $"[{userName}] vừa cập nhật thông tin điểm du lịch: {attraction.Name}."
+            );
+
             return true;
         }
 
@@ -122,6 +160,16 @@ namespace abchotel.Services
 
             attraction.IsActive = !attraction.IsActive; 
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO REALTIME
+            string statusStr = attraction.IsActive ? "hiển thị" : "ẩn";
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_CONTENT", 
+                "Trạng thái Điểm đến", 
+                $"[{userName}] vừa {statusStr} điểm du lịch: {attraction.Name} trên Website."
+            );
+
             return true;
         }
     }

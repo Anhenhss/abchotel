@@ -53,7 +53,9 @@ namespace abchotel.Controllers
         public async Task<IActionResult> GetCurrentShift()
         {
             var shift = await _shiftService.GetCurrentShiftAsync(GetCurrentUserId());
-            if (shift == null) return NotFound(new { message = "Bạn không có ca làm việc nào đang chạy." });
+            
+            if (shift == null) return Ok(null); 
+            
             return Ok(shift);
         }
     }

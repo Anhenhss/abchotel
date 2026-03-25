@@ -1,17 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout, Menu, Dropdown, Avatar, Badge, notification, Space, Typography, Button, Popover, List } from 'antd';
 import { 
   Users, Key, Bed, List as ListIcon, Article, BellRinging, SignOut, UserCircle, CaretDown, 
-  House, SquaresFour, Archive, Star, MapPin, WarningCircle, Clock, ChartLineUp, Door, FileText
+  House, SquaresFour, Archive, Star, MapPin, WarningCircle, Clock, ChartLineUp, Door, FileText, WifiHigh
 } from '@phosphor-icons/react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useSignalR } from '../hooks/useSignalR';
+import { notificationApi } from '../api/notificationApi';
 import logo from '../assets/logo.png';
 
 const { Header, Sider, Content } = Layout;
 const { Text, Title } = Typography;
 const ACCENT_RED = '#8A1538';
+const MIDNIGHT_BLUE = '#1C2E4A';
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -19,17 +21,26 @@ export default function AdminLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const { user, logout } = useAuthStore();
 
-  // STATE QUẢN LÝ THÔNG BÁO SIGNALR
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // LẮNG NGHE REALTIME
+  useEffect(() => {
+    const fetchNotifs = async () => {
+      try {
+        const res = await notificationApi.getMyNotifications();
+        setNotifications(res);
+        setUnreadCount(res.filter(n => !n.isRead).length);
+      } catch (error) { 
+        console.log("Lỗi lấy thông báo:", error); 
+      }
+    };
+    fetchNotifs();
+  }, []);
+
   useSignalR((newNotif) => {
     setUnreadCount(prev => prev + 1); 
-    // Thêm thông báo mới vào đầu danh sách (tối đa giữ 10 cái để không nặng máy)
-    setNotifications(prev => [newNotif, ...prev].slice(0, 10));
+    setNotifications(prev => [{...newNotif, isRead: false, id: Date.now()}, ...prev].slice(0, 20));
 
-    // Bắn một popup mỏng nhẹ ở góc trên bên phải cho tín hiệu Realtime
     notification.info({
       message: newNotif.title || 'Thông báo hệ thống',
       description: newNotif.content,
@@ -38,6 +49,16 @@ export default function AdminLayout() {
       style: { borderLeft: `4px solid ${ACCENT_RED}` }
     });
   });
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await notificationApi.markAllAsRead();
+      setUnreadCount(0);
+      setNotifications(prev => prev.map(n => ({...n, isRead: true})));
+    } catch (error) {
+      console.log("Lỗi đánh dấu đã đọc", error);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -50,29 +71,27 @@ export default function AdminLayout() {
     { key: 'logout', icon: <SignOut size={18} color={ACCENT_RED} />, label: <span style={{ color: ACCENT_RED, fontWeight: 500 }}>Đăng xuất</span>, onClick: handleLogout },
   ];
 
-  // GIAO DIỆN BẢNG THẢ XUỐNG KHI BẤM VÀO CHUÔNG
   const notificationContent = (
     <div style={{ width: 320 }}>
       <div style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Text strong>Thông báo mới</Text>
-        <Button type="link" size="small" onClick={() => setUnreadCount(0)}>Đánh dấu đã đọc</Button>
+        <Button type="link" size="small" onClick={handleMarkAllAsRead}>Đánh dấu đã đọc</Button>
       </div>
       <List
         itemLayout="horizontal"
         dataSource={notifications}
         locale={{ emptyText: 'Không có thông báo mới' }}
         renderItem={item => (
-          <List.Item style={{ padding: '12px 8px', cursor: 'pointer', transition: 'background 0.3s' }} className="notif-item">
+          <List.Item style={{ padding: '12px 8px', cursor: 'pointer', transition: 'background 0.3s', opacity: item.isRead ? 0.6 : 1 }} className="notif-item">
             <List.Item.Meta
               avatar={<Avatar style={{ backgroundColor: '#e9f0f8', color: ACCENT_RED }} icon={<BellRinging />} />}
-              title={<Text strong style={{ fontSize: 13 }}>{item.title || 'Hệ thống'}</Text>}
-              description={<Text style={{ fontSize: 12, color: '#52677D' }} ellipsis={{ rows: 2 }}>{item.content}</Text>}
+              title={<Text strong style={{ fontSize: 13, color: item.isRead ? '#8c8c8c' : '#0F1A2B' }}>{item.title || 'Hệ thống'}</Text>}
+              description={<Text style={{ fontSize: 12, color: item.isRead ? '#bfbfbf' : '#52677D' }} ellipsis={{ rows: 2 }}>{item.content}</Text>}
             />
           </List.Item>
         )}
       />
       <div style={{ marginTop: 8, textAlign: 'center' }}>
-        {/* Nút Xem tất cả sẽ trỏ về trang Audit Logs (Module của Ly) */}
         <Button type="link" block onClick={() => navigate('/admin/audit-logs')} style={{ color: ACCENT_RED }}>
           Xem toàn bộ Lịch sử Hệ thống
         </Button>
@@ -91,6 +110,7 @@ export default function AdminLayout() {
     { key: 'grp_nhung_thao', label: renderGroupTitle('QUẢN LÝ LƯU TRÚ'), type: 'group', children: [
       { key: '/admin/rooms', icon: <Bed size={20} />, label: 'Sơ đồ Phòng' },
       { key: '/admin/room-types', icon: <Door size={20} />, label: 'Loại phòng' },
+      { key: '/admin/amenities', icon: <WifiHigh size={20} />, label: 'Tiện ích phòng' },
       { key: '/admin/inventory', icon: <Archive size={20} />, label: 'Kho vật tư' },
       { key: '/admin/loss-damages', icon: <WarningCircle size={20} />, label: 'Ghi nhận Hư hỏng' },
       { key: '/admin/reviews', icon: <Star size={20} />, label: 'Đánh giá từ khách' },
@@ -116,15 +136,25 @@ export default function AdminLayout() {
         .ant-menu-dark .ant-menu-item-selected { background-color: ${ACCENT_RED} !important; border-radius: 8px !important; width: calc(100% - 16px) !important; margin: 4px 8px !important; }
         .ant-menu-dark .ant-menu-item:hover:not(.ant-menu-item-selected) { background-color: rgba(138, 21, 56, 0.2) !important; border-radius: 8px !important; width: calc(100% - 16px) !important; margin: 4px 8px !important; }
       `}</style>
-      <Sider trigger={null} collapsible collapsed={collapsed} width={260} theme="dark" style={{ display: 'flex', flexDirection: 'column', height: '100vh', borderRight: '1px solid #0F1A2B' }}>
-        <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', padding: collapsed ? '0' : '0 20px', borderBottom: '1px solid #1C2E4A', flexShrink: 0 }}>
-          <div style={{ backgroundColor: '#FFFFFF', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: collapsed ? 0 : 12 }}><img src={logo} alt="Logo" style={{ width: 24, height: 24, objectFit: 'contain' }} /></div>
-          {!collapsed && <Title level={4} style={{ color: '#FFFFFF', margin: 0, fontFamily: '"Source Serif 4", serif', letterSpacing: '2px' }}>ABCHOTEL</Title>}
-        </div>
-        <div className="custom-sider-scroll" style={{ flex: 1, overflowY: 'auto' }}>
-          <Menu theme="dark" mode="inline" selectedKeys={[location.pathname]} items={sidebarMenuItems} onClick={({ key }) => navigate(key)} style={{ paddingBottom: 20 }} />
+      
+      {/* ĐÃ SỬA CHỖ NÀY: Bỏ display flex ra khỏi thẻ Sider */}
+      <Sider trigger={null} collapsible collapsed={collapsed} width={260} theme="dark" style={{ height: '100vh', borderRight: '1px solid #0F1A2B' }}>
+        
+        {/* TẠO THẺ DIV MỚI BAO BỌC VÀ NHẬN LỆNH FLEX */}
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          
+          <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', padding: collapsed ? '0' : '0 20px', borderBottom: '1px solid #1C2E4A', flexShrink: 0 }}>
+            <div style={{ backgroundColor: '#FFFFFF', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: collapsed ? 0 : 12 }}><img src={logo} alt="Logo" style={{ width: 24, height: 24, objectFit: 'contain' }} /></div>
+            {!collapsed && <Title level={4} style={{ color: '#FFFFFF', margin: 0, fontFamily: '"Source Serif 4", serif', letterSpacing: '2px' }}>ABCHOTEL</Title>}
+          </div>
+          
+          <div className="custom-sider-scroll" style={{ flex: 1, overflowY: 'auto' }}>
+            <Menu theme="dark" mode="inline" selectedKeys={[location.pathname]} items={sidebarMenuItems} onClick={({ key }) => navigate(key)} style={{ paddingBottom: 20 }} />
+          </div>
+
         </div>
       </Sider>
+
       <Layout style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
         <Header style={{ padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFFFFF', borderBottom: '1px solid #e9f0f8', flexShrink: 0 }}>
           <Space size="middle">
@@ -142,7 +172,18 @@ export default function AdminLayout() {
 
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" arrow>
               <Space style={{ cursor: 'pointer', padding: '4px 8px', borderRadius: 8 }}>
-                <Avatar icon={<UserCircle />} style={{ backgroundColor: '#52677D' }} />
+                <Avatar 
+                  src={user?.avatarUrl} 
+                  icon={!user?.avatarUrl && !user?.fullName ? <UserCircle /> : null} 
+                  style={{ 
+                    backgroundColor: user?.avatarUrl ? 'transparent' : '#e9f0f8', 
+                    color: ACCENT_RED, 
+                    fontWeight: 'bold',
+                    border: '1px solid #e9f0f8'
+                  }} 
+                >
+                  {!user?.avatarUrl && user?.fullName ? user.fullName.charAt(0).toUpperCase() : ''}
+                </Avatar>
                 <div style={{ display: 'flex', flexDirection: 'column', lineHeight: '1.2' }}>
                   <Text style={{ color: '#0F1A2B', fontWeight: 600, fontSize: '14px' }}>{user?.fullName || 'Người dùng'}</Text>
                   <Text style={{ color: '#52677D', fontSize: '12px' }}>{user?.roleName || 'Guest'}</Text>

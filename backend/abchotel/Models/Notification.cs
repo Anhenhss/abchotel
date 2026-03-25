@@ -14,17 +14,18 @@ namespace abchotel.Models
         [Column("user_id")]
         public int? UserId { get; set; }
 
+        // THÊM DẤU ? VÀO TẤT CẢ CÁC STRING BÊN DƯỚI
         [Column("title")]
-        public string Title { get; set; }
+        public string? Title { get; set; }
 
         [Column("content")]
-        public string Content { get; set; }
+        public string? Content { get; set; }
 
         [Column("type")]
-        public string Type { get; set; }
+        public string? Type { get; set; }
 
         [Column("reference_link")]
-        public string ReferenceLink { get; set; }
+        public string? ReferenceLink { get; set; }
 
         [Column("is_read")]
         public bool IsRead { get; set; }
@@ -32,8 +33,7 @@ namespace abchotel.Models
         [Column("created_at")]
         public DateTime? CreatedAt { get; set; }
 
-        // Khóa ngoại liên kết với bảng Users
         [ForeignKey("UserId")]
-        public virtual User User { get; set; }
+        public virtual User? User { get; set; }
     }
 }

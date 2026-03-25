@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http; // Bắt buộc để đọc Token
+using System.Security.Claims;    // Bắt buộc để lấy User
 using abchotel.Data;
 using abchotel.DTOs;
 using abchotel.Models;
@@ -26,11 +28,27 @@ namespace abchotel.Services
     {
         private readonly HotelDbContext _context;
         private readonly IMediaService _mediaService;
+        private readonly INotificationService _notificationService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public RoomTypeService(HotelDbContext context, IMediaService mediaService) // Thêm tham số vào đây
+        public RoomTypeService(HotelDbContext context, IMediaService mediaService, INotificationService notificationService, IHttpContextAccessor httpContextAccessor)
         {
             _context = context;
             _mediaService = mediaService;
+            _notificationService = notificationService;
+            _httpContextAccessor = httpContextAccessor;
+        }
+
+        // HÀM PHỤ TRỢ: Lấy tên người thao tác
+        private async Task<string> GetCurrentUserNameAsync()
+        {
+            var userIdStr = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(userIdStr, out int userId))
+            {
+                var user = await _context.Users.FindAsync(userId);
+                return user?.FullName ?? "Một quản trị viên";
+            }
+            return "Hệ thống";
         }
 
         public async Task<List<RoomTypeResponse>> GetAllRoomTypesAsync(bool onlyActive = false)
@@ -39,10 +57,7 @@ namespace abchotel.Services
                 .Include(rt => rt.RoomImages)
                 .AsQueryable();
 
-            if (onlyActive)
-            {
-                query = query.Where(rt => rt.IsActive);
-            }
+            if (onlyActive) query = query.Where(rt => rt.IsActive);
 
             return await query.Select(rt => new RoomTypeResponse
             {
@@ -114,6 +129,10 @@ namespace abchotel.Services
             _context.RoomTypes.Add(roomType);
             await _context.SaveChangesAsync();
 
+            // 🔔 BẮN THÔNG BÁO
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync("MANAGE_ROOMS", "Loại phòng mới", $"[{userName}] vừa tạo loại phòng: {roomType.Name}.");
+
             var response = await GetRoomTypeByIdAsync(roomType.Id);
             return (true, "Tạo loại phòng thành công.", response);
         }
@@ -133,6 +152,11 @@ namespace abchotel.Services
             roomType.ViewDirection = request.ViewDirection;
 
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync("MANAGE_ROOMS", "Cập nhật Loại phòng", $"[{userName}] vừa cập nhật thông tin loại phòng: {roomType.Name}.");
+
             return true;
         }
 
@@ -143,6 +167,12 @@ namespace abchotel.Services
 
             roomType.IsActive = !roomType.IsActive;
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO
+            string statusStr = roomType.IsActive ? "mở bán" : "ngừng bán";
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync("MANAGE_ROOMS", "Trạng thái Loại phòng", $"[{userName}] vừa {statusStr} loại phòng: {roomType.Name}.");
+
             return true;
         }
 
@@ -150,17 +180,13 @@ namespace abchotel.Services
 
         public async Task<(bool IsSuccess, string Message)> AddRoomImageAsync(int roomTypeId, AddRoomImageRequest request)
         {
-            var roomTypeExists = await _context.RoomTypes.AnyAsync(rt => rt.Id == roomTypeId);
-            if (!roomTypeExists) return (false, "Không tìm thấy loại phòng.");
+            var roomType = await _context.RoomTypes.FindAsync(roomTypeId);
+            if (roomType == null) return (false, "Không tìm thấy loại phòng.");
 
-            // Nếu request yêu cầu là ảnh Primary, đổi các ảnh khác thành false
             if (request.IsPrimary)
             {
                 var existingImages = await _context.RoomImages.Where(img => img.RoomTypeId == roomTypeId).ToListAsync();
-                foreach (var img in existingImages)
-                {
-                    img.IsPrimary = false;
-                }
+                foreach (var img in existingImages) img.IsPrimary = false;
             }
 
             var newImage = new RoomImage
@@ -173,6 +199,11 @@ namespace abchotel.Services
 
             _context.RoomImages.Add(newImage);
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync("MANAGE_ROOMS", "Thêm Ảnh Loại phòng", $"[{userName}] vừa thêm hình ảnh mới cho loại phòng: {roomType.Name}.");
+
             return (true, "Thêm ảnh thành công.");
         }
 
@@ -181,36 +212,61 @@ namespace abchotel.Services
             var image = await _context.RoomImages.FindAsync(imageId);
             if (image == null) return false;
 
-            // BƯỚC 1: Lấy PublicId từ URL lưu trong DB
-            string publicId = _mediaService.ExtractPublicIdFromUrl(image.ImageUrl);
+            // 1. Lưu lại thông tin trước khi xóa
+            int roomTypeId = image.RoomTypeId ?? 0; // Đảm bảo lấy ID phòng
+            bool wasPrimary = image.IsPrimary == true; 
+            var roomType = await _context.RoomTypes.FindAsync(roomTypeId);
 
-            // BƯỚC 2: Gọi MediaService để xóa file trên Cloudinary
+            // 2. Xóa ảnh trên Cloudinary
+            string publicId = _mediaService.ExtractPublicIdFromUrl(image.ImageUrl);
             if (!string.IsNullOrEmpty(publicId))
             {
                 await _mediaService.DeleteImageAsync(publicId);
             }
 
-            // BƯỚC 3: Xóa dòng dữ liệu trong Database
+            // 3. Xóa data trong DB
             _context.RoomImages.Remove(image);
-            
             await _context.SaveChangesAsync();
+
+            // 4. MẸO UX: NẾU VỪA XÓA ẢNH ĐẠI DIỆN, CHỌN ẢNH KHÁC LÊN THAY THẾ
+            if (wasPrimary && roomTypeId > 0)
+            {
+                var nextImage = await _context.RoomImages
+                    .Where(img => img.RoomTypeId == roomTypeId)
+                    .FirstOrDefaultAsync();
+
+                if (nextImage != null)
+                {
+                    nextImage.IsPrimary = true;
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            // 🔔 BẮN THÔNG BÁO
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync("MANAGE_ROOMS", "Xóa Ảnh Loại phòng", $"[{userName}] vừa xóa một hình ảnh của loại phòng: {roomType?.Name}.");
+
             return true;
         }
 
         public async Task<bool> SetPrimaryImageAsync(int roomTypeId, int imageId)
         {
             var images = await _context.RoomImages.Where(img => img.RoomTypeId == roomTypeId).ToListAsync();
-            
             var targetImage = images.FirstOrDefault(img => img.Id == imageId);
             if (targetImage == null) return false;
 
-            // Chuyển toàn bộ ảnh về false, riêng ảnh được chọn thành true
             foreach (var img in images)
             {
                 img.IsPrimary = (img.Id == imageId);
             }
 
+            var roomType = await _context.RoomTypes.FindAsync(roomTypeId);
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync("MANAGE_ROOMS", "Ảnh đại diện Loại phòng", $"[{userName}] vừa thay đổi ảnh đại diện cho loại phòng: {roomType?.Name}.");
+
             return true;
         }
     }

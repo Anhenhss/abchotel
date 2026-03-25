@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Table, Input, Select, Button, Space, Typography, Tag, Modal, Form, notification, Tooltip, Popconfirm, Switch, Row, Col, Divider } from 'antd';
-import { Plus, MagnifyingGlass, PencilSimple, IdentificationCard, FunnelX, Eye, CheckCircle } from '@phosphor-icons/react';
+import { Plus, MagnifyingGlass, PencilSimple, IdentificationCard, FunnelX, Eye, CheckCircle, LockKey } from '@phosphor-icons/react';
 import { userApi } from '../api/userApi';
 import { roleApi } from '../api/roleApi';
 
@@ -24,11 +24,9 @@ export default function UserManagementPage() {
   const [roleForm] = Form.useForm();
   const [selectedUserId, setSelectedUserId] = useState(null);
 
-  // Modal Xem chi tiết User & Quyền hạn
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewingUser, setViewingUser] = useState(null);
 
-  // ================= GỌI API =================
   const fetchUsers = async () => {
     try {
       setLoading(true);
@@ -59,7 +57,6 @@ export default function UserManagementPage() {
   const handleSearch = (value) => setFilters({ ...filters, search: value, page: 1 });
   const handleClearFilters = () => setFilters({ page: 1, pageSize: 10, search: '', roleId: null, isActive: null });
 
-  // THAO TÁC CÁ NHÂN -> Dùng bottomRight notification
   const onFinish = async (values) => {
     try {
       setLoading(true);
@@ -99,9 +96,7 @@ export default function UserManagementPage() {
     } finally { setLoading(false); }
   };
 
-  // Hàm mở modal Xem Chi Tiết
   const handleViewUser = (user) => {
-    // Tìm Role của user này trong danh sách Roles để lấy mảng Permissions
     const userRoleData = roles.find(r => r.name === user.roleName);
     setViewingUser({ ...user, permissions: userRoleData?.permissions || [] });
     setIsViewModalOpen(true);
@@ -110,24 +105,24 @@ export default function UserManagementPage() {
   const columns = [
     {
       title: 'Họ và tên', dataIndex: 'fullName', key: 'fullName',
-      render: (text) => (
-        <Space>
-          <div style={{ backgroundColor: '#e9f0f8', color: MIDNIGHT_BLUE, width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+      render: (text, record) => (
+        <Space style={{ opacity: record.isActive ? 1 : 0.5 }}>
+          <div style={{ backgroundColor: record.isActive ? '#e9f0f8' : '#d9d9d9', color: MIDNIGHT_BLUE, width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
             {text ? text.charAt(0).toUpperCase() : 'U'}
           </div>
           <Text style={{ fontWeight: 500, color: MIDNIGHT_BLUE }}>{text}</Text>
+          {!record.isActive && <LockKey size={16} color={ACCENT_RED} weight="fill" />}
         </Space>
       )
     },
-    { title: 'Email', dataIndex: 'email', key: 'email' },
+    { title: 'Email', dataIndex: 'email', key: 'email', render: (t, r) => <Text style={{ color: r.isActive ? 'inherit' : '#bfbfbf' }}>{t}</Text> },
     {
       title: 'Chức vụ', dataIndex: 'roleName', key: 'roleName',
-      render: (role) => <Tag color={role === 'Admin' ? ACCENT_RED : role === 'Guest' ? 'default' : 'processing'} style={{ borderRadius: 12, padding: '2px 12px', fontWeight: 600 }}>{role}</Tag>
+      render: (role, record) => <Tag color={!record.isActive ? 'default' : (role === 'Admin' ? ACCENT_RED : role === 'Guest' ? 'blue' : 'processing')} style={{ borderRadius: 12, padding: '2px 12px', fontWeight: 600 }}>{role}</Tag>
     },
     {
       title: 'Trạng thái', dataIndex: 'isActive', key: 'isActive',
       render: (isActive, record) => (
-        // Dùng Switch (Công tắc trượt) bọc trong Popconfirm cho an toàn
         <Popconfirm title={`Bạn chắc chắn muốn ${isActive ? 'khóa' : 'mở khóa'} tài khoản này?`} onConfirm={() => handleToggleStatus(record.id, !isActive)} okText="Đồng ý" cancelText="Hủy" placement="topRight">
           <Switch 
             checked={isActive} 
@@ -142,15 +137,28 @@ export default function UserManagementPage() {
       title: 'Thao tác', key: 'actions',
       render: (_, record) => (
         <Space size="small">
-          {/* NÚT XEM CHI TIẾT (CON MẮT) */}
           <Tooltip title="Xem chi tiết & Phân quyền">
             <Button type="text" icon={<Eye size={20} color="#1890ff" />} onClick={() => handleViewUser(record)} />
           </Tooltip>
-          <Tooltip title="Chỉnh sửa">
-            <Button type="text" icon={<PencilSimple size={20} color="#52677D" />} onClick={() => { setEditingUser(record); form.setFieldsValue(record); setIsModalOpen(true); }} />
+
+          {/* FIX Ở ĐÂY: KHÓA NÚT SỬA KHI TÀI KHOẢN BỊ KHÓA */}
+          <Tooltip title={record.isActive ? "Chỉnh sửa" : "Tài khoản đang bị khóa - Không thể sửa"}>
+            <Button 
+              type="text" 
+              disabled={!record.isActive}
+              icon={<PencilSimple size={20} color={record.isActive ? "#52677D" : "#d9d9d9"} />} 
+              onClick={() => { setEditingUser(record); form.setFieldsValue(record); setIsModalOpen(true); }} 
+            />
           </Tooltip>
-          <Tooltip title="Đổi chức vụ">
-            <Button type="text" icon={<IdentificationCard size={20} color={MIDNIGHT_BLUE} />} onClick={() => { setSelectedUserId(record.id); roleForm.setFieldsValue({ newRoleId: roles.find(r => r.name === record.roleName)?.id }); setIsRoleModalOpen(true); }} />
+
+          {/* FIX Ở ĐÂY: KHÓA NÚT ĐỔI CHỨC VỤ KHI TÀI KHOẢN BỊ KHÓA */}
+          <Tooltip title={record.isActive ? "Đổi chức vụ" : "Tài khoản đang bị khóa - Không thể đổi chức vụ"}>
+            <Button 
+              type="text" 
+              disabled={!record.isActive}
+              icon={<IdentificationCard size={20} color={record.isActive ? MIDNIGHT_BLUE : "#d9d9d9"} />} 
+              onClick={() => { setSelectedUserId(record.id); roleForm.setFieldsValue({ newRoleId: roles.find(r => r.name === record.roleName)?.id }); setIsRoleModalOpen(true); }} 
+            />
           </Tooltip>
         </Space>
       )
@@ -161,7 +169,6 @@ export default function UserManagementPage() {
     <div>
       <Title level={3} style={{ color: MIDNIGHT_BLUE, fontFamily: '"Source Serif 4", serif', marginBottom: 24 }}>Quản lý Người dùng</Title>
 
-      {/* FILTER CARD */}
       <Card variant="borderless" style={{ marginBottom: 24, borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
           <Space size="middle" style={{ flexWrap: 'wrap' }}>
@@ -178,12 +185,10 @@ export default function UserManagementPage() {
         </div>
       </Card>
 
-      {/* TABLE CARD */}
       <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.03)', overflow: 'hidden' }}>
         <Table columns={columns} dataSource={users} rowKey="id" loading={loading} pagination={{ current: filters.page, pageSize: filters.pageSize, total: total, showSizeChanger: true, pageSizeOptions: ['5', '10', '20', '50'], showTotal: (total, range) => `Hiển thị ${range[0]}-${range[1]} trong tổng số ${total} tài khoản`, style: { paddingRight: 24 } }} onChange={handleTableChange} rowClassName={(record, index) => index % 2 === 0 ? 'table-row-light' : 'table-row-dark'} />
       </Card>
 
-      {/* MODAL XEM CHI TIẾT (HỒ SƠ + QUYỀN HẠN) */}
       <Modal title={<Title level={4} style={{ color: MIDNIGHT_BLUE, margin: 0 }}>Hồ sơ Nhân viên</Title>} open={isViewModalOpen} onCancel={() => setIsViewModalOpen(false)} footer={[<Button key="close" onClick={() => setIsViewModalOpen(false)} style={{ borderRadius: 8 }}>Đóng lại</Button>]} width={600} centered>
         {viewingUser && (
           <div style={{ marginTop: 20 }}>
@@ -216,7 +221,6 @@ export default function UserManagementPage() {
         )}
       </Modal>
 
-      {/* CÁC MODAL FORM GIỮ NGUYÊN (THÊM, SỬA, ĐỔI QUYỀN) */}
       <Modal title={<Title level={4} style={{ color: MIDNIGHT_BLUE, margin: 0 }}>{editingUser ? 'Cập nhật Thông tin' : 'Thêm Nhân viên Mới'}</Title>} open={isModalOpen} onCancel={() => setIsModalOpen(false)} footer={null} centered>
         <Form form={form} layout="vertical" onFinish={onFinish} style={{ marginTop: 20 }}>
           <Form.Item name="fullName" label="Họ và tên" rules={[{ required: true, message: 'Vui lòng nhập họ tên' }]}><Input size="large" placeholder="Nguyễn Văn A" /></Form.Item>

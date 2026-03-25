@@ -19,7 +19,7 @@ namespace abchotel.Controllers
         }
 
         [HttpGet("audit-logs")]
-        public async Task<IActionResult> GetAuditLogs([FromQuery] string tableName, [FromQuery] int top = 100)
+        public async Task<IActionResult> GetAuditLogs([FromQuery] string? tableName, [FromQuery] int top = 100)
         {
             var logs = await _auditReportService.GetSystemAuditLogsAsync(tableName, top);
             return Ok(logs);

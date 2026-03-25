@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http; // Bắt buộc để đọc Token
+using System.Security.Claims;    // Bắt buộc để lấy User
 using abchotel.Data;
 using abchotel.DTOs;
 using abchotel.Models;
@@ -20,8 +22,27 @@ namespace abchotel.Services
     public class RoomInventoryService : IRoomInventoryService
     {
         private readonly HotelDbContext _context;
+        private readonly INotificationService _notificationService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public RoomInventoryService(HotelDbContext context) => _context = context;
+        public RoomInventoryService(HotelDbContext context, INotificationService notificationService, IHttpContextAccessor httpContextAccessor)
+        {
+            _context = context;
+            _notificationService = notificationService;
+            _httpContextAccessor = httpContextAccessor;
+        }
+
+        // HÀM PHỤ TRỢ: Lấy tên người thao tác
+        private async Task<string> GetCurrentUserNameAsync()
+        {
+            var userIdStr = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(userIdStr, out int userId))
+            {
+                var user = await _context.Users.FindAsync(userId);
+                return user?.FullName ?? "Một quản trị viên";
+            }
+            return "Hệ thống";
+        }
 
         public async Task<List<RoomInventoryResponse>> GetInventoryByRoomIdAsync(int roomId, bool onlyActive = true)
         {
@@ -50,11 +71,9 @@ namespace abchotel.Services
 
         public async Task<(bool IsSuccess, string Message)> CreateInventoryAsync(CreateRoomInventoryRequest request)
         {
-            // Kiểm tra xem phòng có tồn tại không
-            if (!await _context.Rooms.AnyAsync(r => r.Id == request.RoomId))
-                return (false, "Phòng không tồn tại trong hệ thống.");
+            var room = await _context.Rooms.FindAsync(request.RoomId);
+            if (room == null) return (false, "Phòng không tồn tại trong hệ thống.");
 
-            // Kiểm tra xem vật tư này đã có trong phòng chưa (tránh tạo trùng lặp ItemName)
             if (await _context.RoomInventories.AnyAsync(ri => ri.RoomId == request.RoomId && ri.ItemName == request.ItemName))
                 return (false, "Vật tư này đã được khai báo trong phòng. Vui lòng cập nhật số lượng thay vì tạo mới.");
 
@@ -70,12 +89,21 @@ namespace abchotel.Services
 
             _context.RoomInventories.Add(inventory);
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO REALTIME
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_INVENTORY", 
+                "Vật tư mới", 
+                $"[{userName}] vừa khai báo {inventory.Quantity} {inventory.ItemName} vào phòng {room.RoomNumber}."
+            );
+
             return (true, "Thêm vật tư vào phòng thành công.");
         }
 
         public async Task<bool> UpdateInventoryAsync(int id, UpdateRoomInventoryRequest request)
         {
-            var inventory = await _context.RoomInventories.FindAsync(id);
+            var inventory = await _context.RoomInventories.Include(ri => ri.Room).FirstOrDefaultAsync(ri => ri.Id == id);
             if (inventory == null) return false;
 
             inventory.ItemName = request.ItemName;
@@ -84,16 +112,37 @@ namespace abchotel.Services
             inventory.ItemType = request.ItemType;
 
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO REALTIME
+            string roomNum = inventory.Room != null ? inventory.Room.RoomNumber : "N/A";
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_INVENTORY", 
+                "Cập nhật Vật tư", 
+                $"[{userName}] vừa cập nhật thông tin {inventory.ItemName} ở phòng {roomNum}."
+            );
+
             return true;
         }
 
         public async Task<bool> ToggleSoftDeleteAsync(int id)
         {
-            var inventory = await _context.RoomInventories.FindAsync(id);
+            var inventory = await _context.RoomInventories.Include(ri => ri.Room).FirstOrDefaultAsync(ri => ri.Id == id);
             if (inventory == null) return false;
 
-            inventory.IsActive = !inventory.IsActive; // Ngừng theo dõi vật tư này
+            inventory.IsActive = !inventory.IsActive; 
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO REALTIME
+            string statusStr = inventory.IsActive ? "theo dõi lại" : "ngừng theo dõi";
+            string roomNum = inventory.Room != null ? inventory.Room.RoomNumber : "N/A";
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_INVENTORY", 
+                "Trạng thái Vật tư", 
+                $"[{userName}] vừa {statusStr} vật tư {inventory.ItemName} ở phòng {roomNum}."
+            );
+
             return true;
         }
 
@@ -102,18 +151,16 @@ namespace abchotel.Services
             if (request.SourceRoomId == request.TargetRoomId)
                 return (false, "Phòng nguồn và phòng đích không được trùng nhau.");
 
-            var targetRoomExists = await _context.Rooms.AnyAsync(r => r.Id == request.TargetRoomId);
-            if (!targetRoomExists) return (false, "Phòng đích không tồn tại.");
+            var sourceRoom = await _context.Rooms.FindAsync(request.SourceRoomId);
+            var targetRoom = await _context.Rooms.FindAsync(request.TargetRoomId);
+            if (targetRoom == null || sourceRoom == null) return (false, "Phòng nguồn hoặc phòng đích không tồn tại.");
 
-            // Lấy danh sách vật tư đang hoạt động ở phòng nguồn
             var sourceItems = await _context.RoomInventories
                 .Where(ri => ri.RoomId == request.SourceRoomId && ri.IsActive)
                 .ToListAsync();
 
-            if (!sourceItems.Any())
-                return (false, "Phòng nguồn không có vật tư nào để sao chép.");
+            if (!sourceItems.Any()) return (false, "Phòng nguồn không có vật tư nào để sao chép.");
 
-            // Lấy danh sách tên các vật tư ĐÃ CÓ ở phòng đích để tránh copy đè/trùng lặp
             var existingTargetItemNames = await _context.RoomInventories
                 .Where(ri => ri.RoomId == request.TargetRoomId)
                 .Select(ri => ri.ItemName)
@@ -123,7 +170,6 @@ namespace abchotel.Services
 
             foreach (var item in sourceItems)
             {
-                // Chỉ copy những món đồ mà phòng đích chưa có
                 if (!existingTargetItemNames.Contains(item.ItemName))
                 {
                     newItems.Add(new RoomInventory
@@ -138,11 +184,18 @@ namespace abchotel.Services
                 }
             }
 
-            if (!newItems.Any())
-                return (false, "Tất cả vật tư từ phòng nguồn đã có sẵn ở phòng đích.");
+            if (!newItems.Any()) return (false, "Tất cả vật tư từ phòng nguồn đã có sẵn ở phòng đích.");
 
             _context.RoomInventories.AddRange(newItems);
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO REALTIME
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_INVENTORY", 
+                "Sao chép Kho vật tư", 
+                $"[{userName}] vừa sao chép {newItems.Count} vật tư từ phòng {sourceRoom.RoomNumber} sang phòng {targetRoom.RoomNumber}."
+            );
 
             return (true, $"Đã sao chép thành công {newItems.Count} vật tư sang phòng đích.");
         }

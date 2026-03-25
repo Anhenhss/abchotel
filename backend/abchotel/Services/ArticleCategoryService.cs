@@ -3,6 +3,8 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http; // Bắt buộc thêm để lấy Token
+using System.Security.Claims;    // Bắt buộc thêm để lấy thông tin User
 using abchotel.Data;
 using abchotel.DTOs;
 using abchotel.Models;
@@ -21,10 +23,27 @@ namespace abchotel.Services
     public class ArticleCategoryService : IArticleCategoryService
     {
         private readonly HotelDbContext _context;
+        private readonly INotificationService _notificationService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public ArticleCategoryService(HotelDbContext context)
+        // 1. INJECT CÁC SERVICE CẦN THIẾT VÀO CONSTRUCTOR
+        public ArticleCategoryService(HotelDbContext context, INotificationService notificationService, IHttpContextAccessor httpContextAccessor)
         {
             _context = context;
+            _notificationService = notificationService;
+            _httpContextAccessor = httpContextAccessor;
+        }
+
+        // 2. HÀM LẤY TÊN NGƯỜI ĐANG THAO TÁC (Tương tự các service khác)
+        private async Task<string> GetCurrentUserNameAsync()
+        {
+            var userIdStr = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(userIdStr, out int userId))
+            {
+                var user = await _context.Users.FindAsync(userId);
+                return user?.FullName ?? "Một quản trị viên";
+            }
+            return "Hệ thống";
         }
 
         public async Task<List<CategoryResponse>> GetAllCategoriesAsync(bool onlyActive = false)
@@ -47,7 +66,6 @@ namespace abchotel.Services
         {
             ArticleCategory category;
             
-            // Kiểm tra xem param truyền vào là ID (số) hay Slug (chuỗi)
             if (int.TryParse(idOrSlug, out int id))
             {
                 category = await _context.ArticleCategories.FindAsync(id);
@@ -79,11 +97,19 @@ namespace abchotel.Services
                 Name = request.Name,
                 Slug = GenerateSlug(request.Name),
                 Description = request.Description,
-                IsActive = true // Mặc định hiển thị khi tạo mới
+                IsActive = true 
             };
 
             _context.ArticleCategories.Add(category);
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO CHO QUẢN LÝ NỘI DUNG (MANAGE_CONTENT)
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_CONTENT", 
+                "Tạo Danh mục mới", 
+                $"[{userName}] vừa tạo danh mục bài viết mới: {category.Name}."
+            );
 
             var response = new CategoryResponse
             {
@@ -103,10 +129,19 @@ namespace abchotel.Services
             if (category == null) return false;
 
             category.Name = request.Name;
-            category.Slug = GenerateSlug(request.Name); // Cập nhật lại Slug theo tên mới
+            category.Slug = GenerateSlug(request.Name); 
             category.Description = request.Description;
 
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO 
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_CONTENT", 
+                "Cập nhật Danh mục", 
+                $"[{userName}] vừa chỉnh sửa thông tin danh mục: {category.Name}."
+            );
+
             return true;
         }
 
@@ -115,12 +150,21 @@ namespace abchotel.Services
             var category = await _context.ArticleCategories.FindAsync(id);
             if (category == null) return false;
 
-            category.IsActive = !category.IsActive; // Soft delete - Ẩn/Hiện
+            category.IsActive = !category.IsActive; 
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO 
+            string statusStr = category.IsActive ? "hiển thị" : "ẩn";
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_CONTENT", 
+                "Trạng thái Danh mục", 
+                $"[{userName}] vừa {statusStr} danh mục bài viết: {category.Name}."
+            );
+
             return true;
         }
 
-        // Helper: Hàm chuyển đổi Tiếng Việt có dấu thành Slug (Ví dụ: "Tin Tức" -> "tin-tuc")
         private string GenerateSlug(string phrase)
         {
             string str = phrase.ToLower();
@@ -131,9 +175,9 @@ namespace abchotel.Services
             str = Regex.Replace(str, @"ú|ù|ủ|ũ|ụ|ư|ứ|ừ|ử|ữ|ự", "u");
             str = Regex.Replace(str, @"ý|ỳ|ỷ|ỹ|ỵ", "y");
             str = Regex.Replace(str, @"đ", "d");
-            str = Regex.Replace(str, @"[^a-z0-9\s-]", ""); // Xóa ký tự đặc biệt
-            str = Regex.Replace(str, @"\s+", " ").Trim(); // Xóa khoảng trắng thừa
-            str = Regex.Replace(str, @"\s", "-"); // Thay khoảng trắng bằng gạch ngang
+            str = Regex.Replace(str, @"[^a-z0-9\s-]", ""); 
+            str = Regex.Replace(str, @"\s+", " ").Trim(); 
+            str = Regex.Replace(str, @"\s", "-"); 
             return str;
         }
     }

@@ -8,7 +8,7 @@ namespace abchotel.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Policy = "MANAGE_CONTENT")] // Chỉ những người có quyền làm Content mới được upload file rác lên server
+    [Authorize]
     public class MediaController : ControllerBase
     {
         private readonly IMediaService _mediaService;

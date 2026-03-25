@@ -15,6 +15,8 @@ namespace abchotel.DTOs
         public string AvatarUrl { get; set; }
         public string RoleName { get; set; }
         public int TotalPoints { get; set; }
+        public string Gender { get; set; }
+        public DateOnly? DateOfBirth { get; set; }
     }
 
     public class UpdateMyProfileRequest

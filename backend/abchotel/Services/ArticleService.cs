@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http; // Đọc Token
+using System.Security.Claims;    // Đọc Claims
 using abchotel.Data;
 using abchotel.DTOs;
 using abchotel.Models;
@@ -25,8 +27,29 @@ namespace abchotel.Services
     public class ArticleService : IArticleService
     {
         private readonly HotelDbContext _context;
+        private readonly INotificationService _notificationService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IMediaService _mediaService;
 
-        public ArticleService(HotelDbContext context) => _context = context;
+        public ArticleService(HotelDbContext context, INotificationService notificationService, IHttpContextAccessor httpContextAccessor, IMediaService mediaService)
+        {
+            _context = context;
+            _notificationService = notificationService;
+            _httpContextAccessor = httpContextAccessor;
+            _mediaService = mediaService;
+        }
+
+        // HÀM PHỤ TRỢ: Lấy tên người thao tác
+        private async Task<string> GetCurrentUserNameAsync()
+        {
+            var userIdStr = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(userIdStr, out int userId))
+            {
+                var user = await _context.Users.FindAsync(userId);
+                return user?.FullName ?? "Một quản trị viên";
+            }
+            return "Hệ thống";
+        }
 
         public async Task<List<ArticleResponse>> GetAllArticlesAsync(bool onlyPublished = false, int? categoryId = null)
         {
@@ -40,7 +63,6 @@ namespace abchotel.Services
                 query = query.Where(a => a.IsActive && a.PublishedAt != null);
             }
 
-            // lọc theo danh mục
             if (categoryId.HasValue)
             {
                 query = query.Where(a => a.CategoryId == categoryId.Value);
@@ -69,7 +91,6 @@ namespace abchotel.Services
 
             if (article == null) return null;
 
-            // Tăng lượt xem mỗi khi có người đọc bài
             article.ViewCount += 1;
             await _context.SaveChangesAsync();
 
@@ -97,7 +118,6 @@ namespace abchotel.Services
             var uniqueSlug = baseSlug;
             int counter = 1;
 
-            // Chống trùng lặp Slug trong DB
             while (await _context.Articles.AnyAsync(a => a.Slug == uniqueSlug))
             {
                 uniqueSlug = $"{baseSlug}-{counter}";
@@ -107,7 +127,7 @@ namespace abchotel.Services
             var article = new Article
             {
                 CategoryId = request.CategoryId,
-                AuthorId = authorId, // Lấy từ Token JWT, cực kỳ an toàn
+                AuthorId = authorId, 
                 Title = request.Title,
                 Slug = uniqueSlug,
                 Content = request.Content,
@@ -115,12 +135,20 @@ namespace abchotel.Services
                 MetaTitle = string.IsNullOrEmpty(request.MetaTitle) ? request.Title : request.MetaTitle,
                 MetaDescription = request.MetaDescription,
                 CreatedAt = DateTime.Now,
-                IsActive = true, // Mặc định hiển thị
-                PublishedAt = null // Mặc định là Bản nháp (Draft), chưa xuất bản
+                IsActive = true, 
+                PublishedAt = null 
             };
 
             _context.Articles.Add(article);
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO REALTIME
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_CONTENT", 
+                "Bài viết mới", 
+                $"[{userName}] vừa tạo bản nháp bài viết: \"{article.Title}\"."
+            );
 
             return (true, "Tạo bài viết thành công (Bản nháp).", article.Id);
         }
@@ -138,8 +166,16 @@ namespace abchotel.Services
             article.MetaDescription = request.MetaDescription;
             article.UpdatedAt = DateTime.Now;
 
-            // Nếu đổi Title, có thể cân nhắc đổi luôn Slug (Tùy chiến lược SEO, tạm thời giữ nguyên để tránh gãy link cũ)
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_CONTENT", 
+                "Cập nhật Bài viết", 
+                $"[{userName}] vừa cập nhật nội dung bài viết: \"{article.Title}\"."
+            );
+
             return true;
         }
 
@@ -148,8 +184,18 @@ namespace abchotel.Services
             var article = await _context.Articles.FindAsync(id);
             if (article == null) return false;
 
-            article.IsActive = !article.IsActive; // Ẩn/Hiện khỏi hệ thống
+            article.IsActive = !article.IsActive; 
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO
+            string statusStr = article.IsActive ? "phục hồi" : "thùng rác";
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_CONTENT", 
+                "Trạng thái Bài viết", 
+                $"[{userName}] vừa đưa bài viết \"{article.Title}\" vào {statusStr}."
+            );
+
             return true;
         }
 
@@ -158,13 +204,22 @@ namespace abchotel.Services
             var article = await _context.Articles.FindAsync(id);
             if (article == null) return false;
 
-            // Chuyển đổi giữa Bản nháp (Null) và Đã xuất bản (DateTime.Now)
             if (article.PublishedAt == null)
                 article.PublishedAt = DateTime.Now;
             else
                 article.PublishedAt = null;
 
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO
+            string pubStr = article.PublishedAt != null ? "xuất bản" : "hủy xuất bản";
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_CONTENT", 
+                "Xuất bản Bài viết", 
+                $"[{userName}] vừa {pubStr} bài viết: \"{article.Title}\"."
+            );
+
             return true;
         }
 
@@ -173,8 +228,36 @@ namespace abchotel.Services
             var article = await _context.Articles.FindAsync(id);
             if (article == null) return false;
 
+            // XỬ LÝ DỌN RÁC CLOUDINARY
+            string oldUrl = article.ThumbnailUrl;
+            if (!string.IsNullOrEmpty(oldUrl) && oldUrl.Contains("cloudinary.com"))
+            {
+                try
+                {
+                    string publicId = _mediaService.ExtractPublicIdFromUrl(oldUrl);
+                    if (!string.IsNullOrEmpty(publicId))
+                    {
+                        await _mediaService.DeleteImageAsync(publicId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Lỗi dọn rác Cloudinary (Bài viết): " + ex.Message);
+                }
+            }
+
+            // LƯU ẢNH MỚI VÀO DB
             article.ThumbnailUrl = thumbnailUrl;
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_CONTENT", 
+                "Cập nhật Ảnh bìa", 
+                $"[{userName}] vừa thay đổi ảnh bìa bài viết: \"{article.Title}\"."
+            );
+
             return true;
         }
 

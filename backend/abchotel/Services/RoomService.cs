@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http; 
+using System.Security.Claims;    
 using abchotel.Data;
 using abchotel.DTOs;
 using abchotel.Models;
@@ -23,8 +25,27 @@ namespace abchotel.Services
     public class RoomService : IRoomService
     {
         private readonly HotelDbContext _context;
+        private readonly INotificationService _notificationService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public RoomService(HotelDbContext context) => _context = context;
+        public RoomService(HotelDbContext context, INotificationService notificationService, IHttpContextAccessor httpContextAccessor)
+        {
+            _context = context;
+            _notificationService = notificationService;
+            _httpContextAccessor = httpContextAccessor;
+        }
+
+        // HÀM LẤY TÊN NGƯỜI THAO TÁC
+        private async Task<string> GetCurrentUserNameAsync()
+        {
+            var userIdStr = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(userIdStr, out int userId))
+            {
+                var user = await _context.Users.FindAsync(userId);
+                return user?.FullName ?? "Một quản trị viên";
+            }
+            return "Hệ thống";
+        }
 
         public async Task<List<RoomResponse>> GetAllRoomsAsync(bool onlyActive = false)
         {
@@ -37,7 +58,7 @@ namespace abchotel.Services
                 query = query.Where(r => r.IsActive);
             }
 
-            return await query.OrderBy(r => r.RoomNumber).Select(r => new RoomResponse
+            return await query.OrderBy(r => r.Floor).ThenBy(r => r.RoomNumber).Select(r => new RoomResponse
             {
                 Id = r.Id,
                 RoomTypeId = r.RoomTypeId,
@@ -88,6 +109,11 @@ namespace abchotel.Services
 
             _context.Rooms.Add(room);
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync("MANAGE_ROOMS", "Tạo Phòng mới", $"[{userName}] vừa tạo phòng số: {room.RoomNumber}.");
+
             return (true, "Tạo phòng mới thành công.");
         }
 
@@ -98,8 +124,7 @@ namespace abchotel.Services
 
             foreach (var roomNum in request.RoomNumbers)
             {
-                if (existingRooms.Contains(roomNum))
-                    continue; // Bỏ qua nếu phòng đã tồn tại
+                if (existingRooms.Contains(roomNum)) continue;
 
                 newRooms.Add(new Room
                 {
@@ -112,11 +137,15 @@ namespace abchotel.Services
                 });
             }
 
-            if (!newRooms.Any())
-                return (false, "Tất cả các số phòng được cung cấp đều đã tồn tại.");
+            if (!newRooms.Any()) return (false, "Tất cả các số phòng được cung cấp đều đã tồn tại.");
 
             _context.Rooms.AddRange(newRooms);
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync("MANAGE_ROOMS", "Tạo Phòng hàng loạt", $"[{userName}] vừa tạo thành công {newRooms.Count} phòng mới ở tầng {request.Floor}.");
+
             return (true, $"Đã tạo thành công {newRooms.Count} phòng mới.");
         }
 
@@ -126,15 +155,12 @@ namespace abchotel.Services
             if (room == null) return false;
 
             var roomTypeExists = await _context.RoomTypes.AnyAsync(rt => rt.Id == request.RoomTypeId);
-            if (!roomTypeExists)
-            {
-                throw new System.Exception("Loại phòng không tồn tại trong hệ thống. Vui lòng kiểm tra lại RoomTypeId.");
-            }
-            // Kiểm tra trùng số phòng 
+            if (!roomTypeExists) throw new System.Exception("Loại phòng không tồn tại.");
+
             if (room.RoomNumber != request.RoomNumber)
             {
                 var isDuplicate = await _context.Rooms.AnyAsync(r => r.RoomNumber == request.RoomNumber);
-                if (isDuplicate) throw new System.Exception("Số phòng này đã tồn tại trong hệ thống.");
+                if (isDuplicate) throw new System.Exception("Số phòng này đã tồn tại.");
             }
 
             room.RoomTypeId = request.RoomTypeId;
@@ -142,6 +168,11 @@ namespace abchotel.Services
             room.Floor = request.Floor;
 
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync("MANAGE_ROOMS", "Cập nhật Phòng", $"[{userName}] vừa cập nhật thông tin phòng {room.RoomNumber}.");
+
             return true;
         }
 
@@ -150,8 +181,14 @@ namespace abchotel.Services
             var room = await _context.Rooms.FindAsync(id);
             if (room == null) return false;
 
-            room.IsActive = !room.IsActive; // Ngừng/Mở kinh doanh phòng này
+            room.IsActive = !room.IsActive; 
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO
+            string statusStr = room.IsActive ? "mở bán" : "ngừng kinh doanh";
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync("MANAGE_ROOMS", "Trạng thái Phòng", $"[{userName}] vừa {statusStr} phòng {room.RoomNumber}.");
+
             return true;
         }
 
@@ -162,6 +199,11 @@ namespace abchotel.Services
 
             room.Status = status;
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync("MANAGE_ROOMS", "Trạng thái Khách", $"[{userName}] vừa chuyển phòng {room.RoomNumber} sang trạng thái: {status}.");
+
             return true;
         }
 
@@ -172,6 +214,11 @@ namespace abchotel.Services
 
             room.CleaningStatus = cleaningStatus;
             await _context.SaveChangesAsync();
+
+            // 🔔 BẮN THÔNG BÁO
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync("MANAGE_ROOMS", "Trạng thái Dọn dẹp", $"[{userName}] vừa báo phòng {room.RoomNumber} là: {cleaningStatus}.");
+
             return true;
         }
     }

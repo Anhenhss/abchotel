@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http; // Bắt buộc để đọc Token
+using System.Security.Claims;    // Bắt buộc để lấy User
 using abchotel.Data;
 using abchotel.DTOs;
 using abchotel.Models;
@@ -11,12 +13,8 @@ namespace abchotel.Services
 {
     public interface IReviewService
     {
-        // Dành cho Khách hàng xem trên web (Chỉ lấy bài đã duyệt IsVisible = true)
         Task<List<ReviewResponse>> GetPublicReviewsByRoomTypeAsync(int roomTypeId);
-        
-        // Dành cho CMS Admin quản lý (Lấy tất cả, có thể lọc theo trạng thái duyệt)
         Task<List<ReviewResponse>> GetAllReviewsForAdminAsync(bool? isVisible = null);
-        
         Task<(bool IsSuccess, string Message)> CreateReviewAsync(int userId, CreateReviewRequest request);
         Task<bool> ApproveReviewAsync(int id);
         Task<bool> ReplyToReviewAsync(int id, string replyComment);
@@ -26,8 +24,27 @@ namespace abchotel.Services
     public class ReviewService : IReviewService
     {
         private readonly HotelDbContext _context;
+        private readonly INotificationService _notificationService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public ReviewService(HotelDbContext context) => _context = context;
+        public ReviewService(HotelDbContext context, INotificationService notificationService, IHttpContextAccessor httpContextAccessor)
+        {
+            _context = context;
+            _notificationService = notificationService;
+            _httpContextAccessor = httpContextAccessor;
+        }
+
+        // HÀM LẤY TÊN NGƯỜI THAO TÁC
+        private async Task<string> GetCurrentUserNameAsync()
+        {
+            var userIdStr = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(userIdStr, out int userId))
+            {
+                var user = await _context.Users.FindAsync(userId);
+                return user?.FullName ?? "Quản trị viên";
+            }
+            return "Hệ thống";
+        }
 
         public async Task<List<ReviewResponse>> GetPublicReviewsByRoomTypeAsync(int roomTypeId)
         {
@@ -79,31 +96,31 @@ namespace abchotel.Services
             if (request.Rating < 1 || request.Rating > 5)
                 return (false, "Số sao đánh giá phải từ 1 đến 5.");
 
-            var roomTypeExists = await _context.RoomTypes.AnyAsync(rt => rt.Id == request.RoomTypeId);
-            if (!roomTypeExists) return (false, "Loại phòng không tồn tại.");
+            var roomType = await _context.RoomTypes.FindAsync(request.RoomTypeId);
+            if (roomType == null) return (false, "Loại phòng không tồn tại.");
 
-            // ==============================================================
-            // BỔ SUNG LOGIC: CHỈ CHO PHÉP ĐÁNH GIÁ KHI ĐÃ ĐẶT VÀ Ở XONG
-            // ==============================================================
+            // Chỉ duyệt những đơn đã hoàn tất (Check-out xong)
             var hasStayed = await _context.BookingDetails
                 .Include(bd => bd.Booking)
                 .AnyAsync(bd => bd.Booking.UserId == userId 
                              && bd.RoomTypeId == request.RoomTypeId 
-                             && bd.Booking.Status == "Completed"); // Chỉ duyệt những đơn đã hoàn tất (Check-out xong)
+                             && bd.Booking.Status == "Completed"); 
 
             if (!hasStayed)
             {
                 return (false, "Hệ thống từ chối: Bạn chỉ có thể đánh giá loại phòng này sau khi đã đặt và hoàn tất kỳ nghỉ tại khách sạn.");
             }
-            // ==============================================================
+
+            var user = await _context.Users.FindAsync(userId);
+            string guestName = user?.FullName ?? "Khách hàng";
 
             var review = new Review
             {
-                UserId = userId, // Trích xuất từ JWT, chống mạo danh
+                UserId = userId, 
                 RoomTypeId = request.RoomTypeId,
                 Rating = request.Rating,
                 Comment = request.Comment,
-                IsVisible = false, // Mặc định là ẨN, chờ Admin duyệt mới được hiện lên web
+                IsVisible = false, // Mặc định là ẨN, chờ Admin duyệt
                 IsActive = true,
                 CreatedAt = DateTime.Now
             };
@@ -111,36 +128,62 @@ namespace abchotel.Services
             _context.Reviews.Add(review);
             await _context.SaveChangesAsync();
 
+            // 🔔 BẮN THÔNG BÁO CHO NHÓM CONTENT VÀO DUYỆT BÀI
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_CONTENT", 
+                "Có đánh giá mới chờ duyệt", 
+                $"[{guestName}] vừa đánh giá {request.Rating} sao cho loại phòng {roomType.Name}. Vui lòng kiểm duyệt."
+            );
+
             return (true, "Gửi đánh giá thành công. Đánh giá của bạn đang chờ kiểm duyệt.");
         }
 
         public async Task<bool> ApproveReviewAsync(int id)
         {
-            var review = await _context.Reviews.FindAsync(id);
+            var review = await _context.Reviews.Include(r => r.RoomType).FirstOrDefaultAsync(r => r.Id == id);
             if (review == null) return false;
 
-            review.IsVisible = true; // Phê duyệt cho hiển thị
+            review.IsVisible = true; // Phê duyệt hiển thị
             await _context.SaveChangesAsync();
+
+            // 🔔 THÔNG BÁO ADMIN
+            string userName = await GetCurrentUserNameAsync();
+            string roomName = review.RoomType?.Name ?? "phòng";
+            await _notificationService.SendToPermissionAsync("MANAGE_CONTENT", "Đã duyệt Đánh giá", $"[{userName}] vừa duyệt hiển thị một đánh giá của {roomName}.");
+
             return true;
         }
 
         public async Task<bool> ReplyToReviewAsync(int id, string replyComment)
         {
-            var review = await _context.Reviews.FindAsync(id);
+            var review = await _context.Reviews.Include(r => r.RoomType).FirstOrDefaultAsync(r => r.Id == id);
             if (review == null) return false;
 
             review.ReplyComment = replyComment;
             await _context.SaveChangesAsync();
+
+            // 🔔 THÔNG BÁO ADMIN
+            string userName = await GetCurrentUserNameAsync();
+            string roomName = review.RoomType?.Name ?? "phòng";
+            await _notificationService.SendToPermissionAsync("MANAGE_CONTENT", "Đã trả lời Khách hàng", $"[{userName}] vừa phản hồi lại đánh giá của khách ở {roomName}.");
+
             return true;
         }
 
         public async Task<bool> ToggleSoftDeleteAsync(int id)
         {
-            var review = await _context.Reviews.FindAsync(id);
+            var review = await _context.Reviews.Include(r => r.RoomType).FirstOrDefaultAsync(r => r.Id == id);
             if (review == null) return false;
 
-            review.IsActive = !review.IsActive; // Xóa mềm (chặn spam)
+            review.IsActive = !review.IsActive; // Xóa mềm
             await _context.SaveChangesAsync();
+
+            // 🔔 THÔNG BÁO ADMIN
+            string action = review.IsActive ? "phục hồi" : "xóa bỏ";
+            string userName = await GetCurrentUserNameAsync();
+            string roomName = review.RoomType?.Name ?? "phòng";
+            await _notificationService.SendToPermissionAsync("MANAGE_CONTENT", "Quản lý Đánh giá", $"[{userName}] vừa {action} một đánh giá rác ở {roomName}.");
+
             return true;
         }
     }
