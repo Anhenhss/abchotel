@@ -3,12 +3,17 @@ import { Card, Table, Input, Select, Button, Space, Typography, Tag, Modal, Form
 import { Plus, MagnifyingGlass, PencilSimple, IdentificationCard, FunnelX, Eye, CheckCircle, LockKey } from '@phosphor-icons/react';
 import { userApi } from '../api/userApi';
 import { roleApi } from '../api/roleApi';
+import { useAuthStore } from '../store/authStore'; // Thêm import store
 
 const { Title, Text } = Typography;
 const ACCENT_RED = '#8A1538';
 const MIDNIGHT_BLUE = '#1C2E4A';
 
 export default function UserManagementPage() {
+  // 🛡️ KIỂM TRA QUYỀN HẠN TỪ STORE
+  const { user: currentUser } = useAuthStore();
+  const canManage = currentUser?.permissions?.includes("MANAGE_USERS");
+
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -27,13 +32,17 @@ export default function UserManagementPage() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewingUser, setViewingUser] = useState(null);
 
+  // ================= GỌI API =================
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const queryParams = { page: filters.page, pageSize: filters.pageSize };
-      if (filters.search && filters.search.trim() !== '') queryParams.search = filters.search;
-      if (filters.roleId !== null && filters.roleId !== undefined) queryParams.roleId = filters.roleId;
-      if (filters.isActive !== null && filters.isActive !== undefined) queryParams.isActive = filters.isActive;
+      const queryParams = { 
+        page: filters.page, 
+        pageSize: filters.pageSize,
+        search: filters.search,
+        roleId: filters.roleId,
+        isActive: filters.isActive
+      };
 
       const res = await userApi.getUsers(queryParams);
       setUsers(res.items || res.data || res || []);
@@ -61,7 +70,9 @@ export default function UserManagementPage() {
     try {
       setLoading(true);
       if (editingUser) {
-        await userApi.updateUser(editingUser.id, values);
+        // Gửi kèm Avatar cũ để tránh bị mất ảnh khi sửa thông tin khác
+        const payload = { ...values, avatarUrl: editingUser.avatarUrl };
+        await userApi.updateUser(editingUser.id, payload);
         notification.success({ message: 'Cập nhật tài khoản thành công!', placement: 'bottomRight' });
       } else {
         await userApi.createUser(values);
@@ -123,8 +134,14 @@ export default function UserManagementPage() {
     {
       title: 'Trạng thái', dataIndex: 'isActive', key: 'isActive',
       render: (isActive, record) => (
-        <Popconfirm title={`Bạn chắc chắn muốn ${isActive ? 'khóa' : 'mở khóa'} tài khoản này?`} onConfirm={() => handleToggleStatus(record.id, !isActive)} okText="Đồng ý" cancelText="Hủy" placement="topRight">
+        <Popconfirm 
+          disabled={!canManage} 
+          title={`Bạn chắc chắn muốn ${isActive ? 'khóa' : 'mở khóa'} tài khoản này?`} 
+          onConfirm={() => handleToggleStatus(record.id, !isActive)} 
+          okText="Đồng ý" cancelText="Hủy" placement="topRight"
+        >
           <Switch 
+            disabled={!canManage}
             checked={isActive} 
             checkedChildren="Hoạt động" 
             unCheckedChildren="Bị khóa" 
@@ -137,29 +154,32 @@ export default function UserManagementPage() {
       title: 'Thao tác', key: 'actions',
       render: (_, record) => (
         <Space size="small">
-          <Tooltip title="Xem chi tiết & Phân quyền">
+          <Tooltip title="Xem chi tiết">
             <Button type="text" icon={<Eye size={20} color="#1890ff" />} onClick={() => handleViewUser(record)} />
           </Tooltip>
 
-          {/* FIX Ở ĐÂY: KHÓA NÚT SỬA KHI TÀI KHOẢN BỊ KHÓA */}
-          <Tooltip title={record.isActive ? "Chỉnh sửa" : "Tài khoản đang bị khóa - Không thể sửa"}>
-            <Button 
-              type="text" 
-              disabled={!record.isActive}
-              icon={<PencilSimple size={20} color={record.isActive ? "#52677D" : "#d9d9d9"} />} 
-              onClick={() => { setEditingUser(record); form.setFieldsValue(record); setIsModalOpen(true); }} 
-            />
-          </Tooltip>
+          {/* CHỈ HIỆN NÚT SỬA/PHÂN QUYỀN NẾU CÓ QUYỀN MANAGE_USERS */}
+          {canManage && (
+            <>
+              <Tooltip title={record.isActive ? "Chỉnh sửa" : "Tài khoản đang bị khóa - Không thể sửa"}>
+                <Button 
+                  type="text" 
+                  disabled={!record.isActive}
+                  icon={<PencilSimple size={20} color={record.isActive ? "#52677D" : "#d9d9d9"} />} 
+                  onClick={() => { setEditingUser(record); form.setFieldsValue(record); setIsModalOpen(true); }} 
+                />
+              </Tooltip>
 
-          {/* FIX Ở ĐÂY: KHÓA NÚT ĐỔI CHỨC VỤ KHI TÀI KHOẢN BỊ KHÓA */}
-          <Tooltip title={record.isActive ? "Đổi chức vụ" : "Tài khoản đang bị khóa - Không thể đổi chức vụ"}>
-            <Button 
-              type="text" 
-              disabled={!record.isActive}
-              icon={<IdentificationCard size={20} color={record.isActive ? MIDNIGHT_BLUE : "#d9d9d9"} />} 
-              onClick={() => { setSelectedUserId(record.id); roleForm.setFieldsValue({ newRoleId: roles.find(r => r.name === record.roleName)?.id }); setIsRoleModalOpen(true); }} 
-            />
-          </Tooltip>
+              <Tooltip title={record.isActive ? "Đổi chức vụ" : "Tài khoản đang bị khóa - Không thể đổi chức vụ"}>
+                <Button 
+                  type="text" 
+                  disabled={!record.isActive}
+                  icon={<IdentificationCard size={20} color={record.isActive ? MIDNIGHT_BLUE : "#d9d9d9"} />} 
+                  onClick={() => { setSelectedUserId(record.id); roleForm.setFieldsValue({ newRoleId: roles.find(r => r.name === record.roleName)?.id }); setIsRoleModalOpen(true); }} 
+                />
+              </Tooltip>
+            </>
+          )}
         </Space>
       )
     }
@@ -179,9 +199,13 @@ export default function UserManagementPage() {
               <Button size="large" icon={<FunnelX size={20} />} onClick={handleClearFilters} style={{ color: '#52677D' }}>Xóa lọc</Button>
             </Tooltip>
           </Space>
-          <Button type="primary" size="large" icon={<Plus size={18} />} onClick={() => { setEditingUser(null); form.resetFields(); setIsModalOpen(true); }} style={{ backgroundColor: ACCENT_RED, borderRadius: 8, fontWeight: 'bold', boxShadow: '0 4px 10px rgba(138, 21, 56, 0.3)' }}>
-            THÊM NHÂN VIÊN
-          </Button>
+          
+          {/* CHỈ HIỆN NÚT THÊM NẾU CÓ QUYỀN MANAGE_USERS */}
+          {canManage && (
+            <Button type="primary" size="large" icon={<Plus size={18} />} onClick={() => { setEditingUser(null); form.resetFields(); setIsModalOpen(true); }} style={{ backgroundColor: ACCENT_RED, borderRadius: 8, fontWeight: 'bold', boxShadow: '0 4px 10px rgba(138, 21, 56, 0.3)' }}>
+              THÊM NHÂN VIÊN
+            </Button>
+          )}
         </div>
       </Card>
 
@@ -225,15 +249,15 @@ export default function UserManagementPage() {
         <Form form={form} layout="vertical" onFinish={onFinish} style={{ marginTop: 20 }}>
           <Form.Item name="fullName" label="Họ và tên" rules={[{ required: true, message: 'Vui lòng nhập họ tên' }]}><Input size="large" placeholder="Nguyễn Văn A" /></Form.Item>
           <Form.Item name="email" label="Email" rules={[{ required: true, message: 'Vui lòng nhập email' }, { type: 'email' }]}><Input size="large" placeholder="abc@hotel.com" disabled={!!editingUser} /></Form.Item>
-          <Form.Item name="phone" label="Số điện thoại"><Input size="large" placeholder="0901234567" /></Form.Item>
-          {!editingUser && <Form.Item name="roleId" label="Chức vụ" rules={[{ required: true }]}><Select size="large" options={roles.map(r => ({ value: r.id, label: r.name }))} /></Form.Item>}
+          <Form.Item name="phone" label="Số điện thoại" rules={[{ pattern: /^0\d{9}$/, message: 'SĐT không hợp lệ (10 số, bắt đầu bằng 0)' }]}><Input size="large" placeholder="0901234567" /></Form.Item>
+          {!editingUser && <Form.Item name="roleId" label="Chức vụ" rules={[{ required: true }]}><Select size="large" placeholder="Chọn chức vụ..." options={roles.map(r => ({ value: r.id, label: r.name }))} /></Form.Item>}
           <div style={{ textAlign: 'right', marginTop: 24 }}><Space><Button size="large" onClick={() => setIsModalOpen(false)}>Hủy</Button><Button size="large" type="primary" htmlType="submit" loading={loading} style={{ backgroundColor: ACCENT_RED }}>{editingUser ? 'Lưu thay đổi' : 'Tạo tài khoản'}</Button></Space></div>
         </Form>
       </Modal>
 
       <Modal title={<Title level={4} style={{ color: MIDNIGHT_BLUE, margin: 0 }}>Đổi Chức vụ</Title>} open={isRoleModalOpen} onCancel={() => setIsRoleModalOpen(false)} footer={null} centered width={400}>
         <Form form={roleForm} layout="vertical" onFinish={onChangeRoleSubmit} style={{ marginTop: 20 }}>
-          <Form.Item name="newRoleId" label="Chọn chức vụ mới" rules={[{ required: true }]}><Select size="large" options={roles.map(r => ({ value: r.id, label: r.name }))} /></Form.Item>
+          <Form.Item name="newRoleId" label="Chọn chức vụ mới" rules={[{ required: true, message: 'Vui lòng chọn chức vụ' }]}><Select size="large" placeholder="Chọn chức vụ..." options={roles.map(r => ({ value: r.id, label: r.name }))} /></Form.Item>
           <Button size="large" type="primary" htmlType="submit" loading={loading} block style={{ backgroundColor: MIDNIGHT_BLUE }}>Cập nhật Chức vụ</Button>
         </Form>
       </Modal>

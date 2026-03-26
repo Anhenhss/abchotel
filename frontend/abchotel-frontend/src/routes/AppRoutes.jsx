@@ -100,7 +100,7 @@ export default function AppRoutes() {
           </RequirePermission>
         } />
         <Route path="reviews" element={
-          <RequirePermission requiredPermissions={["MANAGE_CONTENT", "MANAGE_ROOMS"]}>
+          <RequirePermission requiredPermissions={["MANAGE_CONTENT"]}>
              <ReviewsPage />
           </RequirePermission>
         } />

@@ -111,7 +111,7 @@ export default function AmenitiesPage() {
 
   return (
     <div>
-      <Title level={3} style={{ color: PALETTE.darkest, fontFamily: '"Source Serif 4", serif', marginBottom: 24 }}>Quản lý Tiện Ích Phòng (Amenities)</Title>
+      <Title level={3} style={{ color: PALETTE.darkest, fontFamily: '"Source Serif 4", serif', marginBottom: 24 }}>Quản lý Tiện Ích Phòng</Title>
 
       <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.03)', marginBottom: 24 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>

@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,7 +9,7 @@ namespace abchotel.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Policy = "MANAGE_ROLES")]
+    [Authorize] 
     public class RolesController : ControllerBase
     {
         private readonly IRoleService _roleService;
@@ -18,22 +19,43 @@ namespace abchotel.Controllers
             _roleService = roleService;
         }
 
+        // HÀM PHỤ TRỢ KIỂM TRA QUYỀN "XEM" HOẶC "QUẢN LÝ"
+        private bool HasViewOrManageRoles()
+        {
+            // Trích xuất danh sách quyền từ Token của user
+            var permissions = User.FindAll("Permission").Select(c => c.Value);
+            return permissions.Contains("VIEW_ROLES") || permissions.Contains("MANAGE_ROLES");
+        }
+
+        // ==========================================
+        // NHÓM API LẤY DỮ LIỆU (GET) - CHO PHÉP CẢ VIEW HOẶC MANAGE
+        // ==========================================
+
         [HttpGet]
         public async Task<IActionResult> GetRoles()
         {
+            // Nếu không có VIEW cũng không có MANAGE -> Đá văng ra (Lỗi 403 Forbidden)
+            if (!HasViewOrManageRoles()) return Forbid();
+
             var roles = await _roleService.GetAllRolesAsync();
             return Ok(roles);
         }
 
-        // API này để Frontend gọi lấy danh sách Checkbox phân quyền
         [HttpGet("permissions")]
         public async Task<IActionResult> GetPermissions()
         {
+            if (!HasViewOrManageRoles()) return Forbid();
+
             var permissions = await _roleService.GetAllPermissionsAsync();
             return Ok(permissions);
         }
 
+        // ==========================================
+        // NHÓM API THAO TÁC (POST/PUT/DELETE) - BẮT BUỘC CHỈ CÓ MANAGE
+        // ==========================================
+
         [HttpPost]
+        [Authorize(Policy = "MANAGE_ROLES")] // 🔒 Ép buộc khắt khe: Phải có MANAGE_ROLES
         public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequest request)
         {
             var role = await _roleService.CreateRoleAsync(request);
@@ -41,6 +63,7 @@ namespace abchotel.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Policy = "MANAGE_ROLES")]
         public async Task<IActionResult> UpdateRole(int id, [FromBody] UpdateRoleRequest request)
         {
             var success = await _roleService.UpdateRoleAsync(id, request);
@@ -49,6 +72,7 @@ namespace abchotel.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Policy = "MANAGE_ROLES")]
         public async Task<IActionResult> DeleteRole(int id)
         {
             try
@@ -65,6 +89,7 @@ namespace abchotel.Controllers
         }
 
         [HttpPost("assign-permission")]
+        [Authorize(Policy = "MANAGE_ROLES")]
         public async Task<IActionResult> AssignPermission([FromBody] AssignPermissionRequest request)
         {
             var success = await _roleService.AssignPermissionsAsync(request.RoleId, request.PermissionIds);

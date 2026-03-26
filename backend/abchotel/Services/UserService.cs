@@ -139,18 +139,41 @@ namespace abchotel.Services
             var user = await _context.Users.FindAsync(id);
             if (user == null) return false;
 
+            // CHẶN CHỈNH SỬA NẾU TÀI KHOẢN ĐANG BỊ KHÓA
+            if (!user.IsActive) return false; 
+
             user.FullName = request.FullName;
             user.Phone = request.Phone;
             user.AvatarUrl = request.AvatarUrl;
 
             await _context.SaveChangesAsync();
 
-            // Đẩy thông báo Realtime
             string currentUserName = await GetCurrentUserNameAsync();
             await _notificationService.SendToPermissionAsync(
                 "MANAGE_USERS", 
                 "Cập nhật Hồ sơ", 
                 $"Quản lý [{currentUserName}] vừa chỉnh sửa thông tin của nhân viên {user.FullName}."
+            );
+
+            return true;
+        }
+
+        public async Task<bool> ChangeUserRoleAsync(int id, int newRoleId)
+        {
+            var user = await _context.Users.FindAsync(id);
+            if (user == null) return false;
+
+            // CHẶN ĐỔI CHỨC VỤ NẾU TÀI KHOẢN ĐANG BỊ KHÓA
+            if (!user.IsActive) return false;
+
+            user.RoleId = newRoleId;
+            await _context.SaveChangesAsync();
+
+            string currentUserName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_USERS", 
+                "Thay đổi Chức vụ", 
+                $"Quản lý [{currentUserName}] vừa đổi chức vụ của nhân viên {user.FullName}."
             );
 
             return true;
@@ -171,25 +194,6 @@ namespace abchotel.Services
                 "MANAGE_USERS", 
                 "Cập nhật Trạng thái", 
                 $"Quản lý [{currentUserName}] vừa {statusStr} tài khoản của nhân viên {user.FullName}."
-            );
-
-            return true;
-        }
-
-        public async Task<bool> ChangeUserRoleAsync(int id, int newRoleId)
-        {
-            var user = await _context.Users.FindAsync(id);
-            if (user == null) return false;
-
-            user.RoleId = newRoleId;
-            await _context.SaveChangesAsync();
-
-            // Đẩy thông báo Realtime
-            string currentUserName = await GetCurrentUserNameAsync();
-            await _notificationService.SendToPermissionAsync(
-                "MANAGE_USERS", 
-                "Thay đổi Chức vụ", 
-                $"Quản lý [{currentUserName}] vừa đổi chức vụ của nhân viên {user.FullName}."
             );
 
             return true;

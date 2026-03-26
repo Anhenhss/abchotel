@@ -72,27 +72,32 @@ export default function AdminLayout() {
   ];
 
   const notificationContent = (
-    <div style={{ width: 320 }}>
-      <div style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text strong>Thông báo mới</Text>
+    <div style={{ width: 340 }}>
+      <div style={{ padding: '8px 12px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Text strong style={{ fontSize: 15, color: MIDNIGHT_BLUE }}>Thông báo mới</Text>
         <Button type="link" size="small" onClick={handleMarkAllAsRead}>Đánh dấu đã đọc</Button>
       </div>
-      <List
-        itemLayout="horizontal"
-        dataSource={notifications}
-        locale={{ emptyText: 'Không có thông báo mới' }}
-        renderItem={item => (
-          <List.Item style={{ padding: '12px 8px', cursor: 'pointer', transition: 'background 0.3s', opacity: item.isRead ? 0.6 : 1 }} className="notif-item">
-            <List.Item.Meta
-              avatar={<Avatar style={{ backgroundColor: '#e9f0f8', color: ACCENT_RED }} icon={<BellRinging />} />}
-              title={<Text strong style={{ fontSize: 13, color: item.isRead ? '#8c8c8c' : '#0F1A2B' }}>{item.title || 'Hệ thống'}</Text>}
-              description={<Text style={{ fontSize: 12, color: item.isRead ? '#bfbfbf' : '#52677D' }} ellipsis={{ rows: 2 }}>{item.content}</Text>}
-            />
-          </List.Item>
-        )}
-      />
-      <div style={{ marginTop: 8, textAlign: 'center' }}>
-        <Button type="link" block onClick={() => navigate('/admin/audit-logs')} style={{ color: ACCENT_RED }}>
+      
+      {/* 🛡️ FIX Ở ĐÂY: Thêm max-height, thanh cuộn và cắt đúng 10 thông báo */}
+      <div style={{ maxHeight: 380, overflowY: 'auto', padding: '0 4px' }} className="custom-sider-scroll">
+        <List
+          itemLayout="horizontal"
+          dataSource={notifications.slice(0, 10)} // Chỉ lấy 10 cái mới nhất
+          locale={{ emptyText: 'Không có thông báo mới' }}
+          renderItem={item => (
+            <List.Item style={{ padding: '12px 8px', cursor: 'pointer', transition: 'background 0.3s', opacity: item.isRead ? 0.6 : 1, borderBottom: '1px solid #f5f5f5' }} className="notif-item">
+              <List.Item.Meta
+                avatar={<Avatar style={{ backgroundColor: item.isRead ? '#f0f0f0' : '#ffe8eb', color: item.isRead ? '#bfbfbf' : ACCENT_RED }} icon={<BellRinging />} />}
+                title={<Text strong style={{ fontSize: 13, color: item.isRead ? '#8c8c8c' : '#0F1A2B' }}>{item.title || 'Hệ thống'}</Text>}
+                description={<Text style={{ fontSize: 12, color: item.isRead ? '#bfbfbf' : '#52677D' }} ellipsis={{ rows: 2 }}>{item.content}</Text>}
+              />
+            </List.Item>
+          )}
+        />
+      </div>
+
+      <div style={{ padding: '8px 12px', textAlign: 'center', borderTop: '1px solid #f0f0f0', backgroundColor: '#fafafa', borderRadius: '0 0 8px 8px' }}>
+        <Button type="link" block onClick={() => navigate('/admin/audit-logs')} style={{ color: ACCENT_RED, fontWeight: 500 }}>
           Xem toàn bộ Lịch sử Hệ thống
         </Button>
       </div>
@@ -132,15 +137,12 @@ export default function AdminLayout() {
       <style>{`
         .custom-sider-scroll::-webkit-scrollbar { width: 4px; }
         .custom-sider-scroll::-webkit-scrollbar-thumb { background: #52677D; border-radius: 4px; }
-        .notif-item:hover { background-color: #f5f5f5; border-radius: 8px; }
+        .notif-item:hover { background-color: #e9f0f8 !important; border-radius: 6px; }
         .ant-menu-dark .ant-menu-item-selected { background-color: ${ACCENT_RED} !important; border-radius: 8px !important; width: calc(100% - 16px) !important; margin: 4px 8px !important; }
         .ant-menu-dark .ant-menu-item:hover:not(.ant-menu-item-selected) { background-color: rgba(138, 21, 56, 0.2) !important; border-radius: 8px !important; width: calc(100% - 16px) !important; margin: 4px 8px !important; }
       `}</style>
       
-      {/* ĐÃ SỬA CHỖ NÀY: Bỏ display flex ra khỏi thẻ Sider */}
       <Sider trigger={null} collapsible collapsed={collapsed} width={260} theme="dark" style={{ height: '100vh', borderRight: '1px solid #0F1A2B' }}>
-        
-        {/* TẠO THẺ DIV MỚI BAO BỌC VÀ NHẬN LỆNH FLEX */}
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           
           <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', padding: collapsed ? '0' : '0 20px', borderBottom: '1px solid #1C2E4A', flexShrink: 0 }}>
@@ -163,8 +165,7 @@ export default function AdminLayout() {
           </Space>
           <Space size="large">
             
-            {/* POPOVER CHUÔNG THÔNG BÁO */}
-            <Popover content={notificationContent} trigger="click" placement="bottomRight" arrow={false}>
+            <Popover content={notificationContent} trigger="click" placement="bottomRight" arrow={false} overlayInnerStyle={{ padding: 0, borderRadius: 8, overflow: 'hidden' }}>
               <Badge count={unreadCount} overflowCount={99} color={ACCENT_RED}>
                 <BellRinging size={24} color="#1C2E4A" weight="regular" style={{ cursor: 'pointer', marginTop: 4 }} onClick={() => setUnreadCount(0)} />
               </Badge>
