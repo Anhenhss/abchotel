@@ -18,6 +18,7 @@ namespace abchotel.Services
         Task<bool> UpdateUserAsync(int id, UpdateUserRequest request);
         Task<bool> SoftDeleteUserAsync(int id);
         Task<bool> ChangeUserRoleAsync(int id, int newRoleId);
+        Task<bool> ResetUserPasswordAsync(int id);
     }
 
     public class UserService : IUserService
@@ -57,19 +58,19 @@ namespace abchotel.Services
 
             if (!string.IsNullOrEmpty(filter.Search))
             {
-                query = query.Where(u => u.FullName.Contains(filter.Search) || 
-                                         u.Email.Contains(filter.Search) || 
+                query = query.Where(u => u.FullName.Contains(filter.Search) ||
+                                         u.Email.Contains(filter.Search) ||
                                          u.Phone.Contains(filter.Search));
             }
-            
+
             if (filter.RoleId.HasValue)
                 query = query.Where(u => u.RoleId == filter.RoleId.Value);
-            
+
             if (filter.IsActive.HasValue)
                 query = query.Where(u => u.IsActive == filter.IsActive.Value);
 
             var totalItems = await query.CountAsync();
-            
+
             var items = await query
                 .OrderByDescending(u => u.Id)
                 .Skip((filter.Page - 1) * filter.PageSize)
@@ -140,7 +141,7 @@ namespace abchotel.Services
             if (user == null) return false;
 
             // CHẶN CHỈNH SỬA NẾU TÀI KHOẢN ĐANG BỊ KHÓA
-            if (!user.IsActive) return false; 
+            if (!user.IsActive) return false;
 
             user.FullName = request.FullName;
             user.Phone = request.Phone;
@@ -150,8 +151,8 @@ namespace abchotel.Services
 
             string currentUserName = await GetCurrentUserNameAsync();
             await _notificationService.SendToPermissionAsync(
-                "MANAGE_USERS", 
-                "Cập nhật Hồ sơ", 
+                "MANAGE_USERS",
+                "Cập nhật Hồ sơ",
                 $"Quản lý [{currentUserName}] vừa chỉnh sửa thông tin của nhân viên {user.FullName}."
             );
 
@@ -171,8 +172,8 @@ namespace abchotel.Services
 
             string currentUserName = await GetCurrentUserNameAsync();
             await _notificationService.SendToPermissionAsync(
-                "MANAGE_USERS", 
-                "Thay đổi Chức vụ", 
+                "MANAGE_USERS",
+                "Thay đổi Chức vụ",
                 $"Quản lý [{currentUserName}] vừa đổi chức vụ của nhân viên {user.FullName}."
             );
 
@@ -191,9 +192,43 @@ namespace abchotel.Services
             string currentUserName = await GetCurrentUserNameAsync();
             string statusStr = user.IsActive ? "mở khóa" : "khóa";
             await _notificationService.SendToPermissionAsync(
-                "MANAGE_USERS", 
-                "Cập nhật Trạng thái", 
+                "MANAGE_USERS",
+                "Cập nhật Trạng thái",
                 $"Quản lý [{currentUserName}] vừa {statusStr} tài khoản của nhân viên {user.FullName}."
+            );
+
+            return true;
+        }
+        public async Task<bool> ResetUserPasswordAsync(int id)
+        {
+            var user = await _context.Users.FindAsync(id);
+            if (user == null || !user.IsActive) return false;
+
+            // Sinh mật khẩu ngẫu nhiên: Abc@ + 5 số ngẫu nhiên
+            string newPassword = "Abc@" + new Random().Next(10000, 99999).ToString();
+            
+            // Băm mật khẩu (Hash)
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+
+            await _context.SaveChangesAsync();
+
+            // GỬI MẬT KHẨU MỚI QUA EMAIL BẰNG SMTP
+            string emailBody = $@"
+                <h3>Xin chào {user.FullName},</h3>
+                <p>Quản trị viên vừa yêu cầu cấp lại mật khẩu đăng nhập hệ thống ABC Hotel cho bạn.</p>
+                <p><b>Email đăng nhập:</b> {user.Email}</p>
+                <p><b>Mật khẩu mới của bạn là:</b> <span style='color: #8A1538; font-size: 18px;'>{newPassword}</span></p>
+                <p>Vui lòng đăng nhập và đổi lại mật khẩu của riêng bạn ngay lập tức để bảo đảm an toàn.</p>
+                <br/><p>Trân trọng,<br/>Ban quản trị hệ thống ABC Hotel</p>";
+                
+            await _emailService.SendEmailAsync(user.Email, "Cấp lại mật khẩu - ABC Hotel", emailBody);
+
+            // LƯU AUDIT LOG & ĐẨY THÔNG BÁO REALTIME
+            string currentUserName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync(
+                "MANAGE_USERS", 
+                "Cấp lại mật khẩu", 
+                $"Quản lý [{currentUserName}] vừa cấp lại mật khẩu mới cho nhân viên {user.FullName}."
             );
 
             return true;

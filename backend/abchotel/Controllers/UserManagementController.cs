@@ -9,7 +9,7 @@ namespace abchotel.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize] 
+    [Authorize]
     public class UserManagementController : ControllerBase
     {
         private readonly IUserService _userService;
@@ -57,9 +57,9 @@ namespace abchotel.Controllers
         public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserRequest request)
         {
             var success = await _userService.UpdateUserAsync(id, request);
-            if (!success) 
+            if (!success)
                 return BadRequest(new { message = "Không tìm thấy người dùng hoặc tài khoản đang bị khóa, không thể chỉnh sửa." });
-            
+
             return Ok(new { message = "Cập nhật thành công." });
         }
 
@@ -68,7 +68,7 @@ namespace abchotel.Controllers
         public async Task<IActionResult> ChangeRole(int id, [FromBody] ChangeRoleRequest request)
         {
             var success = await _userService.ChangeUserRoleAsync(id, request.NewRoleId);
-            if (!success) 
+            if (!success)
                 return BadRequest(new { message = "Không tìm thấy người dùng hoặc tài khoản đang bị khóa, không thể đổi chức vụ." });
 
             return Ok(new { message = "Thay đổi vai trò thành công." });
@@ -81,6 +81,16 @@ namespace abchotel.Controllers
             var success = await _userService.SoftDeleteUserAsync(id);
             if (!success) return NotFound(new { message = "Không tìm thấy người dùng." });
             return Ok(new { message = "Đã thay đổi trạng thái ẩn/hiện người dùng." });
+        }
+        [HttpPost("{id}/reset-password")]
+        [Authorize(Policy = "MANAGE_USERS")] 
+        public async Task<IActionResult> ResetPassword(int id)
+        {
+            var success = await _userService.ResetUserPasswordAsync(id);
+            if (!success) 
+                return BadRequest(new { message = "Không tìm thấy nhân viên hoặc tài khoản đang bị khóa." });
+            
+            return Ok(new { message = "Đã cấp lại mật khẩu và gửi qua email thành công." });
         }
     }
 }

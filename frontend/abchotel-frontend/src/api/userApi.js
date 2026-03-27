@@ -15,4 +15,5 @@ export const userApi = {
   
   // Đổi chức vụ (Role)
   changeRole: (id, newRoleId) => axiosClient.put(`/UserManagement/${id}/change-role`, { newRoleId }),
+  resetPassword: (id) => axiosClient.post('/UserManagement/'+id+'/reset-password'),
 };

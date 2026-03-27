@@ -1,22 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Table, Input, Select, Button, Space, Typography, Tag, Modal, Form, notification, Tooltip, Popconfirm, Switch, Row, Col, Divider } from 'antd';
-import { Plus, MagnifyingGlass, PencilSimple, IdentificationCard, FunnelX, Eye, CheckCircle, LockKey } from '@phosphor-icons/react';
+import { Plus, MagnifyingGlass, PencilSimple, IdentificationCard, FunnelX, Eye, CheckCircle, LockKey, Key } from '@phosphor-icons/react';
 import { userApi } from '../api/userApi';
 import { roleApi } from '../api/roleApi';
-import { useAuthStore } from '../store/authStore'; // Thêm import store
+import { useAuthStore } from '../store/authStore';
 
 const { Title, Text } = Typography;
 const ACCENT_RED = '#8A1538';
 const MIDNIGHT_BLUE = '#1C2E4A';
 
 export default function UserManagementPage() {
-  // 🛡️ KIỂM TRA QUYỀN HẠN TỪ STORE
   const { user: currentUser } = useAuthStore();
   const canManage = currentUser?.permissions?.includes("MANAGE_USERS");
 
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false); // Thêm loading cho nút Reset
   const [total, setTotal] = useState(0);
 
   const [filters, setFilters] = useState({ page: 1, pageSize: 10, search: '', roleId: null, isActive: null });
@@ -32,7 +32,6 @@ export default function UserManagementPage() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewingUser, setViewingUser] = useState(null);
 
-  // ================= GỌI API =================
   const fetchUsers = async () => {
     try {
       setLoading(true);
@@ -70,7 +69,6 @@ export default function UserManagementPage() {
     try {
       setLoading(true);
       if (editingUser) {
-        // Gửi kèm Avatar cũ để tránh bị mất ảnh khi sửa thông tin khác
         const payload = { ...values, avatarUrl: editingUser.avatarUrl };
         await userApi.updateUser(editingUser.id, payload);
         notification.success({ message: 'Cập nhật tài khoản thành công!', placement: 'bottomRight' });
@@ -105,6 +103,20 @@ export default function UserManagementPage() {
     } catch (error) {
       notification.error({ message: 'Lỗi khi đổi chức vụ', placement: 'bottomRight' });
     } finally { setLoading(false); }
+  };
+
+  // 🔥 HÀM MỚI: XỬ LÝ GỬI LẠI MẬT KHẨU
+  const handleResetPassword = async (userId) => {
+    try {
+      setResetLoading(true);
+      await userApi.resetPassword(userId);
+      notification.success({ message: 'Đã tạo và gửi mật khẩu mới qua Email!', placement: 'bottomRight' });
+      setIsViewModalOpen(false);
+    } catch (error) {
+      notification.error({ message: error.response?.data?.message || 'Lỗi cấp lại mật khẩu', placement: 'bottomRight' });
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   const handleViewUser = (user) => {
@@ -158,7 +170,6 @@ export default function UserManagementPage() {
             <Button type="text" icon={<Eye size={20} color="#1890ff" />} onClick={() => handleViewUser(record)} />
           </Tooltip>
 
-          {/* CHỈ HIỆN NÚT SỬA/PHÂN QUYỀN NẾU CÓ QUYỀN MANAGE_USERS */}
           {canManage && (
             <>
               <Tooltip title={record.isActive ? "Chỉnh sửa" : "Tài khoản đang bị khóa - Không thể sửa"}>
@@ -200,7 +211,6 @@ export default function UserManagementPage() {
             </Tooltip>
           </Space>
           
-          {/* CHỈ HIỆN NÚT THÊM NẾU CÓ QUYỀN MANAGE_USERS */}
           {canManage && (
             <Button type="primary" size="large" icon={<Plus size={18} />} onClick={() => { setEditingUser(null); form.resetFields(); setIsModalOpen(true); }} style={{ backgroundColor: ACCENT_RED, borderRadius: 8, fontWeight: 'bold', boxShadow: '0 4px 10px rgba(138, 21, 56, 0.3)' }}>
               THÊM NHÂN VIÊN
@@ -213,6 +223,7 @@ export default function UserManagementPage() {
         <Table columns={columns} dataSource={users} rowKey="id" loading={loading} pagination={{ current: filters.page, pageSize: filters.pageSize, total: total, showSizeChanger: true, pageSizeOptions: ['5', '10', '20', '50'], showTotal: (total, range) => `Hiển thị ${range[0]}-${range[1]} trong tổng số ${total} tài khoản`, style: { paddingRight: 24 } }} onChange={handleTableChange} rowClassName={(record, index) => index % 2 === 0 ? 'table-row-light' : 'table-row-dark'} />
       </Card>
 
+      {/* 🔥 MODAL XEM CHI TIẾT (ĐÃ THÊM NÚT GỬI LẠI MẬT KHẨU) */}
       <Modal title={<Title level={4} style={{ color: MIDNIGHT_BLUE, margin: 0 }}>Hồ sơ Nhân viên</Title>} open={isViewModalOpen} onCancel={() => setIsViewModalOpen(false)} footer={[<Button key="close" onClick={() => setIsViewModalOpen(false)} style={{ borderRadius: 8 }}>Đóng lại</Button>]} width={600} centered>
         {viewingUser && (
           <div style={{ marginTop: 20 }}>
@@ -241,6 +252,28 @@ export default function UserManagementPage() {
                 <Text type="secondary" italic>Người dùng này chưa được gán quyền hạn nào.</Text>
               )}
             </div>
+
+            {/* NÚT GỬI LẠI MẬT KHẨU CHỈ HIỆN KHI CÓ QUYỀN MANAGE VÀ KHÔNG PHẢI GUEST */}
+            {canManage && viewingUser.roleName !== 'Guest' && (
+              <>
+                <Divider dashed style={{ margin: '16px 0' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff1f0', padding: 12, borderRadius: 8, border: '1px dashed #ffa39e' }}>
+                  <Text style={{ color: ACCENT_RED }}>Nhân viên quên mật khẩu đăng nhập?</Text>
+                  <Popconfirm 
+                    title="Xác nhận cấp lại mật khẩu?" 
+                    description="Hệ thống sẽ tạo mật khẩu mới và gửi thẳng vào email của nhân viên này."
+                    onConfirm={() => handleResetPassword(viewingUser.id)} 
+                    okText="Đồng ý gửi" 
+                    cancelText="Hủy" 
+                    placement="topRight"
+                  >
+                    <Button type="primary" danger icon={<Key size={18} />} loading={resetLoading}>
+                      Cấp lại mật khẩu
+                    </Button>
+                  </Popconfirm>
+                </div>
+              </>
+            )}
           </div>
         )}
       </Modal>
