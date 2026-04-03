@@ -6,12 +6,14 @@ import { roomInventoryApi } from '../../../api/roomInventoryApi';
 import { equipmentApi } from '../../../api/equipmentApi';
 import { roomApi } from '../../../api/roomApi';
 import { COLORS } from '../../../constants/theme';
+import { useSignalR } from '../../../hooks/useSignalR'; // 🔥 Đã thêm Hook Realtime
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
 
 export default function TabRoomInventory({ room }) {
-  const [api, contextHolder] = notification.useNotification();
+  // 🔥 Ép toàn bộ thông báo thao tác tay xuống góc dưới bên phải
+  const [api, contextHolder] = notification.useNotification({ placement: 'bottomRight' });
   const screens = useBreakpoint();
 
   const [inventories, setInventories] = useState([]);
@@ -35,22 +37,30 @@ export default function TabRoomInventory({ room }) {
   const [editingItem, setEditingItem] = useState(null);
   const [editForm] = Form.useForm();
 
-  // 1. TẢI DỮ LIỆU BAN ĐẦU
-  const fetchInventories = async () => {
+  // 1. TẢI DỮ LIỆU (Tách biệt Realtime và Manual)
+  const fetchInventories = async (isRealtime = false) => {
     try {
-      setLoading(true);
+      if (!isRealtime) setLoading(true);
       const data = await roomInventoryApi.getInventoryByRoom(room.id, false);
       setInventories(data || []);
+      // 🔥 Bỏ pop-up thông báo hệ thống cập nhật, chỉ âm thầm refresh dữ liệu
     } catch (error) {
-      api.error({ title: 'Lỗi', description: 'Không thể tải danh sách vật tư.' });
+      if (!isRealtime) {
+        api.error({ message: 'Lỗi', description: 'Không thể tải danh sách vật tư.' });
+      }
     } finally {
-      setLoading(false);
+      if (!isRealtime) setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (room?.id) fetchInventories();
+    if (room?.id) fetchInventories(false);
   }, [room?.id]);
+
+  // 🔥 Lắng nghe Realtime để tự làm mới danh sách khi có thay đổi từ kho
+  useSignalR(() => {
+    if (room?.id) fetchInventories(true);
+  });
 
   // ==============================================
   // TÍNH NĂNG: ĐỒNG BỘ GIÁ TỪ KHO TỔNG
@@ -58,18 +68,15 @@ export default function TabRoomInventory({ room }) {
   const handleSyncWithGlobalInventory = async () => {
     try {
       setLoading(true);
-      // 1. Kéo toàn bộ dữ liệu mới nhất từ Kho tổng
       const globalEquipments = await equipmentApi.getAll(true);
       let syncCount = 0;
 
-      // 2. Dò từng món trong phòng xem có lệch giá không
       for (const item of inventories) {
         const globalEq = globalEquipments.find(e => e.id === item.equipmentId);
         if (globalEq && globalEq.defaultPriceIfLost !== item.priceIfLost) {
-          // Bắn API cập nhật lại giá cho món đồ này
           await roomInventoryApi.updateInventory(item.id, {
             quantity: item.quantity,
-            priceIfLost: globalEq.defaultPriceIfLost, // Cập nhật giá mới
+            priceIfLost: globalEq.defaultPriceIfLost, 
             note: item.note
           });
           syncCount++;
@@ -77,13 +84,13 @@ export default function TabRoomInventory({ room }) {
       }
 
       if (syncCount > 0) {
-        api.success({ title: 'Đồng bộ thành công', description: `Đã cập nhật giá mới cho ${syncCount} loại vật tư.` });
-        fetchInventories();
+        api.success({ message: 'Đồng bộ thành công', description: `Đã cập nhật giá mới cho ${syncCount} loại vật tư.` });
+        fetchInventories(false);
       } else {
-        api.info({ title: 'Không có thay đổi', description: 'Toàn bộ vật tư trong phòng đang có giá khớp với Kho tổng.' });
+        api.info({ message: 'Không có thay đổi', description: 'Toàn bộ vật tư trong phòng đang có giá khớp với Kho tổng.' });
       }
     } catch (error) {
-      api.error({ title: 'Lỗi đồng bộ', description: 'Không thể thực hiện đồng bộ.' });
+      api.error({ message: 'Lỗi đồng bộ', description: 'Không thể thực hiện đồng bộ.' });
     } finally {
       setLoading(false);
     }
@@ -101,7 +108,7 @@ export default function TabRoomInventory({ room }) {
       setEquipQuantities({});
       setIsAddModalOpen(true);
     } catch (e) {
-      api.error({ title: 'Lỗi', description: 'Không thể tải danh sách kho tổng.' });
+      api.error({ message: 'Lỗi', description: 'Không thể tải danh sách kho tổng.' });
     } finally {
       setLoading(false);
     }
@@ -121,11 +128,11 @@ export default function TabRoomInventory({ room }) {
           note: "Thêm thủ công"
         });
       }
-      api.success({ title: 'Thành công', description: `Đã thêm ${selectedEquipIds.length} vật tư vào phòng.` });
+      api.success({ message: 'Thành công', description: `Đã thêm ${selectedEquipIds.length} vật tư vào phòng.` });
       setIsAddModalOpen(false);
-      fetchInventories();
+      fetchInventories(false);
     } catch (e) {
-      api.error({ title: 'Lỗi', description: 'Có lỗi trong quá trình thêm vật tư.' });
+      api.error({ message: 'Lỗi', description: 'Có lỗi trong quá trình thêm vật tư.' });
     } finally {
       setLoading(false);
     }
@@ -149,7 +156,7 @@ export default function TabRoomInventory({ room }) {
       cloneForm.resetFields();
       setIsCloneModalOpen(true);
     } catch (e) {
-      api.error({ title: 'Lỗi', description: 'Không thể tải danh sách phòng.' });
+      api.error({ message: 'Lỗi', description: 'Không thể tải danh sách phòng.' });
     } finally {
       setLoading(false);
     }
@@ -162,11 +169,11 @@ export default function TabRoomInventory({ room }) {
         sourceRoomId: values.sourceRoomId,
         targetRoomId: room.id
       });
-      api.success({ title: 'Thành công', description: 'Đã sao chép vật tư thành công!' });
+      api.success({ message: 'Thành công', description: 'Đã sao chép vật tư thành công!' });
       setIsCloneModalOpen(false);
-      fetchInventories();
+      fetchInventories(false);
     } catch (error) {
-      api.error({ title: 'Lỗi Clone', description: error.response?.data?.message || 'Có lỗi xảy ra.' });
+      api.error({ message: 'Lỗi Clone', description: error.response?.data?.message || 'Có lỗi xảy ra.' });
     } finally {
       setLoading(false);
     }
@@ -179,10 +186,10 @@ export default function TabRoomInventory({ room }) {
     try {
       setLoading(true);
       await roomInventoryApi.deleteInventory(id);
-      api.success({ title: 'Thành công', description: 'Đã gỡ vật tư khỏi phòng.' });
-      fetchInventories();
+      api.success({ message: 'Thành công', description: 'Đã gỡ vật tư khỏi phòng.' });
+      fetchInventories(false);
     } catch (e) {
-      api.error({ title: 'Lỗi', description: 'Không thể gỡ vật tư.' });
+      api.error({ message: 'Lỗi', description: 'Không thể gỡ vật tư.' });
       setLoading(false);
     }
   };
@@ -197,11 +204,11 @@ export default function TabRoomInventory({ room }) {
     try {
       setLoading(true);
       await roomInventoryApi.updateInventory(editingItem.id, values);
-      api.success({ title: 'Thành công', description: 'Cập nhật số lượng/giá thành công.' });
+      api.success({ message: 'Thành công', description: 'Cập nhật số lượng/giá thành công.' });
       setIsEditModalOpen(false);
-      fetchInventories();
+      fetchInventories(false);
     } catch (error) {
-      api.error({ title: 'Lỗi', description: error.response?.data?.message || 'Cập nhật thất bại.' });
+      api.error({ message: 'Lỗi', description: error.response?.data?.message || 'Cập nhật thất bại.' });
     } finally {
       setLoading(false);
     }
@@ -222,6 +229,7 @@ export default function TabRoomInventory({ room }) {
 
   return (
     <div style={{ paddingTop: 16 }}>
+      {/* CHỈ CÓ 1 CONTEXT HOLDER DUY NHẤT Ở GÓC DƯỚI */}
       {contextHolder}
       
       {/* THANH CÔNG CỤ (TÌM KIẾM & NÚT BẤM) */}
@@ -235,7 +243,6 @@ export default function TabRoomInventory({ room }) {
           style={{ width: '100%', maxWidth: 350, borderRadius: 8 }}
         />
         <Space wrap>
-          {/* 🔥 NÚT ĐỒNG BỘ MỚI */}
           <Tooltip title="Cập nhật giá đền bù cho bằng với Kho tổng">
             <Button icon={<ArrowsClockwise />} size="large" onClick={handleSyncWithGlobalInventory} loading={loading}>
               Đồng bộ giá

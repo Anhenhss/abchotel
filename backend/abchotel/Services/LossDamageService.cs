@@ -203,14 +203,13 @@ namespace abchotel.Services
             _context.LossAndDamages.Add(lossRecord);
             await _context.SaveChangesAsync();
 
-            // 🔔 BẮN THÔNG BÁO CHO LỄ TÂN VÀ QUẢN LÝ
             string userName = await GetCurrentUserNameAsync();
             string roomNumStr = inventoryItem.Room != null ? inventoryItem.Room.RoomNumber : "N/A";
             string actionStr = request.IssueType == "Damaged" ? "làm hỏng" : "làm mất";
             string equipName = inventoryItem.Equipment != null ? inventoryItem.Equipment.Name : "vật tư";
 
             await _notificationService.SendToPermissionAsync(
-                "PROCESS_DAMAGES", // Báo cho Lễ tân / Kế toán
+                "MANAGE_INVOICES", 
                 "Cảnh báo: Ghi nhận sự cố mới",
                 $"[{userName}] vừa báo cáo phòng {roomNumStr} {actionStr} {request.Quantity} {equipName}. Phạt dự kiến: {penalty:N0} VNĐ."
             );

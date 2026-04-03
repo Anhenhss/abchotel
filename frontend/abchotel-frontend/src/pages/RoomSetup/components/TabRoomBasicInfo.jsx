@@ -10,7 +10,8 @@ const { Title, Text } = Typography;
 
 export default function TabRoomBasicInfo({ room, onRefresh }) {
   const navigate = useNavigate();
-  const [api, contextHolder] = notification.useNotification();
+  // 🔥 Ép thông báo của hành động này xuống góc dưới bên phải
+  const [manualApi, contextHolder] = notification.useNotification({ placement: 'bottomRight' });
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
 
@@ -23,7 +24,6 @@ export default function TabRoomBasicInfo({ room, onRefresh }) {
   const handleUpdate = async (values) => {
     try {
       setLoading(true);
-      // Giữ nguyên roomTypeId cũ, chỉ cập nhật các trường được phép
       const payload = {
         roomNumber: values.roomNumber,
         floor: values.floor,
@@ -32,10 +32,10 @@ export default function TabRoomBasicInfo({ room, onRefresh }) {
       };
       
       await roomApi.updateRoom(room.id, payload);
-      api.success({ title: 'Thành công', description: 'Đã lưu thay đổi thông tin phòng.' });
-      onRefresh(); // Báo cho Wrapper load lại dữ liệu
+      manualApi.success({ message: 'Thành công', description: 'Đã lưu thay đổi thông tin phòng.' });
+      onRefresh(); 
     } catch (error) {
-      api.error({ title: 'Lỗi', description: error.response?.data?.message || 'Cập nhật thất bại.' });
+      manualApi.error({ message: 'Lỗi', description: error.response?.data?.message || 'Cập nhật thất bại.' });
     } finally {
       setLoading(false);
     }
@@ -45,11 +45,10 @@ export default function TabRoomBasicInfo({ room, onRefresh }) {
     try {
       setLoading(true);
       await roomApi.deleteRoom(room.id);
-      api.success({ title: 'Đã khóa', description: 'Phòng này đã được ngưng sử dụng.' });
-      // Xóa xong thì đá ra ngoài danh sách
+      manualApi.success({ message: 'Đã khóa', description: 'Phòng này đã được ngưng sử dụng.' });
       navigate(-1); 
     } catch (error) {
-      api.error({ title: 'Lỗi', description: 'Không thể khóa phòng này.' });
+      manualApi.error({ message: 'Lỗi', description: 'Không thể khóa phòng này.' });
       setLoading(false);
     }
   };

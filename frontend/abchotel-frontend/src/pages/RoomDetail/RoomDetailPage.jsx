@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Typography, Tabs, Button, Card, Space, Tag, Spin, notification } from 'antd';
-import { ArrowLeft, Info, Broom } from '@phosphor-icons/react';
+import { ArrowLeft, Info, Broom, Archive } from '@phosphor-icons/react';
 
 import { roomApi } from '../../api/roomApi';
 import { useAuthStore } from '../../store/authStore';
@@ -10,6 +10,7 @@ import { COLORS } from '../../constants/theme';
 
 import TabRoomInfo from './components/TabRoomInfo';
 import TabCleaning from './components/TabCleaning';
+import TabRoomInventory from '../RoomSetup/components/TabRoomInventory';
 
 const { Title, Text } = Typography;
 
@@ -22,37 +23,49 @@ export default function RoomDetailPage() {
   const { user } = useAuthStore();
   const perms = user?.permissions || [];
 
+  const [api, contextHolder] = notification.useNotification();
+
   const [room, setRoom] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const canUpdateRoomStatus = perms.includes('UPDATE_ROOM_STATUS'); 
   const canUpdateCleaning = perms.includes('UPDATE_CLEANING_STATUS') || perms.includes('REPORT_DAMAGES'); 
+  const canManageInventory = perms.includes('MANAGE_INVENTORY') || perms.includes('MANAGE_ROOMS'); 
 
-  const fetchRoomInfo = useCallback(async () => {
+  const fetchRoomInfo = useCallback(async (isRealtime = false) => {
     if (!id || id === 'undefined') return;
     try {
+      if (!isRealtime) setLoading(true);
       const data = await roomApi.getRoom(id);
       setRoom(data);
-    } catch (error) { notification.error({ message: 'Lỗi tải phòng' }); } 
-    finally { setLoading(false); }
-  }, [id]);
+    } catch (error) { 
+      if (!isRealtime) {
+        api.error({ placement: 'bottomRight', message: 'Lỗi', description: 'Không thể tải dữ liệu phòng' }); 
+      }
+    } 
+    finally { 
+      if (!isRealtime) setLoading(false); 
+    }
+  }, [id]); 
 
-  useEffect(() => { fetchRoomInfo(); }, [fetchRoomInfo]);
-  useSignalR(() => { fetchRoomInfo(); });
+  useEffect(() => { fetchRoomInfo(false); }, [fetchRoomInfo]);
+  useSignalR(() => { fetchRoomInfo(true); });
 
   const generateTabs = () => {
     const items = [];
-    if (canUpdateRoomStatus) items.push({ key: 'info', label: <Space><Info size={18}/> Trạng thái & Thông tin</Space>, children: <TabRoomInfo room={room} onRefresh={fetchRoomInfo} /> });
-    if (canUpdateCleaning) items.push({ key: 'cleaning', label: <Space><Broom size={18}/> Dọn phòng & Kiểm tra</Space>, children: <TabCleaning room={room} roomId={id} onRefreshRoom={fetchRoomInfo} /> });
+    if (canUpdateRoomStatus) items.push({ key: 'info', label: <Space><Info size={18}/> Trạng thái & Thông tin</Space>, children: <TabRoomInfo room={room} onRefresh={() => fetchRoomInfo(false)} /> });
+    if (canUpdateCleaning) items.push({ key: 'cleaning', label: <Space><Broom size={18}/> Dọn phòng & Báo cáo</Space>, children: <TabCleaning room={room} roomId={id} onRefreshRoom={() => fetchRoomInfo(false)} /> });
+    if (canManageInventory) items.push({ key: 'inventory', label: <Space><Archive size={18}/> Quản lý Vật tư</Space>, children: <TabRoomInventory room={room} /> });
     return items;
   };
 
-  if (loading) return <div style={{textAlign: 'center', padding: '100px 0'}}><Spin size="large" /></div>;
-  if (!room) return <div style={{textAlign: 'center', padding: '50px 0'}}>Không tìm thấy dữ liệu!</div>;
+  if (loading && !room) return <div style={{textAlign: 'center', padding: '100px 0'}}><Spin size="large" /></div>;
+  if (!room && !loading) return <div style={{textAlign: 'center', padding: '50px 0'}}>Không tìm thấy dữ liệu!</div>;
 
   return (
     <div style={{ paddingBottom: 40, width: '100%', margin: '0 auto' }}>
-      {/* CĂN CHỈNH LẠI HEADER CHO MOBILE KHÔNG BỊ TRÀN */}
+      {contextHolder}
+
       <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 24, gap: 12 }}>
         <Button type="text" icon={<ArrowLeft size={24} color={COLORS.MIDNIGHT_BLUE} />} onClick={() => navigate('/admin/rooms')} style={{ padding: '4px 8px' }} />
         <div style={{ flex: 1 }}>
@@ -70,7 +83,6 @@ export default function RoomDetailPage() {
         </div>
       </div>
 
-      {/* FIX LỖI ÉP KHUNG TRÊN ĐIỆN THOẠI BẰNG window.innerWidth */}
       <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }} styles={{ body: { padding: window.innerWidth > 768 ? '16px 24px' : '16px 8px' } }}>
         <Tabs items={generateTabs()} size={window.innerWidth > 768 ? "large" : "middle"} destroyOnHidden={false} />
       </Card>

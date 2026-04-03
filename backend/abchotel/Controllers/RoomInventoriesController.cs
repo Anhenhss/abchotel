@@ -63,13 +63,5 @@ namespace abchotel.Controllers
             if (!result.IsSuccess) return BadRequest(new { message = result.Message });
             return Ok(new { message = result.Message });
         }
-        [HttpPost("{id}/request-refill")]
-        [Authorize]
-        public async Task<IActionResult> RequestRefill(int id)
-        {
-            var result = await _inventoryService.RequestRefillAsync(id);
-            if (!result.IsSuccess) return BadRequest(new { message = result.Message });
-            return Ok(new { message = result.Message });
-        }
     }
 }

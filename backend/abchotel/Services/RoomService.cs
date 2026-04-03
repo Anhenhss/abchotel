@@ -206,9 +206,15 @@ namespace abchotel.Services
             room.Status = status;
             await _context.SaveChangesAsync();
 
-            // 🔔 BẮN THÔNG BÁO
-            string userName = await GetCurrentUserNameAsync();
-            await _notificationService.SendToPermissionAsync("MANAGE_ROOMS", "Trạng thái Khách", $"[{userName}] vừa chuyển phòng {room.RoomNumber} sang trạng thái: {status}.");
+            string statusVn = status == "Occupied" ? "Đã có khách" :
+                      status == "Available" ? "Trống" :
+                      status == "Maintenance" ? "Bảo trì" : "Đã đặt trước";
+
+            await _notificationService.SendToPermissionAsync(
+                "UPDATE_ROOM_STATUS", 
+                "Trạng thái phòng", 
+                $"Phòng {room.RoomNumber} vừa đổi thành: {statusVn}."
+            );
 
             return true;
         }
@@ -221,9 +227,15 @@ namespace abchotel.Services
             room.CleaningStatus = cleaningStatus;
             await _context.SaveChangesAsync();
 
-            // 🔔 BẮN THÔNG BÁO
-            string userName = await GetCurrentUserNameAsync();
-            await _notificationService.SendToPermissionAsync("MANAGE_ROOMS", "Trạng thái Dọn dẹp", $"[{userName}] vừa báo phòng {room.RoomNumber} là: {cleaningStatus}.");
+            string statusVn = cleaningStatus == "Dirty" ? "Cần dọn dẹp (Dơ)" : 
+                      cleaningStatus == "Inspected" ? "Chờ kiểm tra" : 
+                      cleaningStatus == "Clean" ? "Đã sạch sẽ" : "Đang dọn dẹp";
+
+            await _notificationService.SendToPermissionAsync(
+                "UPDATE_CLEANING_STATUS", 
+                "Cập nhật Dọn phòng", 
+                $"Phòng {room.RoomNumber} hiện đang: {statusVn}."
+            );
 
             return true;
         }

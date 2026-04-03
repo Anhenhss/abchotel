@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Table, Input, Select, Button, Space, Typography, Tag, Modal, Form, notification, Tooltip, Popconfirm, Switch, Row, Col, Divider, Grid, Pagination, Empty } from 'antd';
 import { Plus, MagnifyingGlass, PencilSimple, IdentificationCard, FunnelX, Eye, CheckCircle, LockKey, Key } from '@phosphor-icons/react';
 import { userApi } from '../api/userApi';
 import { roleApi } from '../api/roleApi';
 import { useAuthStore } from '../store/authStore';
+import { useSignalR } from '../hooks/useSignalR'; // 🔥 Đã thêm Hook Realtime
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -15,6 +16,9 @@ export default function UserManagementPage() {
   const screens = useBreakpoint();
   const { user: currentUser } = useAuthStore();
   const canManage = currentUser?.permissions?.includes("MANAGE_USERS");
+
+  // 🔥 Khai báo 1 Context duy nhất, ép vị trí xuống bottomRight ở các hàm gọi api
+  const [api, contextHolder] = notification.useNotification();
 
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
@@ -35,9 +39,10 @@ export default function UserManagementPage() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewingUser, setViewingUser] = useState(null);
 
-  const fetchUsers = async () => {
+  // 🔥 Dùng useCallback để bọc hàm, giúp SignalR gọi lại mà không lỗi
+  const fetchUsers = useCallback(async (isRealtime = false) => {
     try {
-      setLoading(true);
+      if (!isRealtime) setLoading(true);
       const queryParams = { 
         page: filters.page, 
         pageSize: filters.pageSize,
@@ -50,9 +55,13 @@ export default function UserManagementPage() {
       setUsers(res.items || res.data || res || []);
       setTotal(res.totalCount || res.total || 0);
     } catch (error) {
-      notification.error({ message: 'Lỗi tải danh sách người dùng', placement: 'bottomRight' });
-    } finally { setLoading(false); }
-  };
+      if (!isRealtime) {
+        api.error({ placement: 'bottomRight', message: 'Lỗi', description: 'Không thể tải danh sách người dùng.' });
+      }
+    } finally { 
+      if (!isRealtime) setLoading(false); 
+    }
+  }, [filters, api]);
 
   const fetchRoles = async () => {
     try {
@@ -62,7 +71,12 @@ export default function UserManagementPage() {
   };
 
   useEffect(() => { fetchRoles(); }, []);
-  useEffect(() => { fetchUsers(); }, [filters]);
+  useEffect(() => { fetchUsers(false); }, [fetchUsers]);
+
+  // 🔥 Tự động tải lại bảng dữ liệu khi có ai đó thêm/sửa/xóa User
+  useSignalR(() => {
+    fetchUsers(true);
+  });
 
   const handleTableChange = (pagination) => setFilters({ ...filters, page: pagination.current, pageSize: pagination.pageSize });
   const handlePageChange = (page, pageSize) => setFilters({ ...filters, page, pageSize });
@@ -75,25 +89,25 @@ export default function UserManagementPage() {
       if (editingUser) {
         const payload = { ...values, avatarUrl: editingUser.avatarUrl };
         await userApi.updateUser(editingUser.id, payload);
-        notification.success({ message: 'Cập nhật tài khoản thành công!', placement: 'bottomRight' });
+        api.success({ placement: 'bottomRight', message: 'Thành công', description: 'Cập nhật tài khoản thành công!' });
       } else {
         await userApi.createUser(values);
-        notification.success({ message: 'Tạo tài khoản thành công, mật khẩu đã gửi qua email!', placement: 'bottomRight' });
+        api.success({ placement: 'bottomRight', message: 'Thành công', description: 'Tạo tài khoản thành công, mật khẩu đã gửi qua email!' });
       }
       setIsModalOpen(false);
-      fetchUsers();
+      fetchUsers(false);
     } catch (error) {
-      notification.error({ message: error.response?.data?.message || 'Có lỗi xảy ra!', placement: 'bottomRight' });
+      api.error({ placement: 'bottomRight', message: 'Lỗi', description: error.response?.data?.message || 'Có lỗi xảy ra!' });
     } finally { setLoading(false); }
   };
 
   const handleToggleStatus = async (id, checked) => {
     try {
       await userApi.toggleStatus(id);
-      notification.success({ message: `Đã ${checked ? 'mở khóa' : 'khóa'} tài khoản thành công!`, placement: 'bottomRight' });
-      fetchUsers();
+      api.success({ placement: 'bottomRight', message: 'Thành công', description: `Đã ${checked ? 'mở khóa' : 'khóa'} tài khoản thành công!` });
+      fetchUsers(false);
     } catch (error) {
-      notification.error({ message: 'Lỗi khi thay đổi trạng thái', placement: 'bottomRight' });
+      api.error({ placement: 'bottomRight', message: 'Lỗi', description: 'Thay đổi trạng thái thất bại.' });
     }
   };
 
@@ -101,11 +115,11 @@ export default function UserManagementPage() {
     try {
       setLoading(true);
       await userApi.changeRole(selectedUserId, values.newRoleId);
-      notification.success({ message: 'Đã cập nhật chức vụ thành công!', placement: 'bottomRight' });
+      api.success({ placement: 'bottomRight', message: 'Thành công', description: 'Đã cập nhật chức vụ thành công!' });
       setIsRoleModalOpen(false);
-      fetchUsers();
+      fetchUsers(false);
     } catch (error) {
-      notification.error({ message: 'Lỗi khi đổi chức vụ', placement: 'bottomRight' });
+      api.error({ placement: 'bottomRight', message: 'Lỗi', description: 'Lỗi khi đổi chức vụ' });
     } finally { setLoading(false); }
   };
 
@@ -113,10 +127,10 @@ export default function UserManagementPage() {
     try {
       setResetLoading(true);
       await userApi.resetPassword(userId);
-      notification.success({ message: 'Đã tạo và gửi mật khẩu mới qua Email!', placement: 'bottomRight' });
+      api.success({ placement: 'bottomRight', message: 'Thành công', description: 'Đã tạo và gửi mật khẩu mới qua Email!' });
       setIsViewModalOpen(false);
     } catch (error) {
-      notification.error({ message: error.response?.data?.message || 'Lỗi cấp lại mật khẩu', placement: 'bottomRight' });
+      api.error({ placement: 'bottomRight', message: 'Lỗi', description: error.response?.data?.message || 'Lỗi cấp lại mật khẩu' });
     } finally {
       setResetLoading(false);
     }
@@ -201,7 +215,9 @@ export default function UserManagementPage() {
 
   return (
     <div>
-      {/* HEADER & NÚT THÊM */}
+      {/* HIỂN THỊ THÔNG BÁO Ở GÓC DƯỚI */}
+      {contextHolder}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
         <Title level={3} style={{ color: MIDNIGHT_BLUE, fontFamily: '"Source Serif 4", serif', margin: 0 }}>Quản lý Người dùng</Title>
         {canManage && (
@@ -211,7 +227,6 @@ export default function UserManagementPage() {
         )}
       </div>
 
-      {/* BỘ LỌC (Responsive bằng Grid) */}
       <Card variant="borderless" style={{ marginBottom: 24, borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
         <Row gutter={[12, 12]}>
           <Col xs={24} md={10}>
@@ -256,7 +271,6 @@ export default function UserManagementPage() {
         </Row>
       </Card>
 
-      {/* HIỂN THỊ DỮ LIỆU (Table cho PC, Card cho Mobile) */}
       <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.03)', overflow: 'hidden', padding: screens.md ? 0 : '16px 0' }}>
         {screens.md ? (
           <Table 
@@ -331,7 +345,6 @@ export default function UserManagementPage() {
         )}
       </Card>
 
-      {/* CÁC MODAL GIỮ NGUYÊN HOẠT ĐỘNG HOÀN HẢO CỦA EM */}
       <Modal title={<Title level={4} style={{ color: MIDNIGHT_BLUE, margin: 0 }}>Hồ sơ Nhân viên</Title>} open={isViewModalOpen} onCancel={() => setIsViewModalOpen(false)} footer={[<Button key="close" onClick={() => setIsViewModalOpen(false)} style={{ borderRadius: 8 }}>Đóng lại</Button>]} width={600} centered>
         {viewingUser && (
           <div style={{ marginTop: 20 }}>

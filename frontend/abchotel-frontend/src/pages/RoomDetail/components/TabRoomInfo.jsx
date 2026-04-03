@@ -16,22 +16,30 @@ const STATUS_UI = {
 };
 
 export default function TabRoomInfo({ room, onRefresh }) {
+  // 🔥 CHỈ DÙNG 1 LUỒNG THÔNG BÁO TẠI GÓC DƯỚI PHẢI (CHO CÁC NÚT BẤM THỦ CÔNG)
+  // Các thông báo Realtime đã được Trang cha (RoomDetailPage) xử lý ngầm rồi.
+  const [manualApi, contextHolder] = notification.useNotification({ placement: 'bottomRight' });
+  
   const [loading, setLoading] = useState(false);
   const [inventories, setInventories] = useState([]);
   const [searchText, setSearchText] = useState(''); 
   const screens = useBreakpoint(); 
 
   useEffect(() => {
-    roomInventoryApi.getInventoryByRoom(room.id, true).then(res => setInventories(res || []));
-  }, [room.id]);
+    if (room?.id) {
+      roomInventoryApi.getInventoryByRoom(room.id, true).then(res => setInventories(res || []));
+    }
+  }, [room?.id]);
 
   const handleUpdateStatus = async (newStatus) => {
     try {
       setLoading(true);
       await roomApi.updateStatus(room.id, newStatus);
-      notification.success({ message: 'Đã lưu trạng thái phòng!' });
+      manualApi.success({ message: 'Thành công', description: 'Đã lưu trạng thái phòng!' });
       onRefresh(); 
-    } catch (e) { notification.error({ message: 'Lỗi cập nhật' }); } 
+    } catch (e) { 
+      manualApi.error({ message: 'Lỗi', description: 'Cập nhật trạng thái thất bại.' }); 
+    } 
     finally { setLoading(false); }
   };
 
@@ -40,9 +48,11 @@ export default function TabRoomInfo({ room, onRefresh }) {
       setLoading(true);
       const newStatus = room.status === 'Available' ? 'Inspected' : 'Dirty';
       await roomApi.updateCleaningStatus(room.id, newStatus); 
-      notification.success({ message: 'Đã phát tín hiệu lên ứng dụng Buồng phòng!' });
+      manualApi.success({ message: 'Thành công', description: 'Trạng thái phòng đã chuyển thành Cần dọn dẹp!' });
       onRefresh();
-    } catch (e) { notification.error({ message: 'Lỗi gọi buồng phòng' }); }
+    } catch (e) { 
+      manualApi.error({ message: 'Lỗi', description: 'Không thể gọi buồng phòng lúc này.' }); 
+    }
     finally { setLoading(false); }
   };
 
@@ -52,10 +62,10 @@ export default function TabRoomInfo({ room, onRefresh }) {
 
   return (
     <div style={{ paddingTop: 12 }}>
+      {contextHolder}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} lg={14}>
           <Card title="Trạng thái Phòng & Vận hành" variant="borderless" style={{ background: COLORS.LIGHTEST, height: '100%', borderRadius: 12 }}>
-            {/* 🔥 SỬA LỖI TÀNG HÌNH CHỮ: Bắt buộc dùng màu chữ (text) thay vì màu nền (color) */}
             <Title level={3} style={{ color: STATUS_UI[room?.status]?.text || COLORS.DARKEST, margin: 0 }}>
               {STATUS_UI[room?.status]?.label || room?.status}
             </Title>

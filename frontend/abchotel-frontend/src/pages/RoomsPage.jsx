@@ -1,25 +1,34 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Typography, Row, Col, Input, Select, Badge, Spin, Tag } from 'antd';
-import { MagnifyingGlass, Funnel, ShieldWarning } from '@phosphor-icons/react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, Typography, Row, Col, Input, Select, Badge, Spin, notification } from 'antd';
+import { MagnifyingGlass, Funnel } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 import { roomApi } from '../api/roomApi';
 import { roomTypeApi } from '../api/roomTypeApi';
-import { COLORS } from '../constants/theme'; 
+import { useSignalR } from '../hooks/useSignalR'; 
 
 const { Title, Text } = Typography;
 
-const ACCENT_RED = '#8A1538';
+// 🔥 BẢNG TÔNG MÀU LẠNH (Cool Tones)
 const PALETTE = {
-  darkest: '#0D1821', dark: '#344966', muted: '#7D92AD',
-  light: '#B4CDED', lightest: '#E9F0F8', locked: '#1f2937'
+  darkest: '#0D1821',   
+  dark: '#1C2E4A',      
+  muted: '#64748B',     
+  light: '#E2E8F0',     
+  lightest: '#D3D3D3',  
+  white: '#FFFFFF',     
+  locked: '#334155',    
+  badgeClean: '#0284C7',
+  blue: '#7292AD',
+  lightblue: '#e9f0f8',
+  badgeDirty: '#8A1538' 
 };
 
 const STATUS_THEME = {
-  Available: { bg: PALETTE.light, text: PALETTE.darkest, label: 'Trống' }, 
-  Occupied: { bg: ACCENT_RED, text: '#FFFFFF', label: 'Có Khách' }, 
-  Reserved: { bg: PALETTE.muted, text: '#FFFFFF', label: 'Đặt Trước' },
-  Maintenance: { bg: '#F0F2F5', text: PALETTE.dark, label: 'Bảo Trì' },
-  Locked: { bg: PALETTE.locked, text: '#9ca3af', label: 'Bị Khóa' } 
+  Available: { bg: PALETTE.lightblue, text: PALETTE.darkest, label: 'Trống', border: PALETTE.light }, 
+  Occupied: { bg: PALETTE.dark, text: PALETTE.white, label: 'Có Khách', border: PALETTE.dark }, 
+  Reserved: { bg: PALETTE.blue, text: PALETTE.white, label: 'Đặt Trước', border: PALETTE.muted },
+  Maintenance: { bg: PALETTE.white, text: PALETTE.muted, label: 'Bảo Trì', border: '#CBD5E1' },
+  Locked: { bg: PALETTE.locked, text: '#CBD5E1', label: 'Bị Khóa', border: PALETTE.locked } 
 };
 
 const CLEANING_LABELS = {
@@ -31,33 +40,45 @@ const CLEANING_LABELS = {
 
 export default function RoomsPage() {
   const navigate = useNavigate();
+  
+  // 🔥 FIX LỖI SẬP TRANG: Đã để trống useNotification()
+  const [api, contextHolder] = notification.useNotification();
+  
   const [rooms, setRooms] = useState([]);
   const [roomTypes, setRoomTypes] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // States Bộ Lọc
   const [searchNumber, setSearchNumber] = useState('');
   const [filterBusiness, setFilterBusiness] = useState(''); 
   const [filterCleaning, setFilterCleaning] = useState(''); 
   const [filterRoomType, setFilterRoomType] = useState(''); 
 
+  const fetchData = useCallback(async (isRealtime = false) => {
+    try {
+      if (!isRealtime) setLoading(true);
+      const [roomsData, typesData] = await Promise.all([
+        roomApi.getRooms(true),
+        roomTypeApi.getRoomTypes(true)
+      ]);
+      setRooms(roomsData || []);
+      setRoomTypes(typesData || []);
+    } catch (error) {
+      if (!isRealtime) {
+        // 🔥 Ép thông báo rớt xuống góc dưới ở đây
+        api.error({ placement: 'bottomRight', message: 'Lỗi tải dữ liệu', description: 'Không thể lấy sơ đồ phòng.' });
+      }
+    } finally { 
+      if (!isRealtime) setLoading(false); 
+    }
+  }, []); // Bỏ api ra khỏi mảng dependency để an toàn tuyệt đối
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        // Lấy danh sách phòng và danh sách hạng phòng cùng lúc
-        const [roomsData, typesData] = await Promise.all([
-          roomApi.getRooms(true),
-          roomTypeApi.getRoomTypes(true)
-        ]);
-        setRooms(roomsData || []);
-        setRoomTypes(typesData || []);
-      } catch (error) {
-        console.log("Lỗi tải dữ liệu sơ đồ");
-      } finally { setLoading(false); }
-    };
-    fetchData();
-  }, []);
+    fetchData(false);
+  }, [fetchData]);
+
+  useSignalR(() => {
+    fetchData(true); 
+  });
 
   const displayedRooms = rooms.filter(room => {
     const matchNumber = room.roomNumber.toLowerCase().includes(searchNumber.toLowerCase());
@@ -69,12 +90,13 @@ export default function RoomsPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {contextHolder}
+
       <Title level={3} style={{ color: PALETTE.darkest, margin: '0 0 24px 0', fontFamily: '"Source Serif 4", serif' }}>
         Dọn Phòng & Giám Sát Trạng Thái
       </Title>
 
-      {/* THANH BỘ LỌC (Responsive) */}
-      <Card variant="borderless" style={{ borderRadius: 12, marginBottom: 24, backgroundColor: PALETTE.lightest }}>
+      <Card variant="borderless" style={{ borderRadius: 12, marginBottom: 24, backgroundColor: '#F0F4F8' }}>
         <Row gutter={[16, 16]} align="middle">
           <Col xs={24} sm={12} lg={6}>
             <Input 
@@ -116,12 +138,11 @@ export default function RoomsPage() {
         </Row>
       </Card>
 
-      {/* LƯỚI HIỂN THỊ PHÒNG */}
       <div style={{ flex: 1 }}>
         {loading ? (
            <div style={{ textAlign: 'center', padding: '60px 0' }}><Spin size="large" /></div>
         ) : displayedRooms.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 0', background: PALETTE.lightest, borderRadius: 12 }}>
+          <div style={{ textAlign: 'center', padding: '60px 0', background: '#F0F4F8', borderRadius: 12 }}>
             <Funnel size={48} weight="light" color={PALETTE.muted} style={{ marginBottom: 16 }} />
             <Title level={5} style={{ color: PALETTE.darkest }}>Không tìm thấy phòng nào phù hợp với bộ lọc</Title>
           </div>
@@ -135,7 +156,7 @@ export default function RoomsPage() {
                 <Col xs={12} sm={8} md={6} lg={4} xl={3} key={room.id}>
                   <Badge.Ribbon 
                     text={<span style={{fontWeight: 600}}>{cleaningText}</span>} 
-                    color={room.cleaningStatus === 'Clean' ? PALETTE.muted : ACCENT_RED}
+                    color={room.cleaningStatus === 'Clean' ? PALETTE.badgeClean : PALETTE.badgeDirty}
                     style={{ fontSize: 10, padding: '0 8px', top: -5, right: -5 }}
                   >
                     <Card 
@@ -145,8 +166,8 @@ export default function RoomsPage() {
                       style={{ 
                         borderRadius: 10, 
                         backgroundColor: theme.bg, 
-                        border: 'none', 
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.06)', 
+                        border: `1px solid ${theme.border}`, 
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.04)', 
                         height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center'
                       }}
                     >
@@ -154,7 +175,7 @@ export default function RoomsPage() {
                         {room.roomNumber}
                       </Title>
                       
-                      <Text style={{ display: 'block', fontSize: 12, color: theme.text, opacity: 0.9, marginBottom: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <Text style={{ display: 'block', fontSize: 12, color: theme.text, opacity: 0.8, marginBottom: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {room.roomTypeName}
                       </Text>
                       

@@ -30,6 +30,7 @@ export default function AdminLayout() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // 🔥 1 Context duy nhất, không khai báo placement ở đây để tránh Infinite Loop
   const [api, contextHolder] = notification.useNotification();
 
   useEffect(() => {
@@ -48,9 +49,10 @@ export default function AdminLayout() {
     setNotifications(prev => [{...newNotif, isRead: false, id: Date.now()}, ...prev].slice(0, 20));
     
     api.info({
-      message: newNotif.title || 'Thông báo',
-      description: newNotif.content,
+      title: newNotif.title || 'Thông báo mới',
+      description: newNotif.content || newNotif.message, 
       placement: 'topRight',
+      duration: 5,
       icon: <BellRinging color={ACCENT_RED} weight="fill" />, 
       style: { borderLeft: `4px solid ${ACCENT_RED}` }
     });
@@ -71,7 +73,6 @@ export default function AdminLayout() {
   ];
 
   const notificationContent = (
-    // 🔥 FIX Ở ĐÂY: Thêm maxWidth: '85vw' để nó tự bóp lại trên Mobile
     <div style={{ width: 340, maxWidth: '85vw' }}>
       <div style={{ padding: '8px 12px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Text strong style={{ fontSize: 15, color: MIDNIGHT_BLUE }}>Thông báo mới</Text>
@@ -87,7 +88,7 @@ export default function AdminLayout() {
               <List.Item.Meta
                 avatar={<Avatar style={{ backgroundColor: item.isRead ? '#f0f0f0' : '#ffe8eb', color: item.isRead ? '#bfbfbf' : ACCENT_RED }} icon={<BellRinging />} />}
                 title={<Text strong style={{ fontSize: 13, color: item.isRead ? '#8c8c8c' : '#0F1A2B' }}>{item.title || 'Hệ thống'}</Text>}
-                description={<Text style={{ fontSize: 12, color: item.isRead ? '#bfbfbf' : '#52677D' }} ellipsis={{ rows: 2 }}>{item.content}</Text>}
+                description={<Text style={{ fontSize: 12, color: item.isRead ? '#bfbfbf' : '#52677D' }} ellipsis={{ rows: 2 }}>{item.content || item.message}</Text>}
               />
             </List.Item>
           )}
@@ -111,9 +112,9 @@ export default function AdminLayout() {
       { key: '/admin/room-setup', icon: <Door size={20} />, label: 'Quản lý Phòng' },
       { key: '/admin/rooms', icon: <Bed size={20} />, label: 'Dọn phòng' },
       { key: '/admin/inventory-setup', icon: <Archive size={20} />, label: 'Kho Vật tư' },
+      { key: '/admin/amenities', icon: <WifiHigh size={20} />, label: 'Tiện ích phòng' },
     ]},
     { key: 'grp_content_crm', label: renderGroupTitle('QUẢN LÝ NỘI DUNG'), type: 'group', children: [
-      { key: '/admin/amenities', icon: <WifiHigh size={20} />, label: 'Tiện ích phòng' },
       { key: '/admin/reviews', icon: <Star size={20} />, label: 'Đánh giá từ khách' },
       { key: '/admin/attractions', icon: <MapPin size={20} />, label: 'Điểm du lịch' },
       { key: '/admin/categories', icon: <Article size={20} />, label: 'Bài viết & Blog' },
@@ -140,7 +141,9 @@ export default function AdminLayout() {
 
   return (
     <Layout style={{ minHeight: '100vh', overflow: 'hidden' }}>
+      {/* 🔥 RENDERING CONTEXT HOLDER */}
       {contextHolder}
+      
       <style>{`
         .custom-sider-scroll::-webkit-scrollbar { width: 4px; }
         .custom-sider-scroll::-webkit-scrollbar-thumb { background: #52677D; border-radius: 4px; }
@@ -155,7 +158,8 @@ export default function AdminLayout() {
         </Sider>
       )}
 
-      <Drawer placement="left" closable={false} onClose={() => setDrawerVisible(false)} open={drawerVisible} width={260} styles={{ body: { padding: 0 } }}>
+      {/* 🔥 FIX Drawer Warning width -> styles={{ wrapper: { width: 260 } }} */}
+      <Drawer placement="left" closable={false} onClose={() => setDrawerVisible(false)} open={drawerVisible} styles={{ wrapper: { width: 260 }, body: { padding: 0 } }}>
         <SidebarContent />
       </Drawer>
 
@@ -168,7 +172,6 @@ export default function AdminLayout() {
           </Space>
           
           <Space size="large" align="center" style={{ height: '100%' }}>
-            {/* 🔥 BỎ MŨI TÊN (arrow={false}) VÀ ÉP WIDTH CHO MOBILE */}
             <Popover content={notificationContent} trigger="click" placement={isMobile ? "bottom" : "bottomRight"} arrow={false} styles={{ body: { padding: 0, borderRadius: 8, overflow: 'hidden' } }}>
               <Badge count={unreadCount} overflowCount={99} color={ACCENT_RED} offset={[-2, 4]}>
                 <div style={{ display: 'flex', alignItems: 'center', padding: '4px' }}>

@@ -17,7 +17,6 @@ namespace abchotel.Services
         Task<(bool IsSuccess, string Message)> UpdateInventoryAsync(int id, UpdateRoomInventoryRequest request);
         Task<(bool IsSuccess, string Message)> ToggleSoftDeleteAsync(int id);
         Task<(bool IsSuccess, string Message)> CloneInventoryAsync(CloneInventoryRequest request);
-        Task<(bool IsSuccess, string Message)> RequestRefillAsync(int id);
     }
 
     public class RoomInventoryService : IRoomInventoryService
@@ -102,8 +101,10 @@ namespace abchotel.Services
             await _context.SaveChangesAsync();
 
             string userName = await GetCurrentUserNameAsync();
-            await _notificationService.SendToPermissionAsync("MANAGE_INVENTORY", "Vật tư mới",
-                $"[{userName}] vừa thêm {inventory.Quantity} {equipment.Name} vào phòng {room.RoomNumber}.");
+            string msg = $"[{userName}] vừa thêm {inventory.Quantity} {equipment.Name} vào phòng {room.RoomNumber}.";
+
+            await _notificationService.SendToPermissionAsync("MANAGE_INVENTORY", "Vật tư mới", msg);
+            await _notificationService.SendToPermissionAsync("MANAGE_ROOMS", "Vật tư mới", msg);
 
             return (true, "Thêm vật tư thành công.");
         }
@@ -139,9 +140,10 @@ namespace abchotel.Services
             string roomNum = inventory.Room?.RoomNumber ?? "N/A";
             string equipName = inventory.Equipment?.Name ?? "Vật tư";
             string userName = await GetCurrentUserNameAsync();
+            string msg = $"[{userName}] vừa cập nhật thông tin {equipName} ở phòng {roomNum}.";
 
-            await _notificationService.SendToPermissionAsync("MANAGE_INVENTORY", "Cập nhật Vật tư",
-                $"[{userName}] vừa cập nhật thông tin {equipName} ở phòng {roomNum}.");
+            await _notificationService.SendToPermissionAsync("MANAGE_INVENTORY", "Cập nhật Vật tư", msg);
+            await _notificationService.SendToPermissionAsync("MANAGE_ROOMS", "Cập nhật Vật tư", msg);
 
             return (true, "Cập nhật số lượng vật tư thành công.");
         }
@@ -177,9 +179,10 @@ namespace abchotel.Services
             string roomNum = inventory.Room?.RoomNumber ?? "N/A";
             string equipName = inventory.Equipment?.Name ?? "Vật tư";
             string userName = await GetCurrentUserNameAsync();
+            string msg = $"[{userName}] vừa {statusStr} {equipName} khỏi phòng {roomNum}.";
 
-            await _notificationService.SendToPermissionAsync("MANAGE_INVENTORY", "Trạng thái Vật tư",
-                $"[{userName}] vừa {statusStr} {equipName} khỏi phòng {roomNum}.");
+            await _notificationService.SendToPermissionAsync("MANAGE_INVENTORY", "Trạng thái Vật tư", msg);
+            await _notificationService.SendToPermissionAsync("MANAGE_ROOMS", "Trạng thái Vật tư", msg);
 
             return (true, "Gỡ vật tư và hoàn trả kho thành công.");
         }
@@ -240,32 +243,15 @@ namespace abchotel.Services
             await _context.SaveChangesAsync();
 
             string userName = await GetCurrentUserNameAsync();
-            await _notificationService.SendToPermissionAsync("MANAGE_INVENTORY", "Sao chép Kho",
-                $"[{userName}] vừa sao chép {addedCount} vật tư từ phòng {sourceRoom.RoomNumber} sang {targetRoom.RoomNumber}.");
+            string notifMsg = $"[{userName}] vừa sao chép {addedCount} vật tư từ phòng {sourceRoom.RoomNumber} sang {targetRoom.RoomNumber}.";
+
+            await _notificationService.SendToPermissionAsync("MANAGE_INVENTORY", "Sao chép Kho", notifMsg);
+            await _notificationService.SendToPermissionAsync("MANAGE_ROOMS", "Sao chép Kho", notifMsg);
 
             string msg = $"Đã sao chép thành công {addedCount} vật tư.";
             if (skippedCount > 0) msg += $" (Đã bỏ qua {skippedCount} món do kho tổng không đủ số lượng).";
 
             return (true, msg);
-        }
-        public async Task<(bool IsSuccess, string Message)> RequestRefillAsync(int id)
-        {
-            var inventory = await _context.RoomInventories
-                .Include(ri => ri.Room)
-                .Include(ri => ri.Equipment)
-                .FirstOrDefaultAsync(ri => ri.Id == id);
-
-            if (inventory == null) return (false, "Không tìm thấy vật tư trong phòng.");
-
-            string roomNum = inventory.Room?.RoomNumber ?? "N/A";
-            string equipName = inventory.Equipment?.Name ?? "Vật tư";
-            string userName = await GetCurrentUserNameAsync();
-
-            // 🔥 Bắn chuông thông báo Realtime thẳng cho người Quản lý kho (MANAGE_INVENTORY)
-            await _notificationService.SendToPermissionAsync("MANAGE_INVENTORY", "Yêu cầu bổ sung đồ",
-                $"[{userName}] yêu cầu bổ sung [{equipName}] cho phòng {roomNum}.");
-
-            return (true, "Đã gửi yêu cầu bổ sung.");
         }
     }
 }

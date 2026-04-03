@@ -6,5 +6,4 @@ export const roomInventoryApi = {
   updateInventory: (id, data) => axiosClient.put(`/RoomInventories/${id}`, data),
   deleteInventory: (id) => axiosClient.delete(`/RoomInventories/${id}`),
   cloneInventory: (data) => axiosClient.post('/RoomInventories/clone', data),
-  requestRefill: (id) => axiosClient.post(`/RoomInventories/${id}/request-refill`),
 };

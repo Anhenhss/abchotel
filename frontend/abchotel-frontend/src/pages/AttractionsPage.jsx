@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Button, Space, Typography, Tag, Modal, Form, Input, notification, Tooltip, Popconfirm, Switch, Row, Col, InputNumber } from 'antd';
-import { Plus, PencilSimple, MapPin, Compass, MapTrifold, MagnifyingGlass } from '@phosphor-icons/react';
+import { Card, Table, Button, Space, Typography, Tag, Modal, Form, Input, notification, Tooltip, Popconfirm, Row, Col, InputNumber, Grid, Divider } from 'antd';
+import { Plus, PencilSimple, MapPin, Compass, MapTrifold, MagnifyingGlass, Trash } from '@phosphor-icons/react';
 import { attractionApi } from '../api/attractionApi';
 
 const { Title, Text, Paragraph } = Typography;
+const { useBreakpoint } = Grid;
 const ACCENT_RED = '#8A1538';
 const MIDNIGHT_BLUE = '#1C2E4A';
 
 export default function AttractionsPage() {
+  const [api, contextHolder] = notification.useNotification({ placement: 'bottomRight' });
+  const screens = useBreakpoint();
+
   const [searchText, setSearchText] = useState('');
   const [attractions, setAttractions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -25,7 +29,7 @@ export default function AttractionsPage() {
       const res = await attractionApi.getAttractions(false); 
       setAttractions(res || []);
     } catch (error) {
-      notification.error({ message: 'Lỗi tải danh sách điểm đến', placement: 'bottomRight' });
+      api.error({ message: 'Lỗi tải danh sách điểm đến' });
     } finally {
       setLoading(false);
     }
@@ -50,30 +54,30 @@ export default function AttractionsPage() {
       setLoading(true);
       if (editingAttraction) {
         await attractionApi.updateAttraction(editingAttraction.id, values);
-        notification.success({ message: 'Cập nhật điểm đến thành công!', placement: 'bottomRight' });
+        api.success({ message: 'Cập nhật điểm đến thành công!' });
       } else {
         await attractionApi.createAttraction(values);
-        notification.success({ message: 'Thêm điểm đến mới thành công!', placement: 'bottomRight' });
+        api.success({ message: 'Thêm điểm đến mới thành công!' });
       }
       setIsModalOpen(false);
       fetchAttractions();
     } catch (error) {
-      notification.error({ message: error.response?.data?.message || 'Có lỗi xảy ra', placement: 'bottomRight' });
+      api.error({ message: error.response?.data?.message || 'Có lỗi xảy ra' });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleToggleStatus = async (id, currentStatus) => {
+  const handleDeleteAttraction = async (id) => {
     try {
+      setLoading(true);
       await attractionApi.deleteAttraction(id);
-      notification.success({ 
-        message: `Đã ${currentStatus ? 'ẩn' : 'hiển thị'} điểm đến này trên Website!`, 
-        placement: 'bottomRight' 
-      });
+      api.success({ message: `Đã xóa địa điểm thành công!` });
       fetchAttractions();
     } catch (error) {
-      notification.error({ message: 'Không thể thay đổi trạng thái', placement: 'bottomRight' });
+      api.error({ message: 'Không thể xóa địa điểm này' });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -86,45 +90,37 @@ export default function AttractionsPage() {
     {
       title: 'Tên Địa Điểm', dataIndex: 'name', key: 'name', width: 250,
       render: (text, record) => (
-        <Space style={{ opacity: record.isActive ? 1 : 0.5 }}>
+        <Space>
           <div style={{ width: 36, height: 36, backgroundColor: '#e9f0f8', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <MapPin size={20} color={record.isActive ? ACCENT_RED : '#8c8c8c'} weight="fill" />
+            <MapPin size={20} color={ACCENT_RED} weight="fill" />
           </div>
-          <Text style={{ fontWeight: 600, color: record.isActive ? MIDNIGHT_BLUE : '#8c8c8c', fontSize: 15 }}>{text}</Text>
+          <Text style={{ fontWeight: 600, color: MIDNIGHT_BLUE, fontSize: 15 }}>{text}</Text>
         </Space>
       )
     },
     {
       title: 'Khoảng cách', dataIndex: 'distanceKm', key: 'distanceKm', width: 120, align: 'center',
-      render: (km, record) => <Tag color={record.isActive ? "blue" : "default"} style={{ borderRadius: 12, padding: '2px 10px', fontSize: 13 }}>{km} km</Tag>
+      render: (km) => <Tag color="blue" style={{ borderRadius: 12, padding: '2px 10px', fontSize: 13 }}>{km} km</Tag>
     },
     {
       title: 'Địa chỉ', dataIndex: 'address', key: 'address',
-      render: (address, record) => <Paragraph ellipsis={{ rows: 2 }} style={{ margin: 0, color: record.isActive ? '#52677D' : '#bfbfbf' }}>{address || 'Chưa cập nhật'}</Paragraph>
+      render: (address) => <Paragraph ellipsis={{ rows: 2 }} style={{ margin: 0, color: '#52677D' }}>{address || 'Chưa cập nhật'}</Paragraph>
     },
     {
-      title: 'Trạng thái hiển thị', dataIndex: 'isActive', key: 'isActive', width: 150, align: 'center',
-      render: (isActive, record) => (
-        <Popconfirm 
-          title={`Bạn có chắc muốn ${isActive ? 'ẩn' : 'hiện'} địa điểm này trên Web?`} 
-          onConfirm={() => handleToggleStatus(record.id, isActive)} 
-          okText="Đồng ý" cancelText="Hủy" placement="topRight"
-        >
-          <Switch 
-            checked={isActive} 
-            checkedChildren="Đang Hiện" 
-            unCheckedChildren="Đang Ẩn" 
-            style={{ backgroundColor: isActive ? '#344966' : '#780000' }}
-          />
-        </Popconfirm>
-      )
-    },
-    {
-      title: 'Thao tác', key: 'actions', width: 100, align: 'right',
+      title: 'Thao tác', key: 'actions', width: 120, align: 'right',
       render: (_, record) => (
-        <Space size="middle">
+        <Space size="small">
           <Tooltip title="Sửa thông tin">
             <Button type="text" icon={<PencilSimple size={20} color="#52677D" />} onClick={() => openModal(record)} />
+          </Tooltip>
+          <Tooltip title="Xóa địa điểm">
+            <Popconfirm 
+              title="Bạn có chắc muốn xóa địa điểm này?" 
+              onConfirm={() => handleDeleteAttraction(record.id)} 
+              okText="Xóa" cancelText="Hủy" placement="topRight"
+            >
+              <Button type="text" danger icon={<Trash size={20} />} />
+            </Popconfirm>
           </Tooltip>
         </Space>
       )
@@ -133,11 +129,12 @@ export default function AttractionsPage() {
 
   return (
     <div>
+      {contextHolder}
       <Title level={3} style={{ color: MIDNIGHT_BLUE, fontFamily: '"Source Serif 4", serif', marginBottom: 24 }}>Quản lý Điểm Du Lịch</Title>
 
-      <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, marginBottom: 20 }}>
-          <Space direction="vertical" size="small">
+      <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.03)', padding: screens.md ? 0 : '16px 0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, marginBottom: 20, padding: screens.md ? 0 : '0 16px' }}>
+          <Space direction="vertical" size="small" style={{ width: screens.xs ? '100%' : 'auto' }}>
             <Text style={{ color: '#52677D', fontSize: 15 }}>
               Quản lý các địa điểm lân cận, khu vui chơi, nhà hàng để giới thiệu cho khách lưu trú.
             </Text>
@@ -146,7 +143,7 @@ export default function AttractionsPage() {
               allowClear 
               size="large"
               prefix={<MagnifyingGlass color="#7D92AD" />}
-              style={{ width: 300, marginTop: 8 }}
+              style={{ width: screens.xs ? '100%' : 300, marginTop: 8 }}
               onChange={(e) => setSearchText(e.target.value)}
             />
           </Space>
@@ -156,20 +153,53 @@ export default function AttractionsPage() {
             size="large" 
             icon={<Plus size={18} />} 
             onClick={() => openModal()} 
-            style={{ backgroundColor: ACCENT_RED, borderRadius: 8, fontWeight: 'bold' }}
+            style={{ backgroundColor: ACCENT_RED, borderRadius: 8, fontWeight: 'bold', width: screens.xs ? '100%' : 'auto' }}
           >
             THÊM ĐIỂM ĐẾN
           </Button>
         </div>
 
-        <Table 
-          columns={columns} 
-          dataSource={displayedAttractions} 
-          rowKey="id" 
-          loading={loading}
-          pagination={{ pageSize: 10 }}
-          rowClassName={(record, index) => index % 2 === 0 ? 'table-row-light' : 'table-row-dark'}
-        />
+        {screens.md ? (
+          <Table 
+            columns={columns} 
+            dataSource={displayedAttractions} 
+            rowKey="id" 
+            loading={loading}
+            pagination={{ pageSize: 10 }}
+            rowClassName={(record, index) => index % 2 === 0 ? 'table-row-light' : 'table-row-dark'}
+          />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 16px' }}>
+            {displayedAttractions.map(item => (
+              <div key={item.id} style={{ border: '1px solid #f0f0f0', borderRadius: 8, padding: 16, backgroundColor: '#fff' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <Space align="start">
+                    <div style={{ width: 36, height: 36, backgroundColor: '#e9f0f8', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <MapPin size={20} color={ACCENT_RED} weight="fill" />
+                    </div>
+                    <div>
+                      <Text strong style={{ fontSize: 16, color: MIDNIGHT_BLUE, display: 'block' }}>{item.name}</Text>
+                      <Tag color="blue" style={{ marginTop: 4 }}>Cách {item.distanceKm} km</Tag>
+                    </div>
+                  </Space>
+                </div>
+                
+                <div style={{ marginTop: 12 }}>
+                  <Paragraph ellipsis={{ rows: 2 }} style={{ color: '#52677D', margin: 0 }}>{item.address || 'Chưa có địa chỉ'}</Paragraph>
+                </div>
+
+                <Divider style={{ margin: '12px 0' }} />
+                
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                  <Button size="small" icon={<PencilSimple />} onClick={() => openModal(item)}>Sửa</Button>
+                  <Popconfirm title="Xóa địa điểm này?" onConfirm={() => handleDeleteAttraction(item.id)} okText="Xóa" cancelText="Hủy">
+                    <Button size="small" danger icon={<Trash />}>Xóa</Button>
+                  </Popconfirm>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
 
       <Modal 
@@ -182,12 +212,12 @@ export default function AttractionsPage() {
       >
         <Form form={form} layout="vertical" onFinish={onFinish} style={{ marginTop: 20 }}>
           <Row gutter={16}>
-            <Col span={18}>
+            <Col xs={24} md={18}>
               <Form.Item name="name" label="Tên địa điểm" rules={[{ required: true, message: 'Vui lòng nhập tên địa điểm' }]}>
                 <Input size="large" placeholder="VD: Bãi biển Mỹ Khê, Vinpearl Land..." />
               </Form.Item>
             </Col>
-            <Col span={6}>
+            <Col xs={24} md={6}>
               <Form.Item name="distanceKm" label="Cách KS (km)">
                 <InputNumber size="large" style={{ width: '100%' }} min={0} step={0.1} placeholder="VD: 2.5" />
               </Form.Item>
@@ -225,12 +255,12 @@ export default function AttractionsPage() {
               <Col span={24} style={{ marginTop: 16 }}>
                 <Text type="secondary" style={{ fontSize: 13 }}>* Tọa độ Latitude/Longitude bên dưới có thể để trống (Dành cho việc mở rộng tính năng API sau này).</Text>
               </Col>
-              <Col span={12} style={{ marginTop: 8 }}>
+              <Col xs={24} md={12} style={{ marginTop: 8 }}>
                 <Form.Item name="latitude" label="Vĩ độ (Latitude)">
                   <InputNumber style={{ width: '100%' }} placeholder="VD: 16.0544" step={0.000001} />
                 </Form.Item>
               </Col>
-              <Col span={12} style={{ marginTop: 8 }}>
+              <Col xs={24} md={12} style={{ marginTop: 8 }}>
                 <Form.Item name="longitude" label="Kinh độ (Longitude)">
                   <InputNumber style={{ width: '100%' }} placeholder="VD: 108.2022" step={0.000001} />
                 </Form.Item>
@@ -239,7 +269,7 @@ export default function AttractionsPage() {
           </div>
 
           <div style={{ textAlign: 'right' }}>
-            <Space>
+            <Space style={{ width: screens.xs ? '100%' : 'auto', justifyContent: screens.xs ? 'flex-end' : 'flex-start' }}>
               <Button size="large" onClick={() => setIsModalOpen(false)}>Hủy</Button>
               <Button size="large" type="primary" htmlType="submit" loading={loading} style={{ backgroundColor: ACCENT_RED }}>
                 {editingAttraction ? 'Lưu Thay Đổi' : 'Thêm Địa Điểm'}

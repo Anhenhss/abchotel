@@ -105,18 +105,18 @@ export default function AppRoutes() {
           </RequirePermission>
         } />
         <Route path="rooms" element={
-          <RequirePermission requiredPermissions={["UPDATE_ROOM_STATUS", "UPDATE_CLEANING_STATUS"]}>
+          <RequirePermission requiredPermissions={["UPDATE_ROOM_STATUS", "UPDATE_CLEANING_STATUS", "MANAGE_INVENTORY"]}>
              <RoomsPage />
+          </RequirePermission>
+        } />
+        <Route path="rooms/:id" element={
+          <RequirePermission requiredPermissions={["UPDATE_ROOM_STATUS", "UPDATE_CLEANING_STATUS", "MANAGE_INVENTORY"]}>
+             <RoomDetailPage />
           </RequirePermission>
         } />
         <Route path="inventory-setup" element={
           <RequirePermission requiredPermissions={["MANAGE_INVENTORY"]}>
             <InventorySetupPage />
-          </RequirePermission>
-        } />
-        <Route path="rooms/:id" element={
-          <RequirePermission requiredPermissions={["UPDATE_ROOM_STATUS", "UPDATE_CLEANING_STATUS"]}>
-             <RoomDetailPage />
           </RequirePermission>
         } />
         <Route path="attractions" element={
