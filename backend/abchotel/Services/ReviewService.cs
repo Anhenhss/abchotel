@@ -99,16 +99,20 @@ namespace abchotel.Services
             var roomType = await _context.RoomTypes.FindAsync(request.RoomTypeId);
             if (roomType == null) return (false, "Loại phòng không tồn tại.");
 
-            // Chỉ duyệt những đơn đã hoàn tất (Check-out xong)
+            // LOGIC CHECK CỰC CHUẨN: 
+            // 1. Booking này phải thuộc về User đang đăng nhập.
+            // 2. Booking này phải có trạng thái "Completed".
+            // 3. Trong Booking này phải có đặt đúng cái RoomTypeId đó.
             var hasStayed = await _context.BookingDetails
                 .Include(bd => bd.Booking)
-                .AnyAsync(bd => bd.Booking.UserId == userId 
+                .AnyAsync(bd => bd.BookingId == request.BookingId 
+                             && bd.Booking.UserId == userId 
                              && bd.RoomTypeId == request.RoomTypeId 
                              && bd.Booking.Status == "Completed"); 
 
             if (!hasStayed)
             {
-                return (false, "Hệ thống từ chối: Bạn chỉ có thể đánh giá loại phòng này sau khi đã đặt và hoàn tất kỳ nghỉ tại khách sạn.");
+                return (false, "Hệ thống từ chối: Bạn chỉ có thể đánh giá loại phòng này sau khi đã hoàn tất kỳ nghỉ tại khách sạn.");
             }
 
             var user = await _context.Users.FindAsync(userId);
@@ -117,6 +121,7 @@ namespace abchotel.Services
             var review = new Review
             {
                 UserId = userId, 
+                BookingId = request.BookingId, 
                 RoomTypeId = request.RoomTypeId,
                 Rating = request.Rating,
                 Comment = request.Comment,

@@ -55,6 +55,8 @@ namespace abchotel.Services
         {
             var query = _context.RoomTypes
                 .Include(rt => rt.RoomImages)
+                .Include(rt => rt.RoomTypeAmenities)
+                    .ThenInclude(rta => rta.Amenity)
                 .AsQueryable();
 
             if (onlyActive) query = query.Where(rt => rt.IsActive);
@@ -71,6 +73,12 @@ namespace abchotel.Services
                 BedType = rt.BedType,
                 ViewDirection = rt.ViewDirection,
                 IsActive = rt.IsActive,
+                Amenities = rt.RoomTypeAmenities.Select(rta => new AmenityResponse
+                {
+                    Id = rta.Amenity.Id,
+                    Name = rta.Amenity.Name,
+                    IconUrl = rta.Amenity.IconUrl
+                }).ToList(),
                 Images = rt.RoomImages.Where(img => !onlyActive || img.IsActive).Select(img => new RoomImageResponse
                 {
                     Id = img.Id,
@@ -85,6 +93,8 @@ namespace abchotel.Services
         {
             var rt = await _context.RoomTypes
                 .Include(r => r.RoomImages)
+                .Include(rt => rt.RoomTypeAmenities)
+                    .ThenInclude(rta => rta.Amenity)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
             if (rt == null) return null;
@@ -101,6 +111,12 @@ namespace abchotel.Services
                 BedType = rt.BedType,
                 ViewDirection = rt.ViewDirection,
                 IsActive = rt.IsActive,
+                Amenities = rt.RoomTypeAmenities.Select(rta => new AmenityResponse
+                {
+                    Id = rta.Amenity.Id,
+                    Name = rta.Amenity.Name,
+                    IconUrl = rta.Amenity.IconUrl
+                }).ToList(),
                 Images = rt.RoomImages.Select(img => new RoomImageResponse
                 {
                     Id = img.Id,

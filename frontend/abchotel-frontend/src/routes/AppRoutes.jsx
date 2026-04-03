@@ -13,15 +13,20 @@ import RequirePermission from './RequirePermission';
 import ProfilePage from '../pages/ProfilePage';
 import ShiftsPage from '../pages/ShiftsPage';
 import AuditLogsPage from '../pages/AuditLogsPage';
-import CategoriesPage from '../pages/CategoriesPage';
-import ArticlesPage from '../pages/ArticlesPage';
-import RoomTypesPage from '../pages/RoomTypesPage';
 import RoomsPage from '../pages/RoomsPage';
 import AttractionsPage from '../pages/AttractionsPage';
 import AmenitiesPage from '../pages/AmenitiesPage';
-import RoomInventoryPage from '../pages/RoomInventoryPage';
 import LossDamagesPage from '../pages/LossDamagesPage';
 import ReviewsPage from '../pages/ReviewsPage';
+import RoomDetailPage from '../pages/RoomDetail/RoomDetailPage';
+import RoomSetupPage from '../pages/RoomSetup/RoomSetupPage';
+import RoomSetupWizard from '../pages/RoomSetup/RoomSetupWizard';
+import RoomTypeDetail from '../pages/RoomSetup/RoomTypeDetail';
+import RoomConfigDetail from '../pages/RoomSetup/RoomConfigDetail';
+import InventorySetupPage from '../pages/InventorySetup/InventorySetupPage';
+import CategoryManagementPage from '../pages/Article/CategoryManagementPage';
+import ArticleManagementPage from '../pages/Article/ArticleManagementPage';
+import ArticleEditorPage from '../pages/Article/ArticleEditorPage';
 
 export default function AppRoutes() {
   const { checkAuth, isInitialized } = useAuthStore();
@@ -41,7 +46,11 @@ export default function AppRoutes() {
       <Route path="/login" element={<AuthPage />} />
 
       <Route path="/admin" element={ <ProtectedRoute requireAdmin={true}><AdminLayout /></ProtectedRoute> }>
-        <Route path="dashboard" element={<AdminDashboard />} />
+      <Route path="dashboard" element={
+          <RequirePermission requiredPermissions={["VIEW_DASHBOARD"]}> 
+            <AdminDashboard />
+          </RequirePermission>
+        } />
         <Route path="users" element={
           <RequirePermission requiredPermissions={["MANAGE_USERS", "VIEW_USERS"]}> 
              <UserManagementPage />
@@ -61,22 +70,53 @@ export default function AppRoutes() {
         } />
         <Route path="categories" element={
           <RequirePermission requiredPermissions={["MANAGE_CONTENT"]}>
-             <CategoriesPage />
+            <CategoryManagementPage />
           </RequirePermission>
         } />
         <Route path="articles" element={
           <RequirePermission requiredPermissions={["MANAGE_CONTENT"]}>
-             <ArticlesPage />
+            <ArticleManagementPage />
           </RequirePermission>
         } />
-        <Route path="room-types" element={
+
+        <Route path="articles/editor/:id?" element={
+          <RequirePermission requiredPermissions={["MANAGE_CONTENT"]}>
+            <ArticleEditorPage />
+          </RequirePermission>
+        } />
+        <Route path="room-setup" element={
           <RequirePermission requiredPermissions={["MANAGE_ROOMS"]}>
-             <RoomTypesPage />
+            <RoomSetupPage />
+          </RequirePermission>
+        } />
+        <Route path="room-setup/create" element={
+          <RequirePermission requiredPermissions={["MANAGE_ROOMS"]}>
+            <RoomSetupWizard />
+          </RequirePermission>
+        } />
+        <Route path="room-setup/:typeId" element={
+          <RequirePermission requiredPermissions={["MANAGE_ROOMS"]}>
+            <RoomTypeDetail />
+          </RequirePermission>
+        } />
+        <Route path="room-setup/room/:roomId" element={
+          <RequirePermission requiredPermissions={["MANAGE_ROOMS"]}>
+            <RoomConfigDetail />
           </RequirePermission>
         } />
         <Route path="rooms" element={
-          <RequirePermission requiredPermissions={["MANAGE_ROOMS"]}>
+          <RequirePermission requiredPermissions={["UPDATE_ROOM_STATUS", "UPDATE_CLEANING_STATUS"]}>
              <RoomsPage />
+          </RequirePermission>
+        } />
+        <Route path="inventory-setup" element={
+          <RequirePermission requiredPermissions={["MANAGE_INVENTORY"]}>
+            <InventorySetupPage />
+          </RequirePermission>
+        } />
+        <Route path="rooms/:id" element={
+          <RequirePermission requiredPermissions={["UPDATE_ROOM_STATUS", "UPDATE_CLEANING_STATUS"]}>
+             <RoomDetailPage />
           </RequirePermission>
         } />
         <Route path="attractions" element={
@@ -85,18 +125,13 @@ export default function AppRoutes() {
           </RequirePermission>
         } />
         <Route path="amenities" element={
-          <RequirePermission requiredPermissions={["MANAGE_INVENTORY"]}>
+          <RequirePermission requiredPermissions={["MANAGE_ROOMS"]}>
              <AmenitiesPage />
           </RequirePermission>
         } />
-        <Route path="inventory" element={
-          <RequirePermission requiredPermissions={["MANAGE_INVENTORY"]}>
-             <RoomInventoryPage />
-          </RequirePermission>
-        } />
         <Route path="loss-damages" element={
-          <RequirePermission requiredPermissions={["MANAGE_INVENTORY"]}>
-             <LossDamagesPage />
+          <RequirePermission requiredPermissions={["VIEW_REPORTS", "MANAGE_INVOICES"]}>
+            <LossDamagesPage />
           </RequirePermission>
         } />
         <Route path="reviews" element={

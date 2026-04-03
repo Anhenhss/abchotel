@@ -67,14 +67,15 @@ namespace abchotel.Services
                 Floor = r.Floor,
                 Status = r.Status,
                 CleaningStatus = r.CleaningStatus,
-                IsActive = r.IsActive
+                IsActive = r.IsActive,
+                
             }).ToListAsync();
         }
 
         public async Task<RoomResponse> GetRoomByIdAsync(int id)
         {
             var room = await _context.Rooms
-                .Include(r => r.RoomType)
+                .Include(r => r.RoomType) 
                 .FirstOrDefaultAsync(r => r.Id == id);
 
             if (room == null) return null;
@@ -88,7 +89,12 @@ namespace abchotel.Services
                 Floor = room.Floor,
                 Status = room.Status,
                 CleaningStatus = room.CleaningStatus,
-                IsActive = room.IsActive
+                IsActive = room.IsActive,
+                CapacityAdults = room.RoomType?.CapacityAdults ?? 0,
+                CapacityChildren = room.RoomType?.CapacityChildren ?? 0,
+                BedType = room.RoomType?.BedType ?? "Chưa cập nhật",
+                SizeSqm = room.RoomType?.SizeSqm,
+                ViewDirection = room.RoomType?.ViewDirection ?? "Chưa cập nhật"
             };
         }
 

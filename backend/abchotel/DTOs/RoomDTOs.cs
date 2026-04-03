@@ -12,6 +12,11 @@ namespace abchotel.DTOs
         public string Status { get; set; }
         public string CleaningStatus { get; set; }
         public bool IsActive { get; set; }
+        public int CapacityAdults { get; set; }
+        public int CapacityChildren { get; set; }
+        public string BedType { get; set; }
+        public double? SizeSqm { get; set; }
+        public string ViewDirection { get; set; }
     }
 
     public class CreateRoomRequest

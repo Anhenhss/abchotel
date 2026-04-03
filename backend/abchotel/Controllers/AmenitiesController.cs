@@ -35,8 +35,6 @@ namespace abchotel.Controllers
             return Ok(amenity);
         }
 
-        // --- CÁC THAO TÁC QUẢN TRỊ KHO TỪ VỰNG TIỆN ÍCH ---
-
         [HttpPost]
         [Authorize(Policy = "MANAGE_INVENTORY")] 
         public async Task<IActionResult> CreateAmenity([FromBody] CreateAmenityRequest request)
@@ -64,10 +62,9 @@ namespace abchotel.Controllers
             return Ok(new { message = "Đã thay đổi trạng thái ẩn/hiện của tiện ích." });
         }
 
-        // --- API GÁN TIỆN ÍCH CHO LOẠI PHÒNG (NỐI BẢNG TRUNG GIAN) ---
         
         [HttpPost("assign-to-room-type")]
-        [Authorize(Policy = "MANAGE_ROOMS")] // Dùng quyền Quản lý phòng vì nó tác động đến RoomType
+        [Authorize(Policy = "RoomOrInventory")]
         public async Task<IActionResult> AssignAmenities([FromBody] AssignAmenitiesRequest request)
         {
             var result = await _amenityService.AssignAmenitiesToRoomTypeAsync(request);

@@ -18,6 +18,7 @@ namespace abchotel.DTOs
 
     public class CreateReviewRequest
     {
+        public int BookingId { get; set; }
         public int RoomTypeId { get; set; }
         public int Rating { get; set; } // Từ 1 đến 5 sao
         public string Comment { get; set; }

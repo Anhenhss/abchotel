@@ -1,22 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Input, Select, Button, Space, Typography, Tag, Modal, Form, notification, Tooltip, Popconfirm, Switch, Row, Col, Divider } from 'antd';
+import { Card, Table, Input, Select, Button, Space, Typography, Tag, Modal, Form, notification, Tooltip, Popconfirm, Switch, Row, Col, Divider, Grid, Pagination, Empty } from 'antd';
 import { Plus, MagnifyingGlass, PencilSimple, IdentificationCard, FunnelX, Eye, CheckCircle, LockKey, Key } from '@phosphor-icons/react';
 import { userApi } from '../api/userApi';
 import { roleApi } from '../api/roleApi';
 import { useAuthStore } from '../store/authStore';
 
 const { Title, Text } = Typography;
+const { useBreakpoint } = Grid;
+
 const ACCENT_RED = '#8A1538';
 const MIDNIGHT_BLUE = '#1C2E4A';
 
 export default function UserManagementPage() {
+  const screens = useBreakpoint();
   const { user: currentUser } = useAuthStore();
   const canManage = currentUser?.permissions?.includes("MANAGE_USERS");
 
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [resetLoading, setResetLoading] = useState(false); // Thêm loading cho nút Reset
+  const [resetLoading, setResetLoading] = useState(false);
   const [total, setTotal] = useState(0);
 
   const [filters, setFilters] = useState({ page: 1, pageSize: 10, search: '', roleId: null, isActive: null });
@@ -62,6 +65,7 @@ export default function UserManagementPage() {
   useEffect(() => { fetchUsers(); }, [filters]);
 
   const handleTableChange = (pagination) => setFilters({ ...filters, page: pagination.current, pageSize: pagination.pageSize });
+  const handlePageChange = (page, pageSize) => setFilters({ ...filters, page, pageSize });
   const handleSearch = (value) => setFilters({ ...filters, search: value, page: 1 });
   const handleClearFilters = () => setFilters({ page: 1, pageSize: 10, search: '', roleId: null, isActive: null });
 
@@ -105,7 +109,6 @@ export default function UserManagementPage() {
     } finally { setLoading(false); }
   };
 
-  // 🔥 HÀM MỚI: XỬ LÝ GỬI LẠI MẬT KHẨU
   const handleResetPassword = async (userId) => {
     try {
       setResetLoading(true);
@@ -144,7 +147,7 @@ export default function UserManagementPage() {
       render: (role, record) => <Tag color={!record.isActive ? 'default' : (role === 'Admin' ? ACCENT_RED : role === 'Guest' ? 'blue' : 'processing')} style={{ borderRadius: 12, padding: '2px 12px', fontWeight: 600 }}>{role}</Tag>
     },
     {
-      title: 'Trạng thái', dataIndex: 'isActive', key: 'isActive',
+      title: 'Trạng thái', dataIndex: 'isActive', key: 'isActive', align: 'center',
       render: (isActive, record) => (
         <Popconfirm 
           disabled={!canManage} 
@@ -163,7 +166,7 @@ export default function UserManagementPage() {
       )
     },
     {
-      title: 'Thao tác', key: 'actions',
+      title: 'Thao tác', key: 'actions', align: 'right',
       render: (_, record) => (
         <Space size="small">
           <Tooltip title="Xem chi tiết">
@@ -198,32 +201,137 @@ export default function UserManagementPage() {
 
   return (
     <div>
-      <Title level={3} style={{ color: MIDNIGHT_BLUE, fontFamily: '"Source Serif 4", serif', marginBottom: 24 }}>Quản lý Người dùng</Title>
+      {/* HEADER & NÚT THÊM */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+        <Title level={3} style={{ color: MIDNIGHT_BLUE, fontFamily: '"Source Serif 4", serif', margin: 0 }}>Quản lý Người dùng</Title>
+        {canManage && (
+          <Button type="primary" size="large" icon={<Plus size={18} />} onClick={() => { setEditingUser(null); form.resetFields(); setIsModalOpen(true); }} style={{ backgroundColor: ACCENT_RED, borderRadius: 8, fontWeight: 'bold', boxShadow: '0 4px 10px rgba(138, 21, 56, 0.3)', width: screens.xs ? '100%' : 'auto' }}>
+            THÊM NHÂN VIÊN
+          </Button>
+        )}
+      </div>
 
+      {/* BỘ LỌC (Responsive bằng Grid) */}
       <Card variant="borderless" style={{ marginBottom: 24, borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-          <Space size="middle" style={{ flexWrap: 'wrap' }}>
-            <Input.Search placeholder="Tìm tên, email, SĐT..." allowClear value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} onSearch={handleSearch} style={{ width: 280 }} enterButton={<Button style={{ backgroundColor: MIDNIGHT_BLUE, color: '#fff' }}><MagnifyingGlass /></Button>} size="large" />
-            <Select placeholder="Lọc theo Chức vụ" allowClear value={filters.roleId} style={{ width: 180 }} size="large" onChange={(val) => setFilters({ ...filters, roleId: val, page: 1 })} options={roles.map(r => ({ value: r.id, label: r.name }))} />
-            <Select placeholder="Lọc Trạng thái" allowClear value={filters.isActive} style={{ width: 150 }} size="large" onChange={(val) => setFilters({ ...filters, isActive: val, page: 1 })} options={[{ value: true, label: 'Hoạt động' }, { value: false, label: 'Bị khóa' }]} />
+        <Row gutter={[12, 12]}>
+          <Col xs={24} md={10}>
+            <Input.Search 
+              placeholder="Tìm tên, email, SĐT..." 
+              allowClear 
+              value={filters.search} 
+              onChange={(e) => setFilters({ ...filters, search: e.target.value })} 
+              onSearch={handleSearch} 
+              enterButton={<Button style={{ backgroundColor: MIDNIGHT_BLUE, color: '#fff' }}><MagnifyingGlass /></Button>} 
+              size="large" 
+              style={{ width: '100%' }}
+            />
+          </Col>
+          <Col xs={12} md={5}>
+            <Select 
+              placeholder="Lọc theo Chức vụ" 
+              allowClear 
+              value={filters.roleId} 
+              size="large" 
+              onChange={(val) => setFilters({ ...filters, roleId: val, page: 1 })} 
+              options={roles.map(r => ({ value: r.id, label: r.name }))} 
+              style={{ width: '100%' }}
+            />
+          </Col>
+          <Col xs={12} md={5}>
+            <Select 
+              placeholder="Lọc Trạng thái" 
+              allowClear 
+              value={filters.isActive} 
+              size="large" 
+              onChange={(val) => setFilters({ ...filters, isActive: val, page: 1 })} 
+              options={[{ value: true, label: 'Hoạt động' }, { value: false, label: 'Bị khóa' }]} 
+              style={{ width: '100%' }}
+            />
+          </Col>
+          <Col xs={24} md={4}>
             <Tooltip title="Xóa toàn bộ bộ lọc">
-              <Button size="large" icon={<FunnelX size={20} />} onClick={handleClearFilters} style={{ color: '#52677D' }}>Xóa lọc</Button>
+              <Button size="large" icon={<FunnelX size={20} />} onClick={handleClearFilters} style={{ color: '#52677D', width: '100%' }}>Xóa lọc</Button>
             </Tooltip>
-          </Space>
-          
-          {canManage && (
-            <Button type="primary" size="large" icon={<Plus size={18} />} onClick={() => { setEditingUser(null); form.resetFields(); setIsModalOpen(true); }} style={{ backgroundColor: ACCENT_RED, borderRadius: 8, fontWeight: 'bold', boxShadow: '0 4px 10px rgba(138, 21, 56, 0.3)' }}>
-              THÊM NHÂN VIÊN
-            </Button>
-          )}
-        </div>
+          </Col>
+        </Row>
       </Card>
 
-      <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.03)', overflow: 'hidden' }}>
-        <Table columns={columns} dataSource={users} rowKey="id" loading={loading} pagination={{ current: filters.page, pageSize: filters.pageSize, total: total, showSizeChanger: true, pageSizeOptions: ['5', '10', '20', '50'], showTotal: (total, range) => `Hiển thị ${range[0]}-${range[1]} trong tổng số ${total} tài khoản`, style: { paddingRight: 24 } }} onChange={handleTableChange} rowClassName={(record, index) => index % 2 === 0 ? 'table-row-light' : 'table-row-dark'} />
+      {/* HIỂN THỊ DỮ LIỆU (Table cho PC, Card cho Mobile) */}
+      <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.03)', overflow: 'hidden', padding: screens.md ? 0 : '16px 0' }}>
+        {screens.md ? (
+          <Table 
+            columns={columns} 
+            dataSource={users} 
+            rowKey="id" 
+            loading={loading} 
+            scroll={{ x: 800 }}
+            pagination={{ 
+              current: filters.page, pageSize: filters.pageSize, total: total, 
+              showSizeChanger: true, pageSizeOptions: ['5', '10', '20', '50'], 
+              showTotal: (total, range) => `Hiển thị ${range[0]}-${range[1]} trong tổng số ${total} tài khoản`, 
+              style: { paddingRight: 24 } 
+            }} 
+            onChange={handleTableChange} 
+            rowClassName={(record, index) => index % 2 === 0 ? 'table-row-light' : 'table-row-dark'} 
+          />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 16px' }}>
+            {users.length === 0 && !loading ? (
+              <Empty description="Không có dữ liệu" style={{ margin: '40px 0' }} />
+            ) : (
+              users.map(record => (
+                <div key={record.id} style={{ border: '1px solid #f0f0f0', borderRadius: 8, padding: 16, backgroundColor: record.isActive ? '#fff' : '#fafafa', opacity: record.isActive ? 1 : 0.6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <Space>
+                      <div style={{ backgroundColor: record.isActive ? '#e9f0f8' : '#d9d9d9', color: MIDNIGHT_BLUE, width: 40, height: 40, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: 16 }}>
+                        {record.fullName ? record.fullName.charAt(0).toUpperCase() : 'U'}
+                      </div>
+                      <div>
+                        <Text strong style={{ fontSize: 16, color: MIDNIGHT_BLUE, display: 'block' }}>{record.fullName}</Text>
+                        <Tag color={!record.isActive ? 'default' : (record.roleName === 'Admin' ? ACCENT_RED : record.roleName === 'Guest' ? 'blue' : 'processing')} style={{ marginTop: 4, borderRadius: 12 }}>{record.roleName}</Tag>
+                      </div>
+                    </Space>
+                    <Popconfirm disabled={!canManage} title={`${record.isActive ? 'Khóa' : 'Mở khóa'} tài khoản?`} onConfirm={() => handleToggleStatus(record.id, !record.isActive)}>
+                      <Switch disabled={!canManage} checked={record.isActive} size="small" style={{ backgroundColor: record.isActive ? '#344966' : '#780000' }} />
+                    </Popconfirm>
+                  </div>
+                  
+                  <div style={{ marginBottom: 12 }}>
+                    <Text type="secondary" style={{ display: 'block' }}>{record.email}</Text>
+                    <Text type="secondary">{record.phone || 'Chưa có SĐT'}</Text>
+                  </div>
+
+                  <Divider style={{ margin: '8px 0' }} />
+                  
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    <Button size="small" icon={<Eye />} onClick={() => handleViewUser(record)}>Xem</Button>
+                    {canManage && (
+                      <>
+                        <Button size="small" disabled={!record.isActive} icon={<PencilSimple />} onClick={() => { setEditingUser(record); form.setFieldsValue(record); setIsModalOpen(true); }}>Sửa</Button>
+                        <Button size="small" disabled={!record.isActive} icon={<IdentificationCard />} onClick={() => { setSelectedUserId(record.id); roleForm.setFieldsValue({ newRoleId: roles.find(r => r.name === record.roleName)?.id }); setIsRoleModalOpen(true); }}>Chức vụ</Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+            
+            {total > 0 && (
+              <div style={{ textAlign: 'center', marginTop: 16 }}>
+                <Pagination 
+                  size="small" 
+                  current={filters.page} 
+                  pageSize={filters.pageSize} 
+                  total={total} 
+                  onChange={handlePageChange} 
+                />
+              </div>
+            )}
+          </div>
+        )}
       </Card>
 
-      {/* 🔥 MODAL XEM CHI TIẾT (ĐÃ THÊM NÚT GỬI LẠI MẬT KHẨU) */}
+      {/* CÁC MODAL GIỮ NGUYÊN HOẠT ĐỘNG HOÀN HẢO CỦA EM */}
       <Modal title={<Title level={4} style={{ color: MIDNIGHT_BLUE, margin: 0 }}>Hồ sơ Nhân viên</Title>} open={isViewModalOpen} onCancel={() => setIsViewModalOpen(false)} footer={[<Button key="close" onClick={() => setIsViewModalOpen(false)} style={{ borderRadius: 8 }}>Đóng lại</Button>]} width={600} centered>
         {viewingUser && (
           <div style={{ marginTop: 20 }}>
@@ -253,21 +361,13 @@ export default function UserManagementPage() {
               )}
             </div>
 
-            {/* NÚT GỬI LẠI MẬT KHẨU CHỈ HIỆN KHI CÓ QUYỀN MANAGE VÀ KHÔNG PHẢI GUEST */}
             {canManage && viewingUser.roleName !== 'Guest' && (
               <>
                 <Divider dashed style={{ margin: '16px 0' }} />
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff1f0', padding: 12, borderRadius: 8, border: '1px dashed #ffa39e' }}>
+                <div style={{ display: 'flex', flexDirection: screens.xs ? 'column' : 'row', justifyContent: 'space-between', alignItems: screens.xs ? 'flex-start' : 'center', gap: 12, backgroundColor: '#fff1f0', padding: 12, borderRadius: 8, border: '1px dashed #ffa39e' }}>
                   <Text style={{ color: ACCENT_RED }}>Nhân viên quên mật khẩu đăng nhập?</Text>
-                  <Popconfirm 
-                    title="Xác nhận cấp lại mật khẩu?" 
-                    description="Hệ thống sẽ tạo mật khẩu mới và gửi thẳng vào email của nhân viên này."
-                    onConfirm={() => handleResetPassword(viewingUser.id)} 
-                    okText="Đồng ý gửi" 
-                    cancelText="Hủy" 
-                    placement="topRight"
-                  >
-                    <Button type="primary" danger icon={<Key size={18} />} loading={resetLoading}>
+                  <Popconfirm title="Xác nhận cấp lại mật khẩu?" description="Hệ thống sẽ tạo mật khẩu mới và gửi thẳng vào email của nhân viên này." onConfirm={() => handleResetPassword(viewingUser.id)} okText="Đồng ý gửi" cancelText="Hủy" placement="topRight">
+                    <Button type="primary" danger icon={<Key size={18} />} loading={resetLoading} style={{ width: screens.xs ? '100%' : 'auto' }}>
                       Cấp lại mật khẩu
                     </Button>
                   </Popconfirm>

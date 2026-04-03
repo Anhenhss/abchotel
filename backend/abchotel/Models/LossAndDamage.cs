@@ -27,6 +27,9 @@ public partial class LossAndDamage
 
     [Column("description")]
     public string? Description { get; set; }
+    [Column("evidence_image_url")]
+    [StringLength(500)]
+    public string? EvidenceImageUrl { get; set; }
 
     [Column("created_at", TypeName = "datetime")]
     public DateTime? CreatedAt { get; set; }

@@ -6,6 +6,7 @@ dotnet tool install --global dotnet-ef
 dotnet restore
 dotnet clean
 dotnet build
+npm install react-quill-new
  
 Bước 3: Nếu Models đã có 20 class rồi thì không cần chạy câu lệnh này
 dotnet ef dbcontext scaffold "Server=.\SQLEXPRESS;Database=HotelManagementDB;Trusted_Connection=True;TrustServerCertificate=True;" Microsoft.EntityFrameworkCore.SqlServer -o Models --context-dir Data -c HotelDbContext --namespace abchotel.Models --context-namespace abchotel.Data --data-annotations -f

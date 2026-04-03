@@ -71,6 +71,7 @@ namespace abchotel.Services
             return await query.OrderByDescending(a => a.CreatedAt).Select(a => new ArticleResponse
             {
                 Id = a.Id,
+                CategoryId = a.CategoryId,
                 Title = a.Title,
                 Slug = a.Slug,
                 ThumbnailUrl = a.ThumbnailUrl,

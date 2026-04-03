@@ -14,6 +14,8 @@ public partial class Review
 
     [Column("user_id")]
     public int? UserId { get; set; }
+    [Column("booking_id")]
+    public int? BookingId { get; set; }
 
     [Column("room_type_id")]
     public int? RoomTypeId { get; set; }

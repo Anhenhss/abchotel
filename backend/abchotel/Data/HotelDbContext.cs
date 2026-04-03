@@ -73,6 +73,7 @@ public partial class HotelDbContext : DbContext
 
     public virtual DbSet<Voucher> Vouchers { get; set; }
     public virtual DbSet<Notification> Notifications { get; set; }
+    public virtual DbSet<Equipment> Equipments { get; set; }
     
 
     //     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)

@@ -44,9 +44,11 @@ builder.Services.AddScoped<IRoomService, RoomService>();
 builder.Services.AddScoped<IRoomInventoryService, RoomInventoryService>();
 builder.Services.AddScoped<ILossDamageService, LossDamageService>();
 builder.Services.AddScoped<IAmenityService, AmenityService>();
+builder.Services.AddScoped<IEquipmentService, EquipmentService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
 // // Nhóm Module 2 (Rooms, Vouchers, Loyalty - Của đợt trước)
 // builder.Services.AddScoped<IRoomService, RoomService>();
 // builder.Services.AddScoped<IVoucherService, VoucherService>();
@@ -103,17 +105,19 @@ builder.Services.AddAuthentication(options =>
 // Cấu hình Policy cho từng Permission
 builder.Services.AddAuthorization(options =>
 {
-    var permissions = new[] { 
-        "VIEW_DASHBOARD", "MANAGE_USERS", "MANAGE_ROLES", "MANAGE_ROOMS", 
-        "MANAGE_BOOKINGS", "MANAGE_INVOICES", "MANAGE_SERVICES", "VIEW_REPORTS", 
+    var permissions = new[] {
+        "VIEW_DASHBOARD", "MANAGE_USERS", "MANAGE_ROLES", "MANAGE_ROOMS", "UPDATE_ROOM_STATUS", "UPDATE_CLEANING_STATUS",
+        "MANAGE_BOOKINGS", "MANAGE_INVOICES", "MANAGE_SERVICES", "VIEW_REPORTS",
         "MANAGE_CONTENT", "MANAGE_INVENTORY", "MANAGE_SHIFTS", "VIEW_AUDIT_LOGS", "MANAGE_VOUCHERS",
-        "VIEW_USERS","VIEW_ROLES", "EDIT_ROLES"
+        "VIEW_USERS","VIEW_ROLES"
     };
 
     foreach (var permission in permissions)
     {
         options.AddPolicy(permission, policy => policy.RequireClaim("Permission", permission));
     }
+    options.AddPolicy("RoomOrInventory", policy => 
+        policy.RequireClaim("Permission", "MANAGE_ROOMS", "MANAGE_INVENTORY"));
 });
 
 // ==========================================
@@ -128,7 +132,8 @@ builder.Services.AddCors(options =>
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials(); // BẮT BUỘC PHẢI CÓ DÒNG NÀY THÌ SIGNALR MỚI CHẠY ĐƯỢC
-        });
+        }
+    );
 });
 
 // ==========================================

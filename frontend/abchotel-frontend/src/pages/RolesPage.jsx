@@ -1,16 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Button, Space, Typography, Tag, Modal, Form, Input, notification, Tooltip, Popconfirm, Checkbox, Row, Col } from 'antd';
+import { Card, Table, Button, Space, Typography, Tag, Modal, Form, Input, notification, Tooltip, Popconfirm, Checkbox, Row, Col, Divider, Grid, Empty } from 'antd';
 import { Plus, PencilSimple, Trash, ShieldCheck, LockKey } from '@phosphor-icons/react';
 import { roleApi } from '../api/roleApi';
 import { useAuthStore } from '../store/authStore';
 
 const { Title, Text } = Typography;
+const { useBreakpoint } = Grid;
+
 const ACCENT_RED = '#8A1538';
 const MIDNIGHT_BLUE = '#1C2E4A';
 
 export default function RolesPage() {
+  const screens = useBreakpoint();
   const { user: currentUser } = useAuthStore();
   const canManage = currentUser?.permissions?.includes("MANAGE_ROLES");
+
+  // 🔥 Đồng bộ thông báo nằm ở góc dưới bên phải
+  const [api, contextHolder] = notification.useNotification({ placement: 'bottomRight' });
 
   const [roles, setRoles] = useState([]);
   const [allPermissions, setAllPermissions] = useState([]);
@@ -37,7 +43,7 @@ export default function RolesPage() {
       setRoles(rolesRes || []);
       setAllPermissions(permsRes || []);
     } catch (error) {
-      notification.error({ message: 'Lỗi tải dữ liệu chức vụ', placement: 'bottomRight' });
+      api.error({ message: 'Lỗi tải dữ liệu chức vụ' });
     } finally {
       setLoading(false);
     }
@@ -62,15 +68,15 @@ export default function RolesPage() {
       setLoading(true);
       if (editingRole) {
         await roleApi.updateRole(editingRole.id, values);
-        notification.success({ message: 'Cập nhật thành công!', placement: 'bottomRight' });
+        api.success({ message: 'Cập nhật thành công!' });
       } else {
         await roleApi.createRole(values);
-        notification.success({ message: 'Tạo vai trò mới thành công!', placement: 'bottomRight' });
+        api.success({ message: 'Tạo vai trò mới thành công!' });
       }
       setIsRoleModalOpen(false);
       fetchData();
     } catch (error) {
-      notification.error({ message: 'Lỗi xử lý vai trò', placement: 'bottomRight' });
+      api.error({ message: 'Lỗi xử lý vai trò' });
     } finally {
       setLoading(false);
     }
@@ -80,11 +86,11 @@ export default function RolesPage() {
     try {
       setLoading(true);
       await roleApi.deleteRole(id);
-      notification.success({ message: 'Xóa vai trò thành công!', placement: 'bottomRight' });
+      api.success({ message: 'Xóa vai trò thành công!' });
       fetchData();
     } catch (error) {
       const errorMsg = error.response?.data?.message || 'Không thể xóa chức vụ này';
-      notification.error({ message: 'Xóa thất bại', description: errorMsg, placement: 'bottomRight' });
+      api.error({ message: 'Xóa thất bại', description: errorMsg });
     } finally {
       setLoading(false);
     }
@@ -109,11 +115,11 @@ export default function RolesPage() {
         permissionIds: values.permissionIds || []
       };
       await roleApi.assignPermissions(payload);
-      notification.success({ message: `Cập nhật quyền cho [${selectedRoleForPerms.name}]`, placement: 'bottomRight' });
+      api.success({ message: `Cập nhật quyền cho [${selectedRoleForPerms.name}]` });
       setIsPermModalOpen(false);
       fetchData();
     } catch (error) {
-      notification.error({ message: 'Phân quyền thất bại', placement: 'bottomRight' });
+      api.error({ message: 'Phân quyền thất bại' });
     } finally {
       setLoading(false);
     }
@@ -131,7 +137,7 @@ export default function RolesPage() {
       const newPerms = manageRolesId ? [manageRolesId] : [];
       permForm.setFieldsValue({ permissionIds: newPerms });
       setPrevPerms(newPerms);
-      notification.info({ message: 'Đã giữ lại quyền quản lý vai trò cho Admin' });
+      api.info({ message: 'Đã giữ lại quyền quản lý vai trò cho Admin' });
     } else {
       permForm.setFieldsValue({ permissionIds: [] });
       setPrevPerms([]);
@@ -178,7 +184,6 @@ export default function RolesPage() {
         <Space size="middle">
           {canManage ? (
             <>
-              {/* KHÓA NÚT PHÂN QUYỀN ĐỐI VỚI GUEST */}
               {record.name !== 'Guest' ? (
                 <Tooltip title="Cài đặt Quyền hạn">
                   <Button type="text" icon={<ShieldCheck size={22} color={ACCENT_RED} weight="fill" />} onClick={() => openPermissionModal(record)} />
@@ -193,7 +198,6 @@ export default function RolesPage() {
                 <Button type="text" icon={<PencilSimple size={20} color="#52677D" />} onClick={() => openRoleModal(record)} />
               </Tooltip>
 
-              {/* KHÔNG CHO XÓA ADMIN VÀ GUEST */}
               {(record.name !== 'Admin' && record.name !== 'Guest') && (
                 <Tooltip title="Xóa Vai trò">
                   <Popconfirm title="Bạn có chắc muốn xóa chức vụ này?" onConfirm={() => handleDeleteRole(record.id)} okText="Xóa" cancelText="Hủy" placement="topRight">
@@ -212,34 +216,98 @@ export default function RolesPage() {
 
   return (
     <div>
+      {contextHolder}
       <Title level={3} style={{ color: MIDNIGHT_BLUE, fontFamily: '"Source Serif 4", serif', marginBottom: 24 }}>Quản lý Vai trò & Phân quyền</Title>
 
-      <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+      <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.03)', padding: screens.md ? 0 : '16px 0' }}>
+        <div style={{ display: 'flex', flexDirection: screens.xs ? 'column' : 'row', justifyContent: 'space-between', marginBottom: 20, gap: 16, padding: screens.md ? '0' : '0 16px' }}>
           <Text style={{ color: '#52677D', fontSize: 16 }}>
             Định nghĩa các chức vụ và gán quyền thao tác trên hệ thống.
           </Text>
           {canManage && (
-            <Button type="primary" size="large" icon={<Plus size={18} />} onClick={() => openRoleModal()} style={{ backgroundColor: ACCENT_RED, borderRadius: 8, fontWeight: 'bold' }}>
+            <Button 
+              type="primary" 
+              size="large" 
+              icon={<Plus size={18} />} 
+              onClick={() => openRoleModal()} 
+              style={{ backgroundColor: ACCENT_RED, borderRadius: 8, fontWeight: 'bold', width: screens.xs ? '100%' : 'auto' }}
+            >
               TẠO VAI TRÒ MỚI
             </Button>
           )}
         </div>
 
-        <Table 
-          columns={columns} 
-          dataSource={roles} 
-          rowKey="id" 
-          loading={loading}
-          pagination={false} 
-          rowClassName={(record, index) => index % 2 === 0 ? 'table-row-light' : 'table-row-dark'}
-        />
+        {/* 🔥 HIỂN THỊ BẢNG TRÊN PC VÀ CARD TRÊN MOBILE */}
+        {screens.md ? (
+          <Table 
+            columns={columns} 
+            dataSource={roles} 
+            rowKey="id" 
+            loading={loading}
+            pagination={false} 
+            rowClassName={(record, index) => index % 2 === 0 ? 'table-row-light' : 'table-row-dark'}
+          />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 16px' }}>
+            {roles.length === 0 && !loading ? (
+              <Empty description="Không có dữ liệu" style={{ margin: '40px 0' }} />
+            ) : (
+              roles.map(record => (
+                <div key={record.id} style={{ border: '1px solid #f0f0f0', borderRadius: 8, padding: 16, backgroundColor: '#fff' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <Space>
+                      <Text style={{ fontWeight: 'bold', color: MIDNIGHT_BLUE, fontSize: 16 }}>{record.name}</Text>
+                      {(record.name === 'Admin' || record.name === 'Guest') && <LockKey size={16} color={ACCENT_RED} weight="fill" />}
+                    </Space>
+                  </div>
+                  <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>{record.description || 'Không có mô tả'}</Text>
+                  
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: 16 }}>
+                    {record.name === 'Guest' ? (
+                      <Text type="secondary" italic>Khách hàng (Không có quyền Admin)</Text>
+                    ) : record.permissions && record.permissions.length > 0 ? (
+                      <>
+                        {record.permissions.slice(0, 4).map(p => (
+                          <Tag key={p} color={p.startsWith('MANAGE') ? 'volcano' : 'blue'} style={{ borderRadius: 12, margin: 0 }}>{p}</Tag>
+                        ))}
+                        {record.permissions.length > 4 && <Tag style={{ borderRadius: 12, margin: 0 }}>+{record.permissions.length - 4} nữa...</Tag>}
+                      </>
+                    ) : (
+                      <Text type="secondary" italic>Chưa có quyền nào</Text>
+                    )}
+                  </div>
+                  
+                  <Divider style={{ margin: '8px 0' }} />
+                  
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    {canManage ? (
+                      <>
+                        {record.name !== 'Guest' ? (
+                          <Button size="small" icon={<ShieldCheck color={ACCENT_RED} weight="fill" />} onClick={() => openPermissionModal(record)}>Quyền</Button>
+                        ) : (
+                          <Button size="small" disabled icon={<ShieldCheck color="#d9d9d9" weight="fill" />}>Quyền</Button>
+                        )}
+                        <Button size="small" icon={<PencilSimple />} onClick={() => openRoleModal(record)}>Sửa</Button>
+                        {(record.name !== 'Admin' && record.name !== 'Guest') && (
+                          <Popconfirm title="Xóa chức vụ này?" onConfirm={() => handleDeleteRole(record.id)} okText="Xóa" cancelText="Hủy">
+                            <Button size="small" danger icon={<Trash />}>Xóa</Button>
+                          </Popconfirm>
+                        )}
+                      </>
+                    ) : (
+                      <Text type="secondary" style={{ fontSize: 12 }}>Chỉ xem</Text>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </Card>
 
       {/* MODAL 1: THÊM / SỬA VAI TRÒ */}
       <Modal title={<Title level={4} style={{ color: MIDNIGHT_BLUE, margin: 0 }}>{editingRole ? 'Sửa Vai trò' : 'Tạo Vai trò mới'}</Title>} open={isRoleModalOpen} onCancel={() => setIsRoleModalOpen(false)} footer={null} centered>
         <Form form={roleForm} layout="vertical" onFinish={onRoleFormSubmit} style={{ marginTop: 20 }}>
-          {/* KHÓA Ô TÊN NẾU LÀ ADMIN HOẶC GUEST */}
           <Form.Item name="name" label="Tên Vai trò (Chức vụ)" rules={[{ required: true, message: 'Vui lòng nhập tên vai trò' }]}>
             <Input size="large" placeholder="VD: Lễ tân, Kế toán..." disabled={editingRole?.name === 'Admin' || editingRole?.name === 'Guest'} />
           </Form.Item>
@@ -264,8 +332,8 @@ export default function RolesPage() {
         width={700} 
         centered
       >
-        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text type="secondary">* Quyền <Text strong>MANAGE_ROLES</Text> của Admin luôn được giữ lại để bảo vệ hệ thống.</Text>
+        <div style={{ marginBottom: 16, display: 'flex', flexDirection: screens.xs ? 'column' : 'row', justifyContent: 'space-between', alignItems: screens.xs ? 'flex-start' : 'center', gap: 12 }}>
+          <Text type="secondary" style={{ fontSize: screens.xs ? 13 : 14 }}>* Quyền <Text strong>MANAGE_ROLES</Text> của Admin luôn được giữ lại.</Text>
           <Space>
             <Button size="small" onClick={handleSelectAllPerms}>Chọn tất cả</Button>
             <Button size="small" onClick={handleClearAllPerms} danger>Bỏ chọn tất cả</Button>
@@ -279,13 +347,11 @@ export default function RolesPage() {
               onChange={(checkedValues) => {
                 let newCheckedValues = [...checkedValues];
 
-                // 1. Tìm ra quyền vừa được Thêm hoặc Bớt bằng cách so sánh với prevPerms
                 const added = newCheckedValues.find(x => !prevPerms.includes(x));
                 const removed = prevPerms.find(x => !newCheckedValues.includes(x));
 
                 if (added) {
                   const addedPerm = allPermissions.find(p => p.id === added);
-                  // Nếu thêm MANAGE_... -> Tự thêm VIEW_...
                   if (addedPerm?.name.startsWith('MANAGE_')) {
                     const viewPermName = addedPerm.name.replace('MANAGE_', 'VIEW_');
                     const viewPerm = allPermissions.find(p => p.name === viewPermName);
@@ -297,7 +363,6 @@ export default function RolesPage() {
 
                 if (removed) {
                   const removedPerm = allPermissions.find(p => p.id === removed);
-                  // Nếu bỏ VIEW_... -> Tự bỏ MANAGE_...
                   if (removedPerm?.name.startsWith('VIEW_')) {
                     const managePermName = removedPerm.name.replace('VIEW_', 'MANAGE_');
                     const managePerm = allPermissions.find(p => p.name === managePermName);
@@ -307,21 +372,21 @@ export default function RolesPage() {
                   }
                 }
 
-                // Cập nhật lên Form và lưu lại vết
                 permForm.setFieldsValue({ permissionIds: newCheckedValues });
                 setPrevPerms(newCheckedValues);
               }}
             >
-              <div style={{ backgroundColor: '#f9fbfd', padding: 20, borderRadius: 12, border: '1px solid #e9f0f8' }}>
+              <div style={{ backgroundColor: '#f9fbfd', padding: screens.xs ? 12 : 20, borderRadius: 12, border: '1px solid #e9f0f8', maxHeight: screens.xs ? '60vh' : 'auto', overflowY: screens.xs ? 'auto' : 'visible' }}>
                 <Row gutter={[16, 16]}>
                   {allPermissions.map(perm => {
                     const isAdminLock = selectedRoleForPerms?.name === 'Admin' && perm.name === 'MANAGE_ROLES';
                     
                     return (
-                      <Col span={12} key={perm.id}>
+                      // 🔥 Responsive 2 cột trên PC, 1 cột trên Mobile
+                      <Col xs={24} md={12} key={perm.id}>
                         <div className="perm-checkbox-item" style={{ padding: '8px 12px', borderRadius: 6, backgroundColor: isAdminLock ? '#fff1f0' : 'transparent' }}>
                           <Checkbox value={perm.id} disabled={isAdminLock}>
-                            <Text style={{ fontWeight: 500, color: isAdminLock ? ACCENT_RED : MIDNIGHT_BLUE }}>
+                            <Text style={{ fontWeight: 500, color: isAdminLock ? ACCENT_RED : MIDNIGHT_BLUE, fontSize: screens.xs ? 13 : 14 }}>
                               {perm.name} {isAdminLock && <Tooltip title="Quyền này là bắt buộc đối với Admin"><LockKey size={14} weight="fill" /></Tooltip>}
                             </Text>
                           </Checkbox>
@@ -335,7 +400,7 @@ export default function RolesPage() {
           </Form.Item>
 
           <div style={{ textAlign: 'right', marginTop: 24 }}>
-            <Space>
+            <Space style={{ width: screens.xs ? '100%' : 'auto', justifyContent: screens.xs ? 'flex-end' : 'flex-start' }}>
               <Button size="large" onClick={() => setIsPermModalOpen(false)}>Hủy</Button>
               <Button size="large" type="primary" htmlType="submit" loading={loading} style={{ backgroundColor: MIDNIGHT_BLUE, fontWeight: 'bold' }}>
                 Lưu Quyền Hạn

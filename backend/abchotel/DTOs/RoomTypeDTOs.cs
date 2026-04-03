@@ -22,6 +22,7 @@ namespace abchotel.DTOs
         public string BedType { get; set; }
         public string ViewDirection { get; set; }
         public bool IsActive { get; set; }
+        public List<AmenityResponse> Amenities { get; set; } = new List<AmenityResponse>();
         public List<RoomImageResponse> Images { get; set; }
     }
 
@@ -31,10 +32,10 @@ namespace abchotel.DTOs
         public decimal BasePrice { get; set; }
         public int CapacityAdults { get; set; }
         public int CapacityChildren { get; set; }
-        public string Description { get; set; }
+        public string? Description { get; set; }
         public double? SizeSqm { get; set; }
-        public string BedType { get; set; }
-        public string ViewDirection { get; set; }
+        public string? BedType { get; set; }
+        public string? ViewDirection { get; set; }
     }
 
     public class UpdateRoomTypeRequest

@@ -5,6 +5,7 @@ namespace abchotel.DTOs
     public class ArticleResponse
     {
         public int Id { get; set; }
+        public int? CategoryId { get; set; }
         public string Title { get; set; }
         public string Slug { get; set; }
         public string ThumbnailUrl { get; set; }

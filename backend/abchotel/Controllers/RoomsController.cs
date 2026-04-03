@@ -18,10 +18,6 @@ namespace abchotel.Controllers
             _roomService = roomService;
         }
 
-        // ==========================================
-        // NHÓM API LẤY DỮ LIỆU (GET) - AI ĐĂNG NHẬP CŨNG XEM ĐƯỢC
-        // ==========================================
-
         [HttpGet]
         public async Task<IActionResult> GetRooms([FromQuery] bool onlyActive = true)
         {
@@ -37,10 +33,7 @@ namespace abchotel.Controllers
             return Ok(room);
         }
 
-        // ==========================================
-        // NHÓM API THAO TÁC - BẮT BUỘC CÓ QUYỀN MANAGE_ROOMS
-        // ==========================================
-
+        // CHỈ DÀNH CHO ADMIN / MANAGER SETUP PHÒNG
         [HttpPost]
         [Authorize(Policy = "MANAGE_ROOMS")] 
         public async Task<IActionResult> CreateRoom([FromBody] CreateRoomRequest request)
@@ -84,8 +77,9 @@ namespace abchotel.Controllers
             return Ok(new { message = "Đã thay đổi trạng thái kinh doanh của phòng." });
         }
 
+        // LỄ TÂN ĐƯỢC PHÉP GỌI API NÀY (Đổi Có khách / Trống)
         [HttpPatch("{id}/status")]
-        [Authorize(Policy = "MANAGE_ROOMS")] 
+        [Authorize(Policy = "UPDATE_ROOM_STATUS")] 
         public async Task<IActionResult> UpdateRoomStatus(int id, [FromBody] UpdateRoomStatusRequest request)
         {
             var success = await _roomService.UpdateStatusAsync(id, request.Status);
@@ -93,17 +87,11 @@ namespace abchotel.Controllers
             return Ok(new { message = "Cập nhật trạng thái kinh doanh thành công." });
         }
 
+        // BUỒNG PHÒNG ĐƯỢC PHÉP GỌI API NÀY (Đổi Sạch / Dơ)
         [HttpPatch("{id}/cleaning-status")]
+        [Authorize(Policy = "UPDATE_CLEANING_STATUS")] 
         public async Task<IActionResult> UpdateCleaningStatus(int id, [FromBody] UpdateCleaningStatusRequest request)
         {
-            // 1. Kiểm tra linh hoạt (HOẶC): Phải có quyền Quản lý Phòng hoặc Quản lý Kho (Buồng phòng)
-            var permissions = User.FindAll("Permission").Select(c => c.Value);
-            if (!permissions.Contains("MANAGE_ROOMS") && !permissions.Contains("MANAGE_INVENTORY"))
-            {
-                return Forbid(); // Trả về 403 nếu không có cả 2 quyền trên
-            }
-
-            // 2. Nếu có quyền thì cho phép thực hiện
             var success = await _roomService.UpdateCleaningStatusAsync(id, request.CleaningStatus);
             if (!success) return NotFound(new { message = "Không tìm thấy phòng." });
             return Ok(new { message = "Cập nhật trạng thái dọn dẹp thành công." });
