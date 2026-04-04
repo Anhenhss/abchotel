@@ -110,7 +110,7 @@ export default function AdminLayout() {
     ]},
     { key: 'grp_hotel_setup', label: renderGroupTitle('QUẢN LÝ KHÁCH SẠN'), type: 'group', children: [
       { key: '/admin/room-setup', icon: <Door size={20} />, label: 'Quản lý Phòng' },
-      { key: '/admin/rooms', icon: <Bed size={20} />, label: 'Dọn phòng' },
+      { key: '/admin/rooms', icon: <Bed size={20} />, label: 'Sơ đồ phòng' },
       { key: '/admin/inventory-setup', icon: <Archive size={20} />, label: 'Kho Vật tư' },
       { key: '/admin/amenities', icon: <WifiHigh size={20} />, label: 'Tiện ích phòng' },
     ]},
@@ -121,7 +121,7 @@ export default function AdminLayout() {
     ]},
     { key: 'grp_reports_audit', label: renderGroupTitle('BÁO CÁO & GIÁM SÁT'), type: 'group', children: [
       { key: '/admin/loss-damages', icon: <WarningCircle size={20} />, label: 'Báo cáo Hư hỏng' },
-      { key: '/admin/performance', icon: <ChartLineUp size={20} />, label: 'KPI Nhân viên' },
+      // { key: '/admin/performance', icon: <ChartLineUp size={20} />, label: 'KPI Nhân viên' },
       { key: '/admin/audit-logs', icon: <ListIcon size={20} />, label: 'Lịch sử hệ thống' },
     ]},
     { key: '/admin/shifts', icon: <Clock size={20} />, label: 'Chấm công ca làm' },

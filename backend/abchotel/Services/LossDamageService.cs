@@ -198,11 +198,22 @@ namespace abchotel.Services
             {
                 inventoryItem.Quantity -= request.Quantity;
                 if (inventoryItem.Quantity < 0) inventoryItem.Quantity = 0;
+
+                // 🔥 BỔ SUNG LOGIC: BÁO CHO KHO TỔNG BIẾT LÀ ĐỒ ĐÃ HỎNG
+                if (inventoryItem.Equipment != null)
+                {
+                    // Trừ đi 1 món ở cột "Đang bố trí trong phòng (InUse)"
+                    inventoryItem.Equipment.InUseQuantity -= request.Quantity;
+                    if (inventoryItem.Equipment.InUseQuantity < 0) inventoryItem.Equipment.InUseQuantity = 0;
+                    
+                    // Cộng 1 món vào cột "Số lượng Hư hỏng (Damaged)"
+                    inventoryItem.Equipment.DamagedQuantity += request.Quantity;
+                }
             }
 
             _context.LossAndDamages.Add(lossRecord);
             await _context.SaveChangesAsync();
-
+            
             string userName = await GetCurrentUserNameAsync();
             string roomNumStr = inventoryItem.Room != null ? inventoryItem.Room.RoomNumber : "N/A";
             string actionStr = request.IssueType == "Damaged" ? "làm hỏng" : "làm mất";
@@ -228,13 +239,24 @@ namespace abchotel.Services
                 
             if (record == null) return false;
 
-            // LOGIC HỦY BỎ (CANCELLED): Báo nhầm -> Xóa tiền phạt & Cộng trả lại đồ vào kho
+            /// LOGIC HỦY BỎ (CANCELLED): Báo nhầm -> Xóa tiền phạt & Cộng trả lại đồ vào kho
             if (record.Status != "Cancelled" && status == "Cancelled")
             {
                 record.PenaltyAmount = 0; 
                 if (record.RoomInventory != null && record.RoomInventory.Quantity.HasValue)
                 {
+                    // Trả lại đồ cho phòng 101
                     record.RoomInventory.Quantity += record.Quantity; 
+
+                    // 🔥 BỔ SUNG LOGIC: TRẢ LẠI SỐ LIỆU CHO KHO TỔNG VÌ BÁO NHẦM
+                    if (record.RoomInventory.Equipment != null)
+                    {
+                        record.RoomInventory.Equipment.InUseQuantity += record.Quantity;
+                        record.RoomInventory.Equipment.DamagedQuantity -= record.Quantity;
+                        
+                        if (record.RoomInventory.Equipment.DamagedQuantity < 0) 
+                            record.RoomInventory.Equipment.DamagedQuantity = 0;
+                    }
                 }
             }
 
