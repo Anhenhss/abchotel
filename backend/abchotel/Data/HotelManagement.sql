@@ -115,6 +115,7 @@ CREATE TABLE [dbo].[Room_Types] (
     [id] INT IDENTITY(1,1) PRIMARY KEY,
     [name] NVARCHAR(255) NOT NULL,
     [base_price] DECIMAL(18, 2) NOT NULL,
+    [price_per_hour] DECIMAL(18, 2) NOT NULL DEFAULT 0, 
     [capacity_adults] INT NOT NULL,
     [capacity_children] INT NOT NULL,
     [size_sqm] FLOAT NULL, 
@@ -244,10 +245,10 @@ GO
 CREATE TABLE [dbo].[Bookings] (
     [id] INT IDENTITY(1,1) PRIMARY KEY,
     [user_id] INT NULL FOREIGN KEY REFERENCES [dbo].[Users](id),
-	[booking_id] INT NULL FOREIGN KEY REFERENCES [dbo].[Bookings](id),
     [guest_name] NVARCHAR(255) NULL,
     [guest_phone] NVARCHAR(50) NULL,
     [guest_email] NVARCHAR(255) NULL,
+    [identity_number] NVARCHAR(50) NULL, 
     [booking_code] NVARCHAR(50) NOT NULL UNIQUE,
     [voucher_id] INT NULL FOREIGN KEY REFERENCES [dbo].[Vouchers](id),
     [special_requests] NVARCHAR(MAX) NULL,
@@ -268,7 +269,8 @@ CREATE TABLE [dbo].[Booking_Details] (
     [room_type_id] INT NULL FOREIGN KEY REFERENCES [dbo].[Room_Types](id),
     [check_in_date] DATETIME NOT NULL,
     [check_out_date] DATETIME NOT NULL,
-    [price_per_night] DECIMAL(18, 2) NOT NULL
+    [applied_price] DECIMAL(18, 2) NOT NULL, 
+    [price_type] VARCHAR(20) DEFAULT 'NIGHTLY'
 );
 GO
 -- Bảng Review
@@ -501,17 +503,25 @@ SET IDENTITY_INSERT [dbo].[Memberships] OFF;
 GO
 SET IDENTITY_INSERT [dbo].[Users] ON;
 INSERT INTO [dbo].[Users] ([id], [role_id], [membership_id], [full_name], [email], [phone], [password_hash], [status]) VALUES 
-(1, 1, NULL, N'Nguyễn Admin', N'admin@hotel.com', N'0900000001', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(2, 2, NULL, N'Trần Manager', N'manager@hotel.com', N'0900000002', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(3, 3, NULL, N'Lê Lễ Tân', N'reception1@hotel.com', N'0900000003', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(4, 3, NULL, N'Phạm Lễ Tân', N'reception2@hotel.com', N'0900000004', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(5, 4, NULL, N'Hoàng Kế Toán', N'accountant@hotel.com', N'0900000005', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(6, 10, 1, N'Khách Hàng A', N'guestA@gmail.com', N'0900000006', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(7, 10, 2, N'Khách Hàng B', N'guestB@gmail.com', N'0900000007', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(8, 10, 3, N'Khách Hàng C', N'guestC@gmail.com', N'0900000008', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(9, 10, 4, N'Khách Hàng D', N'guestD@gmail.com', N'0900000009', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(10, 10, 5, N'Khách Hàng E', N'guestE@gmail.com', N'0900000010', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1);
+(1, 1, NULL, N'Nguyễn Admin', N'admin@hotel.com', N'0901000001', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(2, 2, NULL, N'Nguyễn Quốc Tú', N'manager@hotel.com', N'0901000002', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(3, 3, NULL, N'Lê Thu Thảo', N'reception1@hotel.com', N'0901000003', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(4, 3, NULL, N'Phạm Văn Minh', N'reception2@hotel.com', N'0901000004', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(5, 4, NULL, N'Hoàng Thanh Tùng', N'accountant@hotel.com', N'0901000005', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(6, 12, NULL, N'Lý Mỹ Linh', N'marketing@hotel.com', N'0901000016', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(7, 11, NULL, N'Hồ Văn Khoa', N'inventory@hotel.com', N'0901000011', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(8, 5, NULL, N'Vũ Thị Lan', N'housekeeping@hotel.com', N'0901000012', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(9, 9, NULL, N'Ngô Minh Tuấn', N'it@hotel.com', N'0901000013', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(10, 6, NULL, N'Đặng Văn Thép', N'security@hotel.com', N'0901000014', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(11, 7, NULL, N'Bùi Tuấn Hải', N'chef@hotel.com', N'0901000015', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(12, 8, NULL, N'Đỗ Tuấn Anh', N'waiter@hotel.com', N'0901000017', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(13, 10, 1, N'Viên Xuân Quý', N'vienxuanquy82024@gmail.com', N'0901000006', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(14, 10, 2, N'Trương Thị Ánh', N'truongthianh23ct112@gmail.com', N'0901000007', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(15, 10, 3, N'Nguyễn Thị Hồng Nhung', N'honggnhungg1605@gmail.com', N'0901000008', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(16, 10, 4, N'Nguyễn Thị Phương Thảo', N'phuongthao2005ab@gmail.com', N'0901000009', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(17, 10, 5, N'Huỳnh Thị Trúc Ly', N'httly20092005@gmail.com', N'0901000010', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1);
 SET IDENTITY_INSERT [dbo].[Users] OFF;
+GO
 GO
 -- Vật tư
 SET IDENTITY_INSERT [dbo].[Amenities] ON;
@@ -550,17 +560,17 @@ SET IDENTITY_INSERT [dbo].[Equipments] OFF;
 GO
 -- Phòng
 SET IDENTITY_INSERT [dbo].[Room_Types] ON;
-INSERT INTO [dbo].[Room_Types] ([id], [name], [base_price], [capacity_adults], [capacity_children], [description]) VALUES 
-(1, N'Standard Single', 400000, 1, 0, N'Phòng tiêu chuẩn 1 giường đơn'),
-(2, N'Standard Double', 500000, 2, 1, N'Phòng tiêu chuẩn 1 giường đôi'),
-(3, N'Superior City View', 700000, 2, 1, N'Phòng cao cấp hướng phố'),
-(4, N'Deluxe Ocean View', 900000, 2, 2, N'Phòng Deluxe hướng biển'),
-(5, N'Premium Deluxe', 1200000, 2, 2, N'Phòng Premium tiện nghi cao cấp'),
-(6, N'Family Suite', 1500000, 4, 2, N'Phòng Suite cho gia đình'),
-(7, N'Junior Suite', 1800000, 2, 2, N'Phòng Suite nhỏ nhắn sang trọng'),
-(8, N'Executive Suite', 2500000, 2, 2, N'Phòng Suite cho doanh nhân'),
-(9, N'Presidential Suite', 5000000, 4, 2, N'Phòng Tổng thống'),
-(10, N'Royal Villa', 8000000, 6, 4, N'Biệt thự hoàng gia nguyên căn');
+INSERT INTO [dbo].[Room_Types] ([id], [name], [base_price], [price_per_hour], [capacity_adults], [capacity_children], [description]) VALUES 
+(1, N'Standard Single', 400000, 40000, 1, 0, N'Phòng tiêu chuẩn 1 giường đơn'),
+(2, N'Standard Double', 500000, 50000, 2, 1, N'Phòng tiêu chuẩn 1 giường đôi'),
+(3, N'Superior City View', 700000, 70000, 2, 1, N'Phòng cao cấp hướng phố'),
+(4, N'Deluxe Ocean View', 900000, 90000, 2, 2, N'Phòng Deluxe hướng biển'),
+(5, N'Premium Deluxe', 1200000, 120000, 2, 2, N'Phòng Premium tiện nghi cao cấp'),
+(6, N'Family Suite', 1500000, 150000, 4, 2, N'Phòng Suite cho gia đình'),
+(7, N'Junior Suite', 1800000, 180000, 2, 2, N'Phòng Suite nhỏ nhắn sang trọng'),
+(8, N'Executive Suite', 2500000, 250000, 2, 2, N'Phòng Suite cho doanh nhân'),
+(9, N'Presidential Suite', 5000000, 500000, 4, 2, N'Phòng Tổng thống'),
+(10, N'Royal Villa', 8000000, 800000, 6, 4, N'Biệt thự hoàng gia nguyên căn');
 SET IDENTITY_INSERT [dbo].[Room_Types] OFF;
 GO
 SET IDENTITY_INSERT [dbo].[Rooms] ON;
@@ -744,25 +754,25 @@ INSERT INTO [dbo].[Bookings] ([id], [user_id], [guest_name], [guest_phone], [boo
 SET IDENTITY_INSERT [dbo].[Bookings] OFF;
 GO
 SET IDENTITY_INSERT [dbo].[Booking_Details] ON;
-INSERT INTO [dbo].[Booking_Details] ([id], [booking_id], [room_id], [room_type_id], [check_in_date], [check_out_date], [price_per_night]) VALUES
-(1, 1, 1, 1, '2026-03-01', '2026-03-03', 400000), 
-(2, 2, 2, 2, '2026-03-05', '2026-03-10', 500000),
-(3, 3, NULL, 3, '2026-07-10', '2026-07-12', 700000), 
-(4, 4, NULL, 4, '2026-05-01', '2026-05-05', 900000),
-(5, 5, NULL, 5, '2026-03-15', '2026-03-16', 1200000), 
-(6, 6, 6, 6, '2026-02-10', '2026-02-12', 1500000),
-(7, 7, 7, 7, '2026-03-07', '2026-03-09', 1800000), 
-(8, 8, NULL, 8, '2026-06-01', '2026-06-05', 2500000),
-(9, 9, 9, 9, '2026-01-20', '2026-01-25', 5000000), 
-(10, 10, 10, 10, '2026-03-06', '2026-03-08', 8000000),
-(11, 11, NULL, 3, '2026-02-01', '2026-02-03', 700000),  
-(12, 12, NULL, 4, '2026-02-05', '2026-02-07', 900000),  
-(13, 13, NULL, 5, '2026-02-10', '2026-02-12', 1200000),
-(14, 14, 6, 6, '2026-01-15', '2026-01-18', 1500000),    
-(15, 15, 7, 7, '2026-01-20', '2026-01-22', 1800000),   
-(16, 16, NULL, 8, '2026-01-25', '2026-01-28', 2500000), 
-(17, 17, 2, 2, '2025-12-10', '2025-12-12', 500000),     
-(18, 18, 10, 10, '2025-12-20', '2025-12-25', 8000000);
+INSERT INTO [dbo].[Booking_Details] ([id], [booking_id], [room_id], [room_type_id], [check_in_date], [check_out_date], [applied_price], [price_type]) VALUES
+(1, 1, 1, 1, '2026-03-01', '2026-03-03', 400000, 'NIGHTLY'), 
+(2, 2, 2, 2, '2026-03-05', '2026-03-10', 500000, 'NIGHTLY'),
+(3, 3, NULL, 3, '2026-07-10', '2026-07-12', 700000, 'NIGHTLY'), 
+(4, 4, NULL, 4, '2026-05-01', '2026-05-05', 900000, 'NIGHTLY'),
+(5, 5, NULL, 5, '2026-03-15', '2026-03-16', 1200000, 'NIGHTLY'), 
+(6, 6, 6, 6, '2026-02-10', '2026-02-12', 1500000, 'NIGHTLY'),
+(7, 7, 7, 7, '2026-03-07', '2026-03-09', 1800000, 'NIGHTLY'), 
+(8, 8, NULL, 8, '2026-06-01', '2026-06-05', 2500000, 'NIGHTLY'),
+(9, 9, 9, 9, '2026-01-20', '2026-01-25', 5000000, 'NIGHTLY'), 
+(10, 10, 10, 10, '2026-03-06', '2026-03-08', 8000000, 'NIGHTLY'),
+(11, 11, NULL, 3, '2026-02-01', '2026-02-03', 700000, 'NIGHTLY'),  
+(12, 12, NULL, 4, '2026-02-05', '2026-02-07', 900000, 'NIGHTLY'),  
+(13, 13, NULL, 5, '2026-02-10', '2026-02-12', 1200000, 'NIGHTLY'),
+(14, 14, 6, 6, '2026-01-15', '2026-01-18', 1500000, 'NIGHTLY'),    
+(15, 15, 7, 7, '2026-01-20', '2026-01-22', 1800000, 'NIGHTLY'),   
+(16, 16, NULL, 8, '2026-01-25', '2026-01-28', 2500000, 'NIGHTLY'), 
+(17, 17, 2, 2, '2025-12-10', '2025-12-12', 500000, 'NIGHTLY'),     
+(18, 18, 10, 10, '2025-12-20', '2025-12-25', 8000000, 'NIGHTLY');
 SET IDENTITY_INSERT [dbo].[Booking_Details] OFF;
 GO
 -- Reviews
@@ -918,14 +928,14 @@ CREATE PROCEDURE [dbo].[sp_SearchAvailableRooms]
     @Adults INT = 1,
     @Children INT = 0,
     @RequestedRooms INT = 1,
+    @PriceType VARCHAR(20) = 'NIGHTLY', -- 🔥 THÊM THAM SỐ LOẠI GIÁ (NIGHTLY/HOURLY)
     @MinPrice DECIMAL(18,2) = NULL,
     @MaxPrice DECIMAL(18,2) = NULL
 AS
 BEGIN
-    -- Bật NOCOUNT để tăng hiệu năng
     SET NOCOUNT ON;
 
-    -- BƯỚC 1: VALIDATE (Kiểm tra tham số đầu vào)
+    -- BƯỚC 1: VALIDATE
     IF @CheckIn < CAST(GETDATE() AS DATE)
     BEGIN
         RAISERROR('Ngày Check-in phải từ hôm nay trở đi.', 16, 1);
@@ -934,18 +944,30 @@ BEGIN
 
     IF @CheckIn >= @CheckOut
     BEGIN
-        RAISERROR('Ngày Check-out phải lớn hơn ngày Check-in.', 16, 1);
+        RAISERROR('Thời gian Check-out phải lớn hơn Check-in.', 16, 1);
         RETURN;
     END
 
-    -- Tính số đêm lưu trú để lát nữa nhân tiền
-    DECLARE @TotalNights INT = DATEDIFF(DAY, @CheckIn, @CheckOut);
+    -- BƯỚC 2: TÍNH THỜI GIAN LƯU TRÚ DỰA TRÊN LOẠI HÌNH
+    DECLARE @Duration INT;
+    IF @PriceType = 'HOURLY'
+    BEGIN
+        -- Tính theo giờ (Làm tròn lên, vd: 1 tiếng 15 phút -> tính 2 tiếng)
+        SET @Duration = CEILING(CAST(DATEDIFF(MINUTE, @CheckIn, @CheckOut) AS FLOAT) / 60.0);
+    END
+    ELSE
+    BEGIN
+        -- Tính theo đêm
+        SET @Duration = DATEDIFF(DAY, @CheckIn, @CheckOut);
+        IF @Duration = 0 SET @Duration = 1; -- Ít nhất 1 đêm
+    END
 
-    -- BƯỚC 2: THỰC THI THUẬT TOÁN (Sử dụng Bảng tạm #TempResult để tối ưu)
+    -- BƯỚC 3: THỰC THI THUẬT TOÁN
     SELECT 
         rt.id AS RoomTypeId,
         rt.name AS RoomTypeName,
-        rt.base_price AS PricePerNight,
+        -- Lấy đúng loại giá dựa trên PriceType
+        CASE WHEN @PriceType = 'HOURLY' THEN rt.price_per_hour ELSE rt.base_price END AS PricePerUnit,
         (SELECT TOP 1 image_url FROM [dbo].[Room_Images] ri WHERE ri.room_type_id = rt.id AND ri.is_primary = 1) AS ImageUrl,
         
         -- ĐẾM SỐ PHÒNG VẬT LÝ TRỐNG (Áp dụng De Morgan)
@@ -953,54 +975,52 @@ BEGIN
             SELECT COUNT(r.id)
             FROM [dbo].[Rooms] r
             WHERE r.room_type_id = rt.id
-              AND r.status = 'Available' -- Loại phòng đang Maintenance, Cleaning
+              AND r.status = 'Available'
               AND r.id NOT IN (
                   SELECT bd.room_id
                   FROM [dbo].[Booking_Details] bd
                   JOIN [dbo].[Bookings] b ON bd.booking_id = b.id
                   WHERE bd.room_id IS NOT NULL
-                    AND b.status != 'Cancelled' -- Không tính các booking đã hủy
-                    -- Công thức Overlap chuẩn: NOT (co <= ci OR ci >= co)
+                    AND b.status != 'Cancelled'
                     AND NOT (bd.check_out_date <= @CheckIn OR bd.check_in_date >= @CheckOut)
               )
         ) AS RemainingRooms,
         
-        -- Tính tổng tiền tạm tính = Số đêm * Giá/đêm * Số phòng
-        (@TotalNights * rt.base_price * @RequestedRooms) AS SubTotal
+        -- Tính tổng tiền = Thời gian * Giá trị 1 đơn vị * Số phòng
+        (@Duration * CASE WHEN @PriceType = 'HOURLY' THEN rt.price_per_hour ELSE rt.base_price END * @RequestedRooms) AS SubTotal
         
     INTO #TempResult
     FROM [dbo].[Room_Types] rt
     WHERE rt.capacity_adults >= @Adults
       AND rt.capacity_children >= @Children
-      -- Bộ lọc tùy chọn (Nếu NULL thì bỏ qua)
-      AND (@MinPrice IS NULL OR rt.base_price >= @MinPrice)
-      AND (@MaxPrice IS NULL OR rt.base_price <= @MaxPrice);
+      AND (@MinPrice IS NULL OR (CASE WHEN @PriceType = 'HOURLY' THEN rt.price_per_hour ELSE rt.base_price END) >= @MinPrice)
+      AND (@MaxPrice IS NULL OR (CASE WHEN @PriceType = 'HOURLY' THEN rt.price_per_hour ELSE rt.base_price END) <= @MaxPrice);
 
-    -- BƯỚC 3: HIỂN THỊ KẾT QUẢ & CẢNH BÁO URGENCY
+    -- BƯỚC 4: HIỂN THỊ KẾT QUẢ
     SELECT 
         RoomTypeId,
         RoomTypeName,
-        PricePerNight,
+        PricePerUnit,
         ImageUrl,
         RemainingRooms,
         SubTotal,
-        -- Xử lý đặc biệt: Tạo cờ Urgency nếu số phòng còn lại <= 3
         CAST(CASE WHEN RemainingRooms <= 3 THEN 1 ELSE 0 END AS BIT) AS IsUrgent
     FROM #TempResult
-    WHERE RemainingRooms >= @RequestedRooms -- Khách đặt 3 phòng thì phải còn đủ >= 3 phòng mới hiển thị
-    ORDER BY PricePerNight ASC; -- Sắp xếp theo giá tăng dần
+    WHERE RemainingRooms >= @RequestedRooms
+    ORDER BY PricePerUnit ASC;
 
-    -- Dọn dẹp bộ nhớ tạm
     DROP TABLE #TempResult;
 END
 GO
--- 2. Thuật toán Khóa và Đặt phòng
+
+-- 2. Thuật toán Khóa và Đặt phòng (Lưu đúng cấu trúc applied_price)
 CREATE PROCEDURE [dbo].[sp_BookAndLockRooms]
-    @BookingId INT,           -- ID của đơn đặt phòng (Đã được tạo trước ở bảng Bookings)
-    @RoomTypeId INT,          -- Loại phòng khách muốn đặt
+    @BookingId INT,           
+    @RoomTypeId INT,          
     @CheckIn DATETIME,
     @CheckOut DATETIME,
-    @RequestedRooms INT       -- Số lượng phòng cần đặt (VD: 3 phòng)
+    @RequestedRooms INT,      
+    @PriceType VARCHAR(20) = 'NIGHTLY' -- 🔥 THÊM THAM SỐ NÀY
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -1008,22 +1028,22 @@ BEGIN
     -- Biến lưu giá phòng tại thời điểm hiện tại (để Khóa giá)
     DECLARE @CurrentPrice DECIMAL(18,2);
     
-    -- Lấy giá hiện tại của loại phòng
-    SELECT @CurrentPrice = base_price 
-    FROM [dbo].[Room_Types] 
-    WHERE id = @RoomTypeId;
+    -- Lấy đúng giá tùy theo hình thức thuê
+    IF @PriceType = 'HOURLY'
+    BEGIN
+        SELECT @CurrentPrice = price_per_hour FROM [dbo].[Room_Types] WHERE id = @RoomTypeId;
+    END
+    ELSE
+    BEGIN
+        SELECT @CurrentPrice = base_price FROM [dbo].[Room_Types] WHERE id = @RoomTypeId;
+    END
 
     BEGIN TRY
-        -- 1. BẮT ĐẦU TRANSACTION (Bảo đảm tính toàn vẹn dữ liệu)
         BEGIN TRANSACTION;
 
-        -- Tạo bảng tạm trong bộ nhớ để chứa ID các phòng tìm được
         DECLARE @SelectedRooms TABLE (room_id INT);
 
-        -- 2. THUẬT TOÁN TÌM VÀ KHÓA PHÒNG (PESSIMISTIC LOCKING)
-        -- Dùng thẻ Hint: WITH (UPDLOCK, READPAST)
-        -- UPDLOCK: Khóa chặt các dòng tìm được, không cho ai khác chạm vào.
-        -- READPAST: Bỏ qua các phòng đang bị người khác khóa, đi tìm phòng khác ngay lập tức.
+        -- THUẬT TOÁN TÌM VÀ KHÓA PHÒNG (PESSIMISTIC LOCKING)
         INSERT INTO @SelectedRooms (room_id)
         SELECT TOP (@RequestedRooms) r.id
         FROM [dbo].[Rooms] r WITH (UPDLOCK, READPAST) 
@@ -1035,33 +1055,28 @@ BEGIN
               JOIN [dbo].[Bookings] b ON bd.booking_id = b.id
               WHERE bd.room_id IS NOT NULL
                 AND b.status != 'Cancelled'
-                -- Kiểm tra Overlap một lần nữa cho chắc chắn (De Morgan)
                 AND NOT (bd.check_out_date <= @CheckIn OR bd.check_in_date >= @CheckOut)
           );
 
-        -- 3. KIỂM TRA ĐỦ SỐ LƯỢNG PHÒNG (MULTI-ROOM BOOKING)
         DECLARE @AvailableCount INT = (SELECT COUNT(*) FROM @SelectedRooms);
 
         IF @AvailableCount < @RequestedRooms
         BEGIN
-            -- Trả lại toàn bộ, nhả khóa phòng cho người khác
             ROLLBACK TRANSACTION;
-            -- [THÊM MỚI]: Khắc phục triệt để lỗi sinh ra "Đơn rác" 
-            -- Khi nhả khóa do không đủ phòng, ta xóa luôn Booking cha để DB sạch sẽ
             DELETE FROM [dbo].[Bookings] WHERE id = @BookingId;
-            -- Ném lỗi về cho C# (Controller sẽ bắt lỗi này và báo cho Frontend)
             RAISERROR('Rất tiếc, không đủ số lượng phòng trống cho loại phòng này trong khoảng thời gian bạn chọn do có người vừa đặt trước.', 16, 1);
             RETURN;
         END
 
-        -- 4. GHI DỮ LIỆU & KHÓA GIÁ (PRICE LOCKING)
+        -- GHI DỮ LIỆU & KHÓA GIÁ (Sử dụng đúng cột applied_price)
         INSERT INTO [dbo].[Booking_Details] (
             booking_id, 
             room_id, 
             room_type_id, 
             check_in_date, 
             check_out_date, 
-            price_per_night
+            applied_price,    -- 🔥 ĐÃ ĐỔI TÊN CỘT
+            price_type        -- 🔥 LƯU LOẠI GIÁ
         )
         SELECT 
             @BookingId, 
@@ -1069,19 +1084,17 @@ BEGIN
             @RoomTypeId, 
             @CheckIn, 
             @CheckOut, 
-            @CurrentPrice -- Giá đã được khóa cứng tại đây
+            @CurrentPrice,    -- Lưu giá đã khóa
+            @PriceType        -- Lưu Nightly hay Hourly
         FROM @SelectedRooms;
 
-        -- 5. LƯU THÀNH CÔNG, NHẢ KHÓA
         COMMIT TRANSACTION;
 
     END TRY
     BEGIN CATCH
-        -- Nếu có bất kỳ lỗi hệ thống nào xảy ra (rớt mạng, lỗi khóa chéo...)
         IF @@TRANCOUNT > 0
             ROLLBACK TRANSACTION;
             
-        -- Báo lỗi chi tiết
         DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
         RAISERROR(@ErrorMessage, 16, 1);
     END CATCH

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Typography, Form, Input, InputNumber, Select, notification, Tag, Upload, Modal, Table, Grid, Popconfirm } from 'antd';
-import { WarningCircle, Broom, MagnifyingGlass, CheckCircle, Warning, UploadSimple, XCircle, ClockCounterClockwise } from '@phosphor-icons/react';
+import { WarningCircle, Broom, MagnifyingGlass, CheckCircle, Warning, UploadSimple, XCircle, ClockCounterClockwise, Trash } from '@phosphor-icons/react';
 import { roomApi } from '../../../api/roomApi';
 import { roomInventoryApi } from '../../../api/roomInventoryApi';
 import { lossDamageApi } from '../../../api/lossDamageApi';
+import { mediaApi } from '../../../api/mediaApi'; 
 import { COLORS } from '../../../constants/theme';
 import { useSignalR } from '../../../hooks/useSignalR'; 
 
@@ -18,7 +19,6 @@ const CLEANING_LABELS = {
 };
 
 export default function TabCleaning({ room, roomId, onRefreshRoom }) {
-  // 🔥 CHỈ CÓ 1 CONTEXT THÔNG BÁO Ở GÓC DƯỚI BÊN PHẢI
   const [api, contextHolder] = notification.useNotification({ placement: 'bottomRight' });
   const screens = useBreakpoint(); 
 
@@ -28,10 +28,10 @@ export default function TabCleaning({ room, roomId, onRefreshRoom }) {
   
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportItem, setReportItem] = useState(null);
-  const [fileList, setFileList] = useState([]); 
   const [reportForm] = Form.useForm();
 
   const [reportedItems, setReportedItems] = useState({});
+  const [evidenceImageUrl, setEvidenceImageUrl] = useState(null); 
 
   const fetchInventories = async (isRealtime = false) => {
     if (!roomId) return;
@@ -39,7 +39,6 @@ export default function TabCleaning({ room, roomId, onRefreshRoom }) {
       if (!isRealtime) setLoading(true);
       const data = await roomInventoryApi.getInventoryByRoom(roomId, true);
       setInventories(data || []);
-      // Dữ liệu tự động âm thầm load lại, KHÔNG quăng popup
     } catch (e) {
       if (!isRealtime) api.error({ message: 'Lỗi', description: 'Không thể tải danh sách.' });
     } finally {
@@ -62,10 +61,31 @@ export default function TabCleaning({ room, roomId, onRefreshRoom }) {
     finally { setLoading(false); }
   };
 
+  const handleUploadImage = async (options) => {
+    const { file, onSuccess, onError } = options;
+    try {
+      setLoading(true);
+      const uploadRes = await mediaApi.uploadImage(file);
+      const newUrl = uploadRes.data?.url || uploadRes.url || uploadRes;
+      setEvidenceImageUrl(newUrl); 
+      onSuccess("ok");
+      api.success({ message: 'Thành công', description: 'Đã tải ảnh minh chứng lên hệ thống.' });
+    } catch (error) {
+      api.error({ message: 'Lỗi', description: 'Tải ảnh thất bại.' });
+      onError(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const submitDamageReport = async (values) => {
     try {
       setLoading(true);
-      const payload = { ...values, roomInventoryId: reportItem.id };
+      const payload = { 
+        ...values, 
+        roomInventoryId: reportItem.id,
+        evidenceImageUrl: evidenceImageUrl 
+      };
       const res = await lossDamageApi.reportDamage(payload);
       
       const newReportId = res.data?.id || res.id || true;
@@ -73,7 +93,7 @@ export default function TabCleaning({ room, roomId, onRefreshRoom }) {
 
       api.success({ message: 'Thành công', description: 'Biên bản sự cố đã gửi về Lễ Tân!' });
       setIsReportModalOpen(false);
-      fetchInventories(false); // Reload lại để cập nhật số lượng mới
+      fetchInventories(false); 
     } catch (error) {
       api.error({ message: 'Lỗi báo cáo', description: error.response?.data?.message || 'Có lỗi xảy ra' });
     } finally { setLoading(false); }
@@ -112,6 +132,13 @@ export default function TabCleaning({ room, roomId, onRefreshRoom }) {
   const nextState = getNextStateInfo();
   const filteredInventories = inventories.filter(item => item.equipmentName?.toLowerCase().includes(searchText.toLowerCase()));
 
+  const openReportModal = (item) => {
+    setReportItem(item); 
+    reportForm.resetFields(); 
+    setEvidenceImageUrl(null); 
+    setIsReportModalOpen(true);
+  };
+
   return (
     <div style={{paddingTop: 12}}>
       {contextHolder}
@@ -144,15 +171,21 @@ export default function TabCleaning({ room, roomId, onRefreshRoom }) {
                 const isReported = reportedItems[record.id];
                 const isOutOfStock = record.quantity === 0 || !record.quantity; 
                 
-                // 🔥 Đã đổi: Hết hàng thì chỉ hiện Tag thông báo, không có nút xin đồ
-                if (isOutOfStock) return <Tag icon={<ClockCounterClockwise />} color="warning" style={{ padding: '4px 12px', fontSize: 13 }}>Đang chờ kho bổ sung</Tag>;
+                // 🔥 LOGIC ĐÃ SỬA: ƯU TIÊN NÚT HỦY LÊN HÀNG ĐẦU
+                if (isReported) {
+                  return (
+                    <Popconfirm title="Bạn có chắc muốn hủy báo cáo này?" onConfirm={() => handleCancelReport(record.id, isReported)} okText="Đồng ý" cancelText="Đóng">
+                      <Button style={{ color: COLORS.ACCENT_RED, borderColor: COLORS.ACCENT_RED, background: '#fff', fontWeight: 600, borderRadius: 6 }} icon={<XCircle size={18} />}>Hủy báo cáo</Button>
+                    </Popconfirm>
+                  );
+                }
 
-                return isReported ? (
-                  <Popconfirm title="Bạn có chắc muốn hủy báo cáo này?" onConfirm={() => handleCancelReport(record.id, isReported)} okText="Đồng ý" cancelText="Đóng">
-                    <Button style={{ color: COLORS.ACCENT_RED, borderColor: COLORS.ACCENT_RED, background: '#fff', fontWeight: 600, borderRadius: 6 }} icon={<XCircle size={18} />}>Hủy báo cáo</Button>
-                  </Popconfirm>
-                ) : (
-                  <Button type="primary" icon={<WarningCircle size={18} />} onClick={() => { setReportItem(record); reportForm.resetFields(); setFileList([]); setIsReportModalOpen(true); }} style={{ backgroundColor: COLORS.ACCENT_RED, borderColor: COLORS.ACCENT_RED, color: '#fff', fontWeight: 600, borderRadius: 6 }}>Báo hỏng / Mất</Button>
+                if (isOutOfStock) {
+                  return <Tag icon={<ClockCounterClockwise />} color="warning" style={{ padding: '4px 12px', fontSize: 13 }}>Đang chờ kho bổ sung</Tag>;
+                }
+
+                return (
+                  <Button type="primary" icon={<WarningCircle size={18} />} onClick={() => openReportModal(record)} style={{ backgroundColor: COLORS.ACCENT_RED, borderColor: COLORS.ACCENT_RED, color: '#fff', fontWeight: 600, borderRadius: 6 }}>Báo hỏng / Mất</Button>
                 );
               }
             }
@@ -172,16 +205,17 @@ export default function TabCleaning({ room, roomId, onRefreshRoom }) {
                   <Tag color={isOutOfStock ? "error" : "processing"} style={{ margin: 0, fontWeight: 'bold', fontSize: 13, padding: '4px 8px', borderRadius: 6 }}>SL: {item.quantity || 0}</Tag>
                 </div>
                 
-                {isOutOfStock ? (
-                  <div style={{ textAlign: 'center', padding: '8px 0', background: '#fffbe6', borderRadius: 6, border: '1px solid #ffe58f' }}>
-                    <Text type="warning" style={{fontWeight: 600}}><ClockCounterClockwise style={{verticalAlign: 'middle', marginRight: 4}}/>Đang chờ kho bổ sung</Text>
-                  </div>
-                ) : isReported ? (
+                {/* 🔥 LOGIC ĐÃ SỬA: ƯU TIÊN NÚT HỦY LÊN HÀNG ĐẦU */}
+                {isReported ? (
                   <Popconfirm title="Thu hồi báo cáo sự cố này?" onConfirm={() => handleCancelReport(item.id, isReported)} okText="Đồng ý" cancelText="Đóng">
                     <Button block icon={<XCircle size={18} />} style={{ color: COLORS.ACCENT_RED, borderColor: COLORS.ACCENT_RED, background: '#fff', fontWeight: 600, height: 40, borderRadius: 8, fontSize: 14 }}>Hủy báo cáo</Button>
                   </Popconfirm>
+                ) : isOutOfStock ? (
+                  <div style={{ textAlign: 'center', padding: '8px 0', background: '#fffbe6', borderRadius: 6, border: '1px solid #ffe58f' }}>
+                    <Text type="warning" style={{fontWeight: 600}}><ClockCounterClockwise style={{verticalAlign: 'middle', marginRight: 4}}/>Đang chờ kho bổ sung</Text>
+                  </div>
                 ) : (
-                  <Button type="primary" block icon={<WarningCircle size={18} weight="bold" />} onClick={() => { setReportItem(item); reportForm.resetFields(); setFileList([]); setIsReportModalOpen(true); }} style={{ backgroundColor: COLORS.ACCENT_RED, borderColor: COLORS.ACCENT_RED, color: '#fff', fontWeight: 600, height: 40, borderRadius: 8, fontSize: 14 }}>Báo hỏng / Mất</Button>
+                  <Button type="primary" block icon={<WarningCircle size={18} weight="bold" />} onClick={() => openReportModal(item)} style={{ backgroundColor: COLORS.ACCENT_RED, borderColor: COLORS.ACCENT_RED, color: '#fff', fontWeight: 600, height: 40, borderRadius: 8, fontSize: 14 }}>Báo hỏng / Mất</Button>
                 )}
               </div>
             );
@@ -194,15 +228,36 @@ export default function TabCleaning({ room, roomId, onRefreshRoom }) {
           <div style={{ padding: '12px', background: '#fff1f0', borderLeft: `4px solid ${COLORS.ACCENT_RED}`, marginBottom: 16, borderRadius: '0 8px 8px 0' }}>
             <Text strong style={{ color: COLORS.ACCENT_RED }}>Tài sản báo lỗi: {reportItem?.equipmentName}</Text>
           </div>
+          
           <Form.Item name="issueType" label={<span style={{fontWeight: 600}}>Loại Sự cố</span>} rules={[{ required: true, message: 'Vui lòng chọn loại sự cố' }]}>
             <Select size="large" options={[{value: 'Damaged', label: 'Bị hư hỏng / Rơi vỡ'}, {value: 'Lost', label: 'Khách làm mất'}]} />
           </Form.Item>
+          
           <Form.Item name="quantity" label={<span style={{fontWeight: 600}}>Số lượng bị ảnh hưởng</span>} rules={[{ required: true, message: 'Nhập số lượng' }]}>
             <InputNumber size="large" min={1} max={reportItem?.quantity || 1} style={{width: '100%'}} />
           </Form.Item>
+          
           <Form.Item name="description" label={<span style={{fontWeight: 600}}>Mô tả hiện trường</span>}>
             <Input.TextArea rows={3} placeholder="Mô tả chi tiết tình trạng..." />
           </Form.Item>
+
+          <Form.Item label={<span style={{fontWeight: 600}}>Ảnh minh chứng (Tùy chọn)</span>}>
+            {evidenceImageUrl ? (
+              <div style={{ position: 'relative', display: 'inline-block', border: '1px solid #d9d9d9', borderRadius: 8, padding: 8, background: '#fafafa' }}>
+                <img src={evidenceImageUrl} alt="evidence" style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 6 }} />
+                <Button 
+                  size="small" danger icon={<Trash />} 
+                  onClick={() => setEvidenceImageUrl(null)} 
+                  style={{ position: 'absolute', top: -10, right: -10, borderRadius: '50%', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }} 
+                />
+              </div>
+            ) : (
+              <Upload customRequest={handleUploadImage} showUploadList={false} accept="image/*">
+                <Button icon={<UploadSimple />} size="large">Chụp / Chọn ảnh tải lên</Button>
+              </Upload>
+            )}
+          </Form.Item>
+
           <Button type="primary" htmlType="submit" size="large" block loading={loading} style={{backgroundColor: COLORS.ACCENT_RED, border: 'none', fontWeight: 'bold', marginTop: 8, borderRadius: 8}}>
             GỬI BÁO CÁO VỀ HỆ THỐNG
           </Button>

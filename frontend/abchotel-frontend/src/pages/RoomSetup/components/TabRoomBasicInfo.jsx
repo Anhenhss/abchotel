@@ -58,7 +58,7 @@ export default function TabRoomBasicInfo({ room, onRefresh }) {
       {contextHolder}
       <Row gutter={[24, 24]}>
         
-        {/* CỘT TRÁI: FORM CHỈNH SỬA */}
+        {/* CỘT TRÁI: FORM CHỈNH SỬA (GIỮ NGUYÊN) */}
         <Col xs={24} lg={14}>
           <div style={{ background: COLORS.LIGHTEST, padding: 24, borderRadius: 12 }}>
             <Title level={5} style={{ color: COLORS.DARKEST, marginTop: 0, marginBottom: 20 }}>Chỉnh sửa Phòng</Title>
@@ -106,7 +106,7 @@ export default function TabRoomBasicInfo({ room, onRefresh }) {
           </div>
         </Col>
 
-        {/* CỘT PHẢI: THÔNG TIN TỪ HẠNG PHÒNG */}
+        {/* CỘT PHẢI: THÔNG TIN TỪ HẠNG PHÒNG (ĐÃ BỔ SUNG GIÁ TIỀN) */}
         <Col xs={24} lg={10}>
           <div style={{ border: `1px solid ${COLORS.LIGHTEST}`, padding: 24, borderRadius: 12, height: '100%' }}>
             <Title level={5} style={{ color: COLORS.DARKEST, marginTop: 0, marginBottom: 20 }}>Thuộc tính Hạng phòng</Title>
@@ -114,8 +114,21 @@ export default function TabRoomBasicInfo({ room, onRefresh }) {
               <Text type="warning" style={{ fontSize: 13 }}><WarningCircle style={{marginRight: 6}}/>Các thông tin dưới đây được kế thừa từ Hạng phòng. Cần ra trang Quản lý Hạng phòng để sửa.</Text>
             </div>
 
-            <Descriptions column={1} size="small" styles={{ label: { fontWeight: 600, color: COLORS.MUTED }, content: { fontWeight: 'bold', color: COLORS.DARKEST } }}>
+            <Descriptions column={1} size="small" styles={{ label: { fontWeight: 600, color: COLORS.MUTED, width: '110px' }, content: { fontWeight: 'bold', color: COLORS.DARKEST } }}>
               <Descriptions.Item label="Hạng phòng"><Tag color="cyan" style={{ fontSize: 14, margin: 0 }}>{room?.roomTypeName}</Tag></Descriptions.Item>
+              
+              {/* 🔥 THÊM 2 DÒNG GIÁ TIỀN VÀO ĐÂY */}
+              <Descriptions.Item label="Giá qua đêm">
+                <Text strong style={{ color: COLORS.ACCENT_RED, fontSize: 14 }}>
+                  {new Intl.NumberFormat('vi-VN').format(room?.basePrice || 0)} ₫
+                </Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="Giá theo giờ">
+                <Text strong style={{ color: COLORS.ACCENT_RED, fontSize: 14 }}>
+                  {new Intl.NumberFormat('vi-VN').format(room?.pricePerHour || 0)} ₫
+                </Text>
+              </Descriptions.Item>
+
               <Descriptions.Item label="Sức chứa">{room?.capacityAdults} Lớn, {room?.capacityChildren} Nhỏ</Descriptions.Item>
               <Descriptions.Item label="Loại giường">{room?.bedType || 'N/A'}</Descriptions.Item>
               <Descriptions.Item label="Diện tích">{room?.sizeSqm ? `${room.sizeSqm} m²` : 'N/A'}</Descriptions.Item>

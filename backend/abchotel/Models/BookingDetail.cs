@@ -28,8 +28,13 @@ public partial class BookingDetail
     [Column("check_out_date", TypeName = "datetime")]
     public DateTime CheckOutDate { get; set; }
 
-    [Column("price_per_night", TypeName = "decimal(18, 2)")]
-    public decimal PricePerNight { get; set; }
+    [Column("applied_price", TypeName = "decimal(18, 2)")]
+    public decimal AppliedPrice { get; set; }
+
+    // loại giá (NIGHTLY hoặc HOURLY)
+    [Column("price_type")]
+    [StringLength(20)]
+    public string? PriceType { get; set; }
 
     [Column("created_at", TypeName = "datetime")]
     public DateTime? CreatedAt { get; set; }

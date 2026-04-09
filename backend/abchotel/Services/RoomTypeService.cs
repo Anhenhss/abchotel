@@ -66,6 +66,7 @@ namespace abchotel.Services
                 Id = rt.Id,
                 Name = rt.Name,
                 BasePrice = rt.BasePrice,
+                PricePerHour = rt.PricePerHour,
                 CapacityAdults = rt.CapacityAdults,
                 CapacityChildren = rt.CapacityChildren,
                 Description = rt.Description,
@@ -104,6 +105,7 @@ namespace abchotel.Services
                 Id = rt.Id,
                 Name = rt.Name,
                 BasePrice = rt.BasePrice,
+                PricePerHour = rt.PricePerHour,
                 CapacityAdults = rt.CapacityAdults,
                 CapacityChildren = rt.CapacityChildren,
                 Description = rt.Description,
@@ -133,6 +135,7 @@ namespace abchotel.Services
             {
                 Name = request.Name,
                 BasePrice = request.BasePrice,
+                PricePerHour = request.PricePerHour,
                 CapacityAdults = request.CapacityAdults,
                 CapacityChildren = request.CapacityChildren,
                 Description = request.Description,
@@ -160,6 +163,7 @@ namespace abchotel.Services
 
             roomType.Name = request.Name;
             roomType.BasePrice = request.BasePrice;
+            roomType.PricePerHour = request.PricePerHour;
             roomType.CapacityAdults = request.CapacityAdults;
             roomType.CapacityChildren = request.CapacityChildren;
             roomType.Description = request.Description;

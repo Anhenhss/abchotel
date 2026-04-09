@@ -22,7 +22,7 @@ namespace abchotel.DTOs
 
     public class DashboardRecentBookingResponse
     {
-        public string Id { get; set; } 
+        public string Id { get; set; }
         public string Customer { get; set; }
         public string Room { get; set; }
         public decimal Amount { get; set; }
@@ -37,12 +37,23 @@ namespace abchotel.DTOs
         public string Desc { get; set; }
         public string Color { get; set; }
     }
-
+    public class DashboardReviewResponse
+    {
+        public int Id { get; set; }
+        public string CustomerName { get; set; }
+        public string RoomTypeName { get; set; }
+        public int Rating { get; set; }
+        public string Comment { get; set; }
+        public DateTime Date { get; set; }
+    }
     public class DashboardResponse
     {
         public DashboardStatsResponse Stats { get; set; } = new DashboardStatsResponse();
         public DashboardRoomStatusResponse RoomStatus { get; set; } = new DashboardRoomStatusResponse();
         public List<DashboardRecentBookingResponse> RecentBookings { get; set; } = new List<DashboardRecentBookingResponse>();
         public List<DashboardActivityResponse> Activities { get; set; } = new List<DashboardActivityResponse>();
+        public List<DashboardReviewResponse> RecentReviews { get; set; } = new List<DashboardReviewResponse>();
+
     }
+    
 }

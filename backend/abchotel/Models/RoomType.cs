@@ -19,6 +19,9 @@ public partial class RoomType
 
     [Column("base_price", TypeName = "decimal(18, 2)")]
     public decimal BasePrice { get; set; }
+    
+    [Column("price_per_hour", TypeName = "decimal(18, 2)")]
+    public decimal PricePerHour { get; set; }
 
     [Column("capacity_adults")]
     public int CapacityAdults { get; set; }

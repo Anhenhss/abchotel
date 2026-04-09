@@ -49,14 +49,15 @@ builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
-// // Nhóm Module 2 (Rooms, Vouchers, Loyalty - Của đợt trước)
-// builder.Services.AddScoped<IRoomService, RoomService>();
-// builder.Services.AddScoped<IVoucherService, VoucherService>();
-// builder.Services.AddScoped<ILoyaltyService, LoyaltyService>();
+builder.Services.AddScoped<IVoucherService, VoucherService>();
+builder.Services.AddScoped<IMembershipService, MembershipService>();
+builder.Services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
+builder.Services.AddScoped<IOrderServiceLogic, OrderServiceLogic>();
 
-// // Đăng ký Background Workers (Chạy ngầm)
-// builder.Services.AddHostedService<RoomHoldCleanupService>();
-// builder.Services.AddHostedService<LoyaltyDowngradeWorker>();
+
+// Đăng ký Background Workers (Chạy ngầm)
+builder.Services.AddHostedService<RoomHoldCleanupService>();
+builder.Services.AddHostedService<LoyaltyDowngradeWorker>();
 
 builder.Services.AddSignalR();
 // ==========================================

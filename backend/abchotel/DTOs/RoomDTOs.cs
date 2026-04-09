@@ -17,6 +17,8 @@ namespace abchotel.DTOs
         public string BedType { get; set; }
         public double? SizeSqm { get; set; }
         public string ViewDirection { get; set; }
+        public decimal BasePrice { get; set; }
+        public decimal PricePerHour { get; set; }
     }
 
     public class CreateRoomRequest

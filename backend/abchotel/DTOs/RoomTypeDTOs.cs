@@ -15,6 +15,7 @@ namespace abchotel.DTOs
         public int Id { get; set; }
         public string Name { get; set; }
         public decimal BasePrice { get; set; }
+        public decimal PricePerHour { get; set; }
         public int CapacityAdults { get; set; }
         public int CapacityChildren { get; set; }
         public string Description { get; set; }
@@ -30,6 +31,7 @@ namespace abchotel.DTOs
     {
         public string Name { get; set; }
         public decimal BasePrice { get; set; }
+        public decimal PricePerHour { get; set; }
         public int CapacityAdults { get; set; }
         public int CapacityChildren { get; set; }
         public string? Description { get; set; }
@@ -42,6 +44,7 @@ namespace abchotel.DTOs
     {
         public string Name { get; set; }
         public decimal BasePrice { get; set; }
+        public decimal PricePerHour { get; set; }
         public int CapacityAdults { get; set; }
         public int CapacityChildren { get; set; }
         public string Description { get; set; }

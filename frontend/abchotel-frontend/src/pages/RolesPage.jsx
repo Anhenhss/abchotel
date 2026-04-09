@@ -15,7 +15,6 @@ export default function RolesPage() {
   const { user: currentUser } = useAuthStore();
   const canManage = currentUser?.permissions?.includes("MANAGE_ROLES");
 
-  // 🔥 Đồng bộ thông báo nằm ở góc dưới bên phải
   const [api, contextHolder] = notification.useNotification({ placement: 'bottomRight' });
 
   const [roles, setRoles] = useState([]);
@@ -30,7 +29,6 @@ export default function RolesPage() {
   const [selectedRoleForPerms, setSelectedRoleForPerms] = useState(null);
   const [permForm] = Form.useForm();
 
-  // 🛡️ State lưu lại mảng quyền trước đó để tính toán logic Auto-tick
   const [prevPerms, setPrevPerms] = useState([]);
 
   const fetchData = async () => {
@@ -98,12 +96,17 @@ export default function RolesPage() {
 
   const openPermissionModal = (role) => {
     setSelectedRoleForPerms(role);
+    // Lấy các quyền hiện tại đang được tích (Lọc bỏ MANAGE_ROLES nếu không phải Admin để phòng hờ dữ liệu cũ bị lỗi)
     const checkedIds = allPermissions
       .filter(p => role.permissions?.includes(p.name))
+      .filter(p => {
+         if (role.name !== 'Admin' && p.name === 'MANAGE_ROLES') return false; 
+         return true;
+      })
       .map(p => p.id);
 
     permForm.setFieldsValue({ permissionIds: checkedIds });
-    setPrevPerms(checkedIds); // Lưu lại vết
+    setPrevPerms(checkedIds);
     setIsPermModalOpen(true);
   };
 
@@ -125,8 +128,13 @@ export default function RolesPage() {
     }
   };
 
+  // 🔥 ĐÃ CẬP NHẬT: Chọn tất cả nhưng LOẠI TRỪ MANAGE_ROLES cho các role không phải Admin
   const handleSelectAllPerms = () => {
-    const allIds = allPermissions.map(p => p.id);
+    let allIds = allPermissions.map(p => p.id);
+    if (selectedRoleForPerms?.name !== 'Admin') {
+       const manageRolesId = allPermissions.find(p => p.name === 'MANAGE_ROLES')?.id;
+       allIds = allIds.filter(id => id !== manageRolesId);
+    }
     permForm.setFieldsValue({ permissionIds: allIds });
     setPrevPerms(allIds);
   };
@@ -134,10 +142,15 @@ export default function RolesPage() {
   const handleClearAllPerms = () => {
     if (selectedRoleForPerms?.name === 'Admin') {
       const manageRolesId = allPermissions.find(p => p.name === 'MANAGE_ROLES')?.id;
-      const newPerms = manageRolesId ? [manageRolesId] : [];
+      const viewRolesId = allPermissions.find(p => p.name === 'VIEW_ROLES')?.id; 
+      
+      const newPerms = [];
+      if (manageRolesId) newPerms.push(manageRolesId);
+      if (viewRolesId) newPerms.push(viewRolesId);
+
       permForm.setFieldsValue({ permissionIds: newPerms });
       setPrevPerms(newPerms);
-      api.info({ message: 'Đã giữ lại quyền quản lý vai trò cho Admin' });
+      api.info({ message: 'Đã giữ lại quyền Xem và Quản lý vai trò cho Admin' });
     } else {
       permForm.setFieldsValue({ permissionIds: [] });
       setPrevPerms([]);
@@ -237,7 +250,6 @@ export default function RolesPage() {
           )}
         </div>
 
-        {/* 🔥 HIỂN THỊ BẢNG TRÊN PC VÀ CARD TRÊN MOBILE */}
         {screens.md ? (
           <Table 
             columns={columns} 
@@ -305,7 +317,6 @@ export default function RolesPage() {
         )}
       </Card>
 
-      {/* MODAL 1: THÊM / SỬA VAI TRÒ */}
       <Modal title={<Title level={4} style={{ color: MIDNIGHT_BLUE, margin: 0 }}>{editingRole ? 'Sửa Vai trò' : 'Tạo Vai trò mới'}</Title>} open={isRoleModalOpen} onCancel={() => setIsRoleModalOpen(false)} footer={null} centered>
         <Form form={roleForm} layout="vertical" onFinish={onRoleFormSubmit} style={{ marginTop: 20 }}>
           <Form.Item name="name" label="Tên Vai trò (Chức vụ)" rules={[{ required: true, message: 'Vui lòng nhập tên vai trò' }]}>
@@ -323,7 +334,6 @@ export default function RolesPage() {
         </Form>
       </Modal>
 
-      {/* MODAL 2: MA TRẬN PHÂN QUYỀN */}
       <Modal 
         title={<Space><ShieldCheck size={24} color={ACCENT_RED}/><Title level={4} style={{ color: MIDNIGHT_BLUE, margin: 0 }}>Phân quyền cho: <span style={{ color: ACCENT_RED }}>{selectedRoleForPerms?.name}</span></Title></Space>} 
         open={isPermModalOpen} 
@@ -333,7 +343,7 @@ export default function RolesPage() {
         centered
       >
         <div style={{ marginBottom: 16, display: 'flex', flexDirection: screens.xs ? 'column' : 'row', justifyContent: 'space-between', alignItems: screens.xs ? 'flex-start' : 'center', gap: 12 }}>
-          <Text type="secondary" style={{ fontSize: screens.xs ? 13 : 14 }}>* Quyền <Text strong>MANAGE_ROLES</Text> của Admin luôn được giữ lại.</Text>
+          <Text type="secondary" style={{ fontSize: screens.xs ? 13 : 14 }}>* Quyền <Text strong>MANAGE_ROLES</Text> chỉ dành riêng cho Admin.</Text>
           <Space>
             <Button size="small" onClick={handleSelectAllPerms}>Chọn tất cả</Button>
             <Button size="small" onClick={handleClearAllPerms} danger>Bỏ chọn tất cả</Button>
@@ -342,7 +352,7 @@ export default function RolesPage() {
         
         <Form form={permForm} onFinish={onPermFormSubmit}>
           <Form.Item name="permissionIds">
-            <Checkbox.Group 
+          <Checkbox.Group 
               style={{ width: '100%' }}
               onChange={(checkedValues) => {
                 let newCheckedValues = [...checkedValues];
@@ -350,6 +360,7 @@ export default function RolesPage() {
                 const added = newCheckedValues.find(x => !prevPerms.includes(x));
                 const removed = prevPerms.find(x => !newCheckedValues.includes(x));
 
+                // 1. Logic tự động tick VIEW khi tick MANAGE
                 if (added) {
                   const addedPerm = allPermissions.find(p => p.id === added);
                   if (addedPerm?.name.startsWith('MANAGE_')) {
@@ -361,9 +372,16 @@ export default function RolesPage() {
                   }
                 }
 
+                // 2. Logic tự động bỏ MANAGE khi bỏ VIEW
                 if (removed) {
                   const removedPerm = allPermissions.find(p => p.id === removed);
-                  if (removedPerm?.name.startsWith('VIEW_')) {
+                  
+                  // 🔥 BƯỚC TƯỜNG LỬA: Chặn Admin tháo quyền VIEW_ROLES
+                  if (selectedRoleForPerms?.name === 'Admin' && removedPerm?.name === 'VIEW_ROLES') {
+                    newCheckedValues.push(removed); // Ép mảng trả lại quyền vừa tháo
+                    api.warning({ message: 'Cảnh báo', description: 'Admin bắt buộc phải có quyền Xem Vai trò.'});
+                  } 
+                  else if (removedPerm?.name.startsWith('VIEW_')) {
                     const managePermName = removedPerm.name.replace('VIEW_', 'MANAGE_');
                     const managePerm = allPermissions.find(p => p.name === managePermName);
                     if (managePerm && newCheckedValues.includes(managePerm.id)) {
@@ -377,17 +395,32 @@ export default function RolesPage() {
               }}
             >
               <div style={{ backgroundColor: '#f9fbfd', padding: screens.xs ? 12 : 20, borderRadius: 12, border: '1px solid #e9f0f8', maxHeight: screens.xs ? '60vh' : 'auto', overflowY: screens.xs ? 'auto' : 'visible' }}>
-                <Row gutter={[16, 16]}>
+              <Row gutter={[16, 16]}>
                   {allPermissions.map(perm => {
-                    const isAdminLock = selectedRoleForPerms?.name === 'Admin' && perm.name === 'MANAGE_ROLES';
+                    //  Khóa cứng hiển thị cả MANAGE_ROLES và VIEW_ROLES đối với Admin
+                    const isAdminLock = selectedRoleForPerms?.name === 'Admin' && (perm.name === 'MANAGE_ROLES' || perm.name === 'VIEW_ROLES');
+                    
+                    // Cờ chặn không cho các Role khác lấy quyền MANAGE_ROLES
+                    const isNotAdminLock = selectedRoleForPerms?.name !== 'Admin' && perm.name === 'MANAGE_ROLES';
+                    const isLocked = isAdminLock || isNotAdminLock;
                     
                     return (
-                      // 🔥 Responsive 2 cột trên PC, 1 cột trên Mobile
                       <Col xs={24} md={12} key={perm.id}>
-                        <div className="perm-checkbox-item" style={{ padding: '8px 12px', borderRadius: 6, backgroundColor: isAdminLock ? '#fff1f0' : 'transparent' }}>
-                          <Checkbox value={perm.id} disabled={isAdminLock}>
-                            <Text style={{ fontWeight: 500, color: isAdminLock ? ACCENT_RED : MIDNIGHT_BLUE, fontSize: screens.xs ? 13 : 14 }}>
-                              {perm.name} {isAdminLock && <Tooltip title="Quyền này là bắt buộc đối với Admin"><LockKey size={14} weight="fill" /></Tooltip>}
+                        <div className="perm-checkbox-item" style={{ 
+                            padding: '8px 12px', 
+                            borderRadius: 6, 
+                            backgroundColor: isAdminLock ? '#fff1f0' : (isNotAdminLock ? '#f5f5f5' : 'transparent') 
+                        }}>
+                          <Checkbox value={perm.id} disabled={isLocked}>
+                            <Text style={{ 
+                                fontWeight: 500, 
+                                color: isAdminLock ? ACCENT_RED : (isNotAdminLock ? '#bfbfbf' : MIDNIGHT_BLUE), 
+                                fontSize: screens.xs ? 13 : 14,
+                                textDecoration: isNotAdminLock ? 'line-through' : 'none' 
+                            }}>
+                              {perm.name} 
+                              {isAdminLock && <Tooltip title="Quyền này là bắt buộc đối với Admin"><LockKey size={14} weight="fill" style={{marginLeft: 6}} /></Tooltip>}
+                              {isNotAdminLock && <Tooltip title="Chỉ Admin mới có thể được cấp quyền này"><LockKey size={14} weight="fill" style={{marginLeft: 6}} /></Tooltip>}
                             </Text>
                           </Checkbox>
                         </div>

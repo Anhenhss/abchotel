@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Typography, Tabs, Button, Card, Space, Tag, Spin, notification } from 'antd';
-import { ArrowLeft, Info, Broom, Archive } from '@phosphor-icons/react';
+import { ArrowLeft, Info, Broom, Archive, Gear } from '@phosphor-icons/react'; // 🔥 Thêm icon Gear
 
 import { roomApi } from '../../api/roomApi';
 import { useAuthStore } from '../../store/authStore';
@@ -11,6 +11,8 @@ import { COLORS } from '../../constants/theme';
 import TabRoomInfo from './components/TabRoomInfo';
 import TabCleaning from './components/TabCleaning';
 import TabRoomInventory from '../RoomSetup/components/TabRoomInventory';
+// 🔥 IMPORT THÊM TAB BASIC INFO
+import TabRoomBasicInfo from '../RoomSetup/components/TabRoomBasicInfo';
 
 const { Title, Text } = Typography;
 
@@ -28,9 +30,12 @@ export default function RoomDetailPage() {
   const [room, setRoom] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // PHÂN QUYỀN HIỂN THỊ CÁC TAB
   const canUpdateRoomStatus = perms.includes('UPDATE_ROOM_STATUS'); 
   const canUpdateCleaning = perms.includes('UPDATE_CLEANING_STATUS') || perms.includes('REPORT_DAMAGES'); 
   const canManageInventory = perms.includes('MANAGE_INVENTORY') || perms.includes('MANAGE_ROOMS'); 
+  // 🔥 KIỂM TRA QUYỀN QUẢN LÝ PHÒNG
+  const canManageRooms = perms.includes('MANAGE_ROOMS');
 
   const fetchRoomInfo = useCallback(async (isRealtime = false) => {
     if (!id || id === 'undefined') return;
@@ -53,9 +58,19 @@ export default function RoomDetailPage() {
 
   const generateTabs = () => {
     const items = [];
+    
+    // Tab 1: Của Lễ tân
     if (canUpdateRoomStatus) items.push({ key: 'info', label: <Space><Info size={18}/> Trạng thái & Thông tin</Space>, children: <TabRoomInfo room={room} onRefresh={() => fetchRoomInfo(false)} /> });
+    
+    // Tab 2: Của Buồng phòng
     if (canUpdateCleaning) items.push({ key: 'cleaning', label: <Space><Broom size={18}/> Dọn phòng & Báo cáo</Space>, children: <TabCleaning room={room} roomId={id} onRefreshRoom={() => fetchRoomInfo(false)} /> });
+    
+    // Tab 3: Của Quản lý Kho
     if (canManageInventory) items.push({ key: 'inventory', label: <Space><Archive size={18}/> Quản lý Vật tư</Space>, children: <TabRoomInventory room={room} /> });
+    
+    // 🔥 Tab 4: Của Quản lý khách sạn (Admin/Manager)
+    if (canManageRooms) items.push({ key: 'basic', label: <Space><Gear size={18}/> Cấu hình & Sửa chữa</Space>, children: <TabRoomBasicInfo room={room} onRefresh={() => fetchRoomInfo(false)} /> });
+
     return items;
   };
 

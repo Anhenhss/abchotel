@@ -64,6 +64,8 @@ export default function TabRoomInfo({ room, onRefresh }) {
     <div style={{ paddingTop: 12 }}>
       {contextHolder}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        
+        {/* === PHẦN TRẠNG THÁI & VẬN HÀNH GIỮ NGUYÊN === */}
         <Col xs={24} lg={14}>
           <Card title="Trạng thái Phòng & Vận hành" variant="borderless" style={{ background: COLORS.LIGHTEST, height: '100%', borderRadius: 12 }}>
             <Title level={3} style={{ color: STATUS_UI[room?.status]?.text || COLORS.DARKEST, margin: 0 }}>
@@ -85,18 +87,36 @@ export default function TabRoomInfo({ room, onRefresh }) {
           </Card>
         </Col>
         
+        {/* === PHẦN THÔNG TIN CƠ BẢN (ĐÃ BỔ SUNG THÊM TẦNG & GIÁ) === */}
         <Col xs={24} lg={10}>
           <Card title="Thông tin cơ bản" variant="borderless" style={{ height: '100%', borderRadius: 12, border: `1px solid ${COLORS.LIGHTEST}` }}>
             <Descriptions column={1} size="small" styles={{ label: { fontWeight: 600, color: COLORS.MUTED }, content: { fontWeight: 'bold', color: COLORS.DARKEST } }}>
               <Descriptions.Item label="Số phòng">{room?.roomNumber}</Descriptions.Item>
               <Descriptions.Item label="Hạng phòng">{room?.roomTypeName}</Descriptions.Item>
+              <Descriptions.Item label="Tầng">{room?.floor || 'N/A'}</Descriptions.Item>
+              
+              <Descriptions.Item label="Giá qua đêm">
+                <Text strong style={{ color: COLORS.ACCENT_RED }}>
+                  {new Intl.NumberFormat('vi-VN').format(room?.basePrice || 0)} ₫
+                </Text>
+              </Descriptions.Item>
+              
+              <Descriptions.Item label="Giá theo giờ">
+                <Text strong style={{ color: COLORS.ACCENT_RED }}>
+                  {new Intl.NumberFormat('vi-VN').format(room?.pricePerHour || 0)} ₫
+                </Text>
+              </Descriptions.Item>
+              
               <Descriptions.Item label="Sức chứa">{room?.capacityAdults} Lớn, {room?.capacityChildren} Nhỏ</Descriptions.Item>
-              <Descriptions.Item label="Loại giường">{room?.bedType}</Descriptions.Item>
+              <Descriptions.Item label="Loại giường">{room?.bedType || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="Diện tích">{room?.sizeSqm ? `${room.sizeSqm} m²` : 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="Hướng nhìn">{room?.viewDirection || 'N/A'}</Descriptions.Item>
             </Descriptions>
           </Card>
         </Col>
       </Row>
 
+      {/* === PHẦN TÀI SẢN TRONG PHÒNG GIỮ NGUYÊN === */}
       <Card 
         title="Tài sản & Tiện ích trong phòng" 
         variant="borderless" 

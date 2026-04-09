@@ -69,6 +69,14 @@ namespace abchotel.Services
                 CleaningStatus = r.CleaningStatus,
                 IsActive = r.IsActive,
                 
+                CapacityAdults = r.RoomType != null ? r.RoomType.CapacityAdults : 0,
+                CapacityChildren = r.RoomType != null ? r.RoomType.CapacityChildren : 0,
+                BedType = (r.RoomType != null && r.RoomType.BedType != null) ? r.RoomType.BedType : "Chưa cập nhật",
+                SizeSqm = r.RoomType != null ? r.RoomType.SizeSqm : null,
+                ViewDirection = (r.RoomType != null && r.RoomType.ViewDirection != null) ? r.RoomType.ViewDirection : "Chưa cập nhật",
+                BasePrice = r.RoomType != null ? r.RoomType.BasePrice : 0,
+                PricePerHour = r.RoomType != null ? r.RoomType.PricePerHour : 0
+                
             }).ToListAsync();
         }
 
@@ -94,7 +102,9 @@ namespace abchotel.Services
                 CapacityChildren = room.RoomType?.CapacityChildren ?? 0,
                 BedType = room.RoomType?.BedType ?? "Chưa cập nhật",
                 SizeSqm = room.RoomType?.SizeSqm,
-                ViewDirection = room.RoomType?.ViewDirection ?? "Chưa cập nhật"
+                ViewDirection = room.RoomType?.ViewDirection ?? "Chưa cập nhật",
+                BasePrice = room.RoomType?.BasePrice ?? 0,
+                PricePerHour = room.RoomType?.PricePerHour ?? 0
             };
         }
 

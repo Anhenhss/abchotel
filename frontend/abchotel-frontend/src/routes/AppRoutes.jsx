@@ -27,6 +27,9 @@ import InventorySetupPage from '../pages/InventorySetup/InventorySetupPage';
 import CategoryManagementPage from '../pages/Article/CategoryManagementPage';
 import ArticleManagementPage from '../pages/Article/ArticleManagementPage';
 import ArticleEditorPage from '../pages/Article/ArticleEditorPage';
+import VouchersPage from '../pages/VouchersPage';
+import MembershipsPage from '../pages/MembershipsPage';
+import ServicesPage from '../pages/ServicesPage';
 
 export default function AppRoutes() {
   const { checkAuth, isInitialized } = useAuthStore();
@@ -105,12 +108,12 @@ export default function AppRoutes() {
           </RequirePermission>
         } />
         <Route path="rooms" element={
-          <RequirePermission requiredPermissions={["UPDATE_ROOM_STATUS", "UPDATE_CLEANING_STATUS", "MANAGE_INVENTORY"]}>
+          <RequirePermission requiredPermissions={["UPDATE_ROOM_STATUS", "UPDATE_CLEANING_STATUS", "MANAGE_INVENTORY", "MANAGE_ROOMS"]}>
              <RoomsPage />
           </RequirePermission>
         } />
         <Route path="rooms/:id" element={
-          <RequirePermission requiredPermissions={["UPDATE_ROOM_STATUS", "UPDATE_CLEANING_STATUS", "MANAGE_INVENTORY"]}>
+          <RequirePermission requiredPermissions={["UPDATE_ROOM_STATUS", "UPDATE_CLEANING_STATUS", "MANAGE_INVENTORY", "MANAGE_ROOMS"]}>
              <RoomDetailPage />
           </RequirePermission>
         } />
@@ -137,6 +140,21 @@ export default function AppRoutes() {
         <Route path="reviews" element={
           <RequirePermission requiredPermissions={["MANAGE_CONTENT"]}>
              <ReviewsPage />
+          </RequirePermission>
+        } />
+        <Route path="vouchers" element={
+          <RequirePermission requiredPermissions={["MANAGE_VOUCHERS"]}>
+             <VouchersPage />
+          </RequirePermission>
+        } />
+        <Route path="memberships" element={
+          <RequirePermission requiredPermissions={["MANAGE_USERS"]}>
+             <MembershipsPage />
+          </RequirePermission>
+        } />
+        <Route path="services" element={
+          <RequirePermission requiredPermissions={["MANAGE_SERVICES"]}>
+             <ServicesPage />
           </RequirePermission>
         } />
 

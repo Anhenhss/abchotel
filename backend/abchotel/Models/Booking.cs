@@ -27,6 +27,10 @@ public partial class Booking
     [Column("guest_email")]
     [StringLength(255)]
     public string? GuestEmail { get; set; }
+    
+    [Column("identity_number")]
+    [StringLength(50)]
+    public string? IdentityNumber { get; set; }
 
     [Column("booking_code")]
     [StringLength(50)]
