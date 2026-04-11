@@ -37,24 +37,28 @@ namespace abchotel.DTOs
     // ==========================================
     public class CreateBookingRequest
     {
-        // 1. Thông tin khách hàng (Nếu khách vãng lai thì cần điền, khách đã đăng nhập thì tự lấy theo Token)
-        public string GuestName { get; set; }
-        [RegularExpression(@"^0\d{9}$", ErrorMessage = "Số điện thoại không hợp lệ")]
-        public string GuestPhone { get; set; }
-        [EmailAddress]
-        public string GuestEmail { get; set; }
+        // 1. Thông tin khách hàng 
         
-        // CMND / CCCD (Giải quyết bài toán pháp lý em vừa hỏi)
-        public string IdentityNumber { get; set; } 
+        // Cố tình thêm Required tiếng Việt để lỡ Lễ tân quên nhập thì báo lỗi đẹp
+        [Required(ErrorMessage = "Vui lòng nhập tên khách hàng")]
+        public string GuestName { get; set; }
+
+        [Required(ErrorMessage = "Vui lòng nhập số điện thoại")]
+        [RegularExpression(@"^0\d{9}$", ErrorMessage = "Số điện thoại không hợp lệ (Phải bắt đầu bằng số 0 và đủ 10 số)")]
+        public string GuestPhone { get; set; }
+
+        [EmailAddress(ErrorMessage = "Email không đúng định dạng")]
+        public string? GuestEmail { get; set; }
+        public string IdentityNumber { get; set; }
 
         // 2. Mã giảm giá (Nếu có)
-        public string VoucherCode { get; set; }
-        
-        // 3. Ghi chú của khách
-        public string SpecialRequests { get; set; }
+        public string? VoucherCode { get; set; }
 
-        // 4. Danh sách các phòng muốn đặt (Có thể đặt nhiều phòng cùng lúc)
-        [Required]
+        // 3. Ghi chú của khách
+        public string? SpecialRequests { get; set; }
+
+        // 4. Danh sách các phòng muốn đặt
+        [Required(ErrorMessage = "Phải chọn ít nhất 1 phòng")]
         [MinLength(1, ErrorMessage = "Phải chọn ít nhất 1 phòng")]
         public List<BookingRoomItem> Rooms { get; set; }
     }
@@ -83,5 +87,25 @@ namespace abchotel.DTOs
         public decimal TotalAmount { get; set; } // Tổng tiền cần thanh toán
         public DateTime ExpireAt { get; set; }   // Thời hạn 15 phút để thanh toán
         public string Message { get; set; }
+    }
+    // ==========================================
+    // 4. NHÓM DTO CHO QUẢN LÝ (CMS)
+    // ==========================================
+    public class BookingListResponse
+    {
+        public int Id { get; set; }
+        public string BookingCode { get; set; }
+        public string GuestName { get; set; }
+        public string GuestPhone { get; set; }
+        public string Status { get; set; }
+        public DateTime? ActualCheckIn { get; set; }
+        public DateTime? ActualCheckOut { get; set; }
+        public DateTime? CreatedAt { get; set; }
+    }
+
+    public class UpdateBookingStatusRequest
+    {
+        public string Status { get; set; }
+        public string Reason { get; set; }
     }
 }

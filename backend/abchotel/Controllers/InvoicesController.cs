@@ -12,10 +12,13 @@ namespace abchotel.Controllers
     public class InvoicesController : ControllerBase
     {
         private readonly IInvoiceService _invoiceService;
-
-        public InvoicesController(IInvoiceService invoiceService)
+        private readonly IVnPayService _vnPayService;
+        private readonly IMoMoService _moMoService;
+        public InvoicesController(IInvoiceService invoiceService, IVnPayService vnPayService, IMoMoService moMoService)
         {
             _invoiceService = invoiceService;
+            _vnPayService = vnPayService;
+            _moMoService = moMoService;
         }
 
         [HttpGet]
@@ -31,6 +34,15 @@ namespace abchotel.Controllers
         {
             var invoice = await _invoiceService.GetInvoiceByIdAsync(id);
             if (invoice == null) return NotFound(new { message = "Không tìm thấy hóa đơn." });
+            return Ok(invoice);
+        }
+        // 🔥 THÊM API NÀY VÀO
+        [HttpGet("by-booking/{bookingCode}")]
+        [Authorize(Policy = "MANAGE_INVOICES")]
+        public async Task<IActionResult> GetByBookingCode(string bookingCode)
+        {
+            var invoice = await _invoiceService.GetInvoiceByBookingCodeAsync(bookingCode);
+            if (invoice == null) return NotFound(new { message = "Không tìm thấy hóa đơn cho mã đặt phòng này." });
             return Ok(invoice);
         }
 
@@ -52,8 +64,108 @@ namespace abchotel.Controllers
 
             var result = await _invoiceService.ProcessPaymentAsync(request);
             if (!result.IsSuccess) return BadRequest(new { message = result.Message });
-            
+
             return Ok(new { message = result.Message });
+        }
+        // 1. API React gọi để lấy Link chuyển sang trang web VNPay
+        [HttpPost("{id}/create-vnpay-url")]
+        [Authorize]
+        public async Task<IActionResult> CreateVnPayUrl(int id)
+        {
+            // Kiểm tra Hóa đơn có tồn tại và còn nợ tiền không
+            var invoice = await _invoiceService.GetInvoiceByIdAsync(id);
+            if (invoice == null) return NotFound(new { message = "Không tìm thấy hóa đơn" });
+            if (invoice.Status == "Paid") return BadRequest(new { message = "Hóa đơn này đã được thanh toán" });
+
+            decimal amountToPay = invoice.BalanceDue;
+            string orderInfo = $"Thanh toan hoa don {id} cho don dat phong {invoice.BookingCode}";
+
+            // Gọi hàm tạo Link
+            string paymentUrl = _vnPayService.CreatePaymentUrl(HttpContext, id, amountToPay, orderInfo);
+
+            return Ok(new { url = paymentUrl });
+        }
+
+        // 2. API React gọi khi VNPay "đá" khách về lại web
+        [HttpGet("vnpay-return")]
+        public async Task<IActionResult> VnPayReturn()
+        {
+            // Đọc các Query String trên thanh địa chỉ URL do VNPay gửi về
+            var response = _vnPayService.PaymentExecute(Request.Query);
+
+            if (response.IsSuccess)
+            {
+                // Nếu VNPay báo thành công -> Gọi hàm tính tiền của InvoiceService để gạch nợ
+                var invoice = await _invoiceService.GetInvoiceByIdAsync(response.InvoiceId);
+                if (invoice != null && invoice.Status != "Paid")
+                {
+                    var paymentRequest = new PaymentRequest
+                    {
+                        InvoiceId = response.InvoiceId,
+                        PaymentMethod = "VNPay",
+                        AmountPaid = invoice.BalanceDue, // Trả full
+                        TransactionCode = response.TransactionId,
+                        GatewayResponse = Request.QueryString.Value
+                    };
+
+                    await _invoiceService.ProcessPaymentAsync(paymentRequest);
+                }
+
+                // (Tuỳ chọn) Em có thể cho Redirect thẳng về Frontend bằng code này nếu không muốn trả JSON
+                // return Redirect($"http://localhost:3000/payment-result?status=success&invoiceId={response.InvoiceId}");
+
+                return Ok(new { message = "Thanh toán VNPay thành công!", invoiceId = response.InvoiceId });
+            }
+
+            // Báo lỗi nếu khách ấn Hủy thanh toán hoặc thẻ không đủ tiền
+            return BadRequest(new { message = response.Message, invoiceId = response.InvoiceId });
+        }
+        [HttpPost("{id}/create-momo-url")]
+        [Authorize] 
+        public async Task<IActionResult> CreateMoMoUrl(int id)
+        {
+            var invoice = await _invoiceService.GetInvoiceByIdAsync(id);
+            if (invoice == null) return NotFound(new { message = "Không tìm thấy hóa đơn" });
+            if (invoice.Status == "Paid") return BadRequest(new { message = "Hóa đơn này đã được thanh toán" });
+
+            decimal amountToPay = invoice.BalanceDue;
+            string orderInfo = $"Thanh toan don dat phong {invoice.BookingCode}";
+
+            try 
+            {
+                string paymentUrl = await _moMoService.CreatePaymentUrlAsync(id, amountToPay, orderInfo);
+                return Ok(new { url = paymentUrl });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("momo-return")]
+        public async Task<IActionResult> MoMoReturn()
+        {
+            var response = _moMoService.PaymentExecute(Request.Query);
+
+            if (response.IsSuccess)
+            {
+                var invoice = await _invoiceService.GetInvoiceByIdAsync(response.InvoiceId);
+                if (invoice != null && invoice.Status != "Paid")
+                {
+                    var paymentRequest = new PaymentRequest
+                    {
+                        InvoiceId = response.InvoiceId,
+                        PaymentMethod = "MoMo",
+                        AmountPaid = invoice.BalanceDue,
+                        TransactionCode = response.TransactionId,
+                        GatewayResponse = Request.QueryString.Value 
+                    };
+                    await _invoiceService.ProcessPaymentAsync(paymentRequest);
+                }
+                return Ok(new { message = "Thanh toán MoMo thành công!", invoiceId = response.InvoiceId });
+            }
+
+            return BadRequest(new { message = response.Message, invoiceId = response.InvoiceId });
         }
     }
 }

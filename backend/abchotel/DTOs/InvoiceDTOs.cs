@@ -32,6 +32,7 @@ namespace abchotel.DTOs
         [Range(1, double.MaxValue, ErrorMessage = "Số tiền thanh toán phải lớn hơn 0")]
         public decimal AmountPaid { get; set; }
         public string TransactionCode { get; set; }
+        public string GatewayResponse { get; set; }
     }
 
     public class PaymentResponse
@@ -41,5 +42,6 @@ namespace abchotel.DTOs
         public decimal AmountPaid { get; set; }
         public string TransactionCode { get; set; }
         public DateTime? PaymentDate { get; set; }
+        public decimal RefundAmount { get; set; }
     }
 }

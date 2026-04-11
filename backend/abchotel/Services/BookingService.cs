@@ -16,6 +16,8 @@ namespace abchotel.Services
         Task<List<AvailableRoomResponse>> SearchRoomsAsync(SearchRoomRequest request);
         Task<(bool IsSuccess, BookingSuccessResponse Data, string Message)> CreateBookingAsync(CreateBookingRequest request, int? currentUserId);
         Task<object> GetBookingByCodeAsync(string bookingCode);
+        Task<List<BookingListResponse>> GetAllBookingsAsync(string status = null);
+        Task<bool> UpdateBookingStatusAsync(int id, string status, string reason);
     }
 
     public class BookingService : IBookingService
@@ -51,12 +53,12 @@ namespace abchotel.Services
                 command.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@Children", request.Children));
                 command.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@RequestedRooms", request.RequestedRooms));
                 command.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@PriceType", request.PriceType));
-                
+
                 if (request.MinPrice.HasValue) command.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@MinPrice", request.MinPrice.Value));
                 if (request.MaxPrice.HasValue) command.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@MaxPrice", request.MaxPrice.Value));
 
                 await _context.Database.OpenConnectionAsync();
-                
+
                 using (var reader = await command.ExecuteReaderAsync())
                 {
                     while (await reader.ReadAsync())
@@ -125,20 +127,20 @@ namespace abchotel.Services
             {
                 // SP sẽ ném lỗi RAISERROR nếu phòng vừa bị người khác giật mất
                 _logger.LogError($"Lỗi khi khóa phòng: {ex.Message}");
-                return (false, null, ex.Message); 
+                return (false, null, ex.Message);
             }
 
             // 5. TÍNH TIỀN & XUẤT HÓA ĐƠN
             // Sau khi SP chạy xong, bảng Booking_Details đã có dữ liệu. Ta lôi lên để cộng tiền.
             var details = await _context.BookingDetails.Where(bd => bd.BookingId == booking.Id).ToListAsync();
-            
+
             decimal totalRoomAmount = 0;
-            foreach(var d in details)
+            foreach (var d in details)
             {
-                int duration = d.PriceType == "HOURLY" 
+                int duration = d.PriceType == "HOURLY"
                     ? (int)Math.Ceiling((d.CheckOutDate - d.CheckInDate).TotalHours)
                     : (int)(d.CheckOutDate.Date - d.CheckInDate.Date).TotalDays;
-                
+
                 if (duration <= 0) duration = 1;
                 totalRoomAmount += (d.AppliedPrice * duration);
             }
@@ -147,12 +149,14 @@ namespace abchotel.Services
             decimal discountAmount = 0;
             if (appliedVoucher != null)
             {
-                if (appliedVoucher.DiscountType == "PERCENT") {
+                if (appliedVoucher.DiscountType == "PERCENT")
+                {
                     discountAmount = totalRoomAmount * (appliedVoucher.DiscountValue / 100);
                     if (appliedVoucher.MaxDiscountAmount.HasValue && discountAmount > appliedVoucher.MaxDiscountAmount)
                         discountAmount = appliedVoucher.MaxDiscountAmount.Value;
-                } 
-                else {
+                }
+                else
+                {
                     discountAmount = appliedVoucher.DiscountValue;
                 }
                 if (discountAmount > totalRoomAmount) discountAmount = totalRoomAmount;
@@ -223,6 +227,55 @@ namespace abchotel.Services
                     Price = bd.AppliedPrice
                 })
             };
+        }
+        // ==========================================================
+        // 4. LẤY DANH SÁCH CHO LỄ TÂN (CÓ LỌC TRẠNG THÁI)
+        // ==========================================================
+        public async Task<List<BookingListResponse>> GetAllBookingsAsync(string status = null)
+        {
+            var query = _context.Bookings.AsQueryable();
+            
+            // Nếu có truyền status (Pending, Confirmed...) thì lọc, không thì lấy hết
+            if (!string.IsNullOrEmpty(status))
+            {
+                query = query.Where(b => b.Status == status);
+            }
+
+            return await query.OrderByDescending(b => b.CreatedAt).Select(b => new BookingListResponse
+            {
+                Id = b.Id,
+                BookingCode = b.BookingCode,
+                GuestName = b.GuestName,
+                GuestPhone = b.GuestPhone,
+                Status = b.Status,
+                ActualCheckIn = b.ActualCheckIn,
+                ActualCheckOut = b.ActualCheckOut,
+                CreatedAt = b.CreatedAt
+            }).ToListAsync();
+        }
+
+        // ==========================================================
+        // 5. LỄ TÂN CẬP NHẬT TRẠNG THÁI / HỦY ĐƠN NO-SHOW
+        // ==========================================================
+        public async Task<bool> UpdateBookingStatusAsync(int id, string status, string reason)
+        {
+            var booking = await _context.Bookings.FindAsync(id);
+            if (booking == null) return false;
+
+            booking.Status = status;
+            
+            // Lưu lại lý do hủy nếu có
+            if (!string.IsNullOrEmpty(reason))
+            {
+                booking.CancellationReason = reason;
+            }
+            
+            booking.UpdatedAt = DateTime.Now;
+            await _context.SaveChangesAsync();
+
+            // Nếu muốn, có thể gọi _notificationService ở đây để báo cho Quản lý biết có đơn vừa bị hủy
+            
+            return true;
         }
     }
 }

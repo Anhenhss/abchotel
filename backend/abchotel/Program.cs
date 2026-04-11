@@ -53,6 +53,10 @@ builder.Services.AddScoped<IVoucherService, VoucherService>();
 builder.Services.AddScoped<IMembershipService, MembershipService>();
 builder.Services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
 builder.Services.AddScoped<IOrderServiceLogic, OrderServiceLogic>();
+builder.Services.AddScoped<IBookingService, BookingService>();
+builder.Services.AddScoped<IVnPayService, VnPayService>();
+builder.Services.AddHttpClient(); // Thêm cái này để MoMoService có thể gọi API mạng
+builder.Services.AddScoped<IMoMoService, MoMoService>();
 
 
 // Đăng ký Background Workers (Chạy ngầm)

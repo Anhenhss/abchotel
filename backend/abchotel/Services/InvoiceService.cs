@@ -16,10 +16,10 @@ namespace abchotel.Services
         Task<List<InvoiceResponse>> GetAllInvoicesAsync(string status = null);
         Task<InvoiceResponse> GetInvoiceByIdAsync(int id);
         
-        // 🔥 Hàm quan trọng nhất: Tự động tính toán lại tiền khi có thay đổi
-        Task<bool> RecalculateInvoiceAsync(int invoiceId);
+        // 🔥 MỚI: TÌM HÓA ĐƠN THEO MÃ ĐẶT PHÒNG
+        Task<InvoiceResponse> GetInvoiceByBookingCodeAsync(string bookingCode);
         
-        // Nhận thanh toán từ khách
+        Task<bool> RecalculateInvoiceAsync(int invoiceId);
         Task<(bool IsSuccess, string Message)> ProcessPaymentAsync(PaymentRequest request);
     }
 
@@ -49,40 +49,22 @@ namespace abchotel.Services
 
         public async Task<List<InvoiceResponse>> GetAllInvoicesAsync(string status = null)
         {
-            var query = _context.Invoices
-                .Include(i => i.Booking)
-                .Include(i => i.Payments)
-                .AsQueryable();
-
-            if (!string.IsNullOrEmpty(status))
-            {
-                query = query.Where(i => i.Status == status);
-            }
+            var query = _context.Invoices.Include(i => i.Booking).Include(i => i.Payments).AsQueryable();
+            if (!string.IsNullOrEmpty(status)) query = query.Where(i => i.Status == status);
 
             return await query.OrderByDescending(i => i.CreatedAt).Select(i => new InvoiceResponse
             {
-                Id = i.Id,
-                BookingId = i.BookingId,
-                BookingCode = i.Booking != null ? i.Booking.BookingCode : "N/A",
-                GuestName = i.Booking != null ? i.Booking.GuestName : "N/A",
-                TotalRoomAmount = i.TotalRoomAmount ?? 0,
-                TotalServiceAmount = i.TotalServiceAmount ?? 0,
-                DiscountAmount = i.DiscountAmount ?? 0,
-                TaxAmount = i.TaxAmount ?? 0,
-                FinalTotal = i.FinalTotal ?? 0,
-                AmountPaid = i.Payments.Sum(p => p.AmountPaid),
-                Status = i.Status,
-                CreatedAt = i.CreatedAt
+                Id = i.Id, BookingId = i.BookingId, BookingCode = i.Booking != null ? i.Booking.BookingCode : "N/A",
+                GuestName = i.Booking != null ? i.Booking.GuestName : "N/A", TotalRoomAmount = i.TotalRoomAmount ?? 0,
+                TotalServiceAmount = i.TotalServiceAmount ?? 0, DiscountAmount = i.DiscountAmount ?? 0,
+                TaxAmount = i.TaxAmount ?? 0, FinalTotal = i.FinalTotal ?? 0,
+                AmountPaid = i.Payments.Sum(p => p.AmountPaid), Status = i.Status, CreatedAt = i.CreatedAt
             }).ToListAsync();
         }
 
         public async Task<InvoiceResponse> GetInvoiceByIdAsync(int id)
         {
-            var i = await _context.Invoices
-                .Include(i => i.Booking)
-                .Include(i => i.Payments)
-                .FirstOrDefaultAsync(x => x.Id == id);
-
+            var i = await _context.Invoices.Include(i => i.Booking).Include(i => i.Payments).FirstOrDefaultAsync(x => x.Id == id);
             if (i == null) return null;
 
             return new InvoiceResponse
@@ -94,9 +76,22 @@ namespace abchotel.Services
             };
         }
 
-        // =========================================================================
-        // 🔥 THUẬT TOÁN TÍNH TOÁN LẠI HÓA ĐƠN (GOM TIỀN PHÒNG + DỊCH VỤ + ĐỀN BÙ)
-        // =========================================================================
+        // 🔥 MỚI: HÀM LẤY HÓA ĐƠN THEO MÃ BOOKING
+        public async Task<InvoiceResponse> GetInvoiceByBookingCodeAsync(string bookingCode)
+        {
+            var i = await _context.Invoices.Include(i => i.Booking).Include(i => i.Payments)
+                                 .FirstOrDefaultAsync(x => x.Booking != null && x.Booking.BookingCode == bookingCode);
+            if (i == null) return null;
+
+            return new InvoiceResponse
+            {
+                Id = i.Id, BookingId = i.BookingId, BookingCode = i.Booking?.BookingCode, GuestName = i.Booking?.GuestName,
+                TotalRoomAmount = i.TotalRoomAmount ?? 0, TotalServiceAmount = i.TotalServiceAmount ?? 0,
+                DiscountAmount = i.DiscountAmount ?? 0, TaxAmount = i.TaxAmount ?? 0, FinalTotal = i.FinalTotal ?? 0,
+                AmountPaid = i.Payments.Sum(p => p.AmountPaid), Status = i.Status, CreatedAt = i.CreatedAt
+            };
+        }
+
         public async Task<bool> RecalculateInvoiceAsync(int invoiceId)
         {
             var invoice = await _context.Invoices
@@ -105,7 +100,7 @@ namespace abchotel.Services
                 .Include(i => i.Booking).ThenInclude(b => b.BookingDetails).ThenInclude(bd => bd.LossAndDamages)
                 .FirstOrDefaultAsync(i => i.Id == invoiceId);
 
-            if (invoice == null || invoice.Status == "Paid") return false; // Đã trả tiền thì không tính lại nữa
+            if (invoice == null || invoice.Status == "Paid") return false;
 
             decimal totalRoom = 0;
             decimal totalService = 0;
@@ -113,104 +108,128 @@ namespace abchotel.Services
 
             foreach (var detail in invoice.Booking.BookingDetails)
             {
-                // 1. Tính tiền phòng
                 int duration = detail.PriceType == "HOURLY" 
                     ? (int)Math.Ceiling((detail.CheckOutDate - detail.CheckInDate).TotalHours)
                     : (int)(detail.CheckOutDate.Date - detail.CheckInDate.Date).TotalDays;
                 if (duration <= 0) duration = 1;
                 totalRoom += (detail.AppliedPrice * duration);
 
-                // 2. Tính tiền Dịch vụ (Bỏ qua các order bị hủy)
                 totalService += detail.OrderServices.Where(o => o.Status != "Cancelled").Sum(o => o.TotalAmount ?? 0);
-
-                // 3. Tính tiền Phạt/Đền bù (Bỏ qua các biên bản bị hủy)
                 totalDamage += detail.LossAndDamages.Where(l => l.Status != "Cancelled").Sum(l => l.PenaltyAmount);
             }
 
-            // Gộp dịch vụ và đền bù vào 1 cục Dịch Vụ Phát Sinh
             decimal totalExtras = totalService + totalDamage;
-
-            // 4. Áp dụng Khuyến mãi (Chỉ giảm trên tiền phòng)
             decimal discount = 0;
             var voucher = invoice.Booking.Voucher;
             if (voucher != null && voucher.IsActive)
             {
-                if (voucher.DiscountType == "PERCENT")
-                {
+                if (voucher.DiscountType == "PERCENT") {
                     discount = totalRoom * (voucher.DiscountValue / 100);
-                    if (voucher.MaxDiscountAmount.HasValue && discount > voucher.MaxDiscountAmount.Value)
-                        discount = voucher.MaxDiscountAmount.Value;
-                }
-                else
-                {
-                    discount = voucher.DiscountValue;
-                }
+                    if (voucher.MaxDiscountAmount.HasValue && discount > voucher.MaxDiscountAmount.Value) discount = voucher.MaxDiscountAmount.Value;
+                } else discount = voucher.DiscountValue;
                 if (discount > totalRoom) discount = totalRoom;
             }
 
-            // 5. Tính Thuế (10% trên tổng tiền đã trừ khuyến mãi)
             decimal subTotal = totalRoom + totalExtras - discount;
             decimal tax = subTotal * 0.10m;
-            decimal finalTotal = subTotal + tax;
-
-            // 6. Cập nhật lại Hóa đơn
+            
             invoice.TotalRoomAmount = totalRoom;
             invoice.TotalServiceAmount = totalExtras;
             invoice.DiscountAmount = discount;
             invoice.TaxAmount = tax;
-            invoice.FinalTotal = finalTotal;
+            invoice.FinalTotal = subTotal + tax;
             invoice.UpdatedAt = DateTime.Now;
 
             await _context.SaveChangesAsync();
             return true;
         }
 
-        // =========================================================================
-        // GHI NHẬN THANH TOÁN TỪ KHÁCH HÀNG
-        // =========================================================================
+        // 🔥 ĐÃ VÁ LỖI THIẾU LOGIC NGHIỆP VỤ Ở ĐÂY
         public async Task<(bool IsSuccess, string Message)> ProcessPaymentAsync(PaymentRequest request)
         {
             var invoice = await _context.Invoices.Include(i => i.Payments).Include(i => i.Booking).FirstOrDefaultAsync(i => i.Id == request.InvoiceId);
             if (invoice == null) return (false, "Không tìm thấy hóa đơn.");
+            if (invoice.Status == "Paid") return (false, "Hóa đơn này đã được thanh toán xong.");
 
-            // 1. Tạo bản ghi thanh toán
+            // Tính số tiền khách còn nợ
+            decimal currentPaid = invoice.Payments.Sum(p => p.AmountPaid);
+            decimal balanceDue = (invoice.FinalTotal ?? 0) - currentPaid;
+
+            decimal actualAmountToLog = request.AmountPaid;
+            decimal changeAmount = 0; // Tiền thối lại
+
+            // VÁ LỖI 1: KHÁCH ĐƯA DƯ TIỀN THÌ PHẢI TÍNH TIỀN THỐI LẠI
+            if (request.AmountPaid > balanceDue)
+            {
+                if (request.PaymentMethod == "Cash")
+                {
+                    actualAmountToLog = balanceDue; // Chỉ ghi nhận vào DB đúng số tiền đang nợ
+                    changeAmount = request.AmountPaid - balanceDue; // Báo Lễ tân thối lại
+                }
+                else
+                {
+                    return (false, $"Chuyển khoản/VNPay không được vượt quá số tiền nợ ({balanceDue:N0}đ).");
+                }
+            }
+
             var payment = new Payment
             {
                 InvoiceId = request.InvoiceId,
                 PaymentMethod = request.PaymentMethod,
-                AmountPaid = request.AmountPaid,
+                AmountPaid = actualAmountToLog,
                 TransactionCode = request.TransactionCode,
+                GatewayResponse = request.GatewayResponse, 
+                RefundAmount = 0,
                 PaymentDate = DateTime.Now,
                 CreatedAt = DateTime.Now
             };
 
             _context.Payments.Add(payment);
 
-            // 2. Kiểm tra xem khách đã trả đủ tiền chưa?
-            decimal totalPaidSoFar = invoice.Payments.Sum(p => p.AmountPaid) + request.AmountPaid;
-            
-            if (totalPaidSoFar >= invoice.FinalTotal)
+            decimal totalPaidAfter = currentPaid + actualAmountToLog;
+
+            if (totalPaidAfter >= invoice.FinalTotal)
             {
-                invoice.Status = "Paid"; // Đổi trạng thái hóa đơn thành Đã thanh toán
+                invoice.Status = "Paid"; 
                 
-                // Nếu khách đặt online đang Pending, trả đủ tiền thì tự động chuyển thành Confirmed
                 if (invoice.Booking != null && invoice.Booking.Status == "Pending")
-                {
                     invoice.Booking.Status = "Confirmed";
+
+                // VÁ LỖI 2: CỘNG ĐIỂM TÍCH LŨY (Tỷ lệ 1% giá trị hóa đơn)
+                if (invoice.Booking != null && invoice.Booking.UserId.HasValue)
+                {
+                    var user = await _context.Users.FindAsync(invoice.Booking.UserId.Value);
+                    if (user != null)
+                    {
+                        int earnedPoints = (int)((invoice.FinalTotal ?? 0) / 100); 
+                        user.TotalPoints += earnedPoints;
+
+                        _context.PointHistories.Add(new PointHistory
+                        {
+                            UserId = user.Id,
+                            InvoiceId = invoice.Id,
+                            PointsEarned = earnedPoints,
+                            Description = $"Cộng điểm từ giao dịch thanh toán Hóa đơn #{invoice.Id} (Mã: {invoice.Booking.BookingCode})",
+                            CreatedAt = DateTime.Now
+                        });
+                    }
                 }
             }
             else
             {
-                invoice.Status = "Partial"; // Mới trả cọc hoặc trả một phần
+                invoice.Status = "Partial"; 
             }
 
             await _context.SaveChangesAsync();
 
-            // 3. Bắn thông báo cho Kế toán và Lễ tân
-            string userName = await GetCurrentUserNameAsync();
-            await _notificationService.SendToPermissionAsync("MANAGE_INVOICES", "Thanh toán mới", $"[{userName}] vừa thu {request.AmountPaid:N0}đ cho hóa đơn của mã {invoice.Booking?.BookingCode}.");
+            // Soạn câu thông báo trả về cho Lễ tân
+            string resultMsg = $"Ghi nhận thành công {actualAmountToLog:N0}đ.";
+            if (changeAmount > 0) resultMsg += $" Vui lòng thối lại cho khách {changeAmount:N0}đ.";
 
-            return (true, "Ghi nhận thanh toán thành công.");
+            string userName = await GetCurrentUserNameAsync();
+            await _notificationService.SendToPermissionAsync("MANAGE_INVOICES", "Thanh toán mới", $"[{userName}] vừa thu {actualAmountToLog:N0}đ cho hóa đơn {invoice.Booking?.BookingCode}.");
+
+            return (true, resultMsg);
         }
     }
 }

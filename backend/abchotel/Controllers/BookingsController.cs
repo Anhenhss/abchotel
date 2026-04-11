@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using abchotel.DTOs;
 using abchotel.Services;
 
@@ -36,8 +37,8 @@ namespace abchotel.Controllers
             if (int.TryParse(userIdStr, out int uid)) currentUserId = uid;
 
             var result = await _bookingService.CreateBookingAsync(request, currentUserId);
-            
-            if (!result.IsSuccess) 
+
+            if (!result.IsSuccess)
                 return BadRequest(new { message = result.Message });
 
             return Ok(result.Data);
@@ -49,6 +50,23 @@ namespace abchotel.Controllers
             var data = await _bookingService.GetBookingByCodeAsync(code);
             if (data == null) return NotFound(new { message = "Không tìm thấy mã đặt phòng." });
             return Ok(data);
+        }
+        // 🔥 API Lấy danh sách (React đang bị 404 gọi vào đây)
+        [HttpGet]
+        [Authorize(Policy = "MANAGE_BOOKINGS")] // Chỉ nhân viên mới xem được danh sách
+        public async Task<IActionResult> GetAll([FromQuery] string status = null)
+        {
+            return Ok(await _bookingService.GetAllBookingsAsync(status));
+        }
+
+        // 🔥 API Đổi trạng thái (Khi bấm nút X màu đỏ để Hủy đơn)
+        [HttpPatch("{id}/status")]
+        [Authorize(Policy = "MANAGE_BOOKINGS")]
+        public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateBookingStatusRequest request)
+        {
+            var success = await _bookingService.UpdateBookingStatusAsync(id, request.Status, request.Reason);
+            if (!success) return NotFound(new { message = "Không tìm thấy đơn đặt phòng." });
+            return Ok(new { message = "Cập nhật trạng thái thành công." });
         }
     }
 }

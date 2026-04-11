@@ -3,7 +3,7 @@ import { Layout, Menu, Dropdown, Avatar, Badge, notification, Space, Typography,
 import { 
   Users, Key, Bed, List as ListIcon, Article, BellRinging, SignOut, UserCircle, CaretDown, 
   House, SquaresFour, Archive, WifiHigh, Star, MapPin, WarningCircle, Clock, ChartLineUp, Door, FileText,
-  Ticket, CalendarCheck, Receipt , Crown, Coffee
+  Ticket, CalendarCheck, Receipt , Crown, Coffee, CalendarPlus
 } from '@phosphor-icons/react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -105,35 +105,39 @@ export default function AdminLayout() {
 
   const sidebarMenuItems = [
     { key: '/admin/dashboard', icon: <SquaresFour size={20} />, label: 'Tổng quan' },
-    { key: 'grp_system_hr', label: renderGroupTitle('HỆ THỐNG & NHÂN SỰ'), type: 'group', children: [
-      { key: '/admin/users', icon: <Users size={20} />, label: 'Người dùng' },
-      { key: '/admin/roles', icon: <Key size={20} />, label: 'Vai trò & Quyền' },
+    
+    { key: 'grp_frontdesk_booking', label: renderGroupTitle('VẬN HÀNH & ĐIỀU PHỐI'), type: 'group', children: [
+      { key: '/admin/rooms', icon: <Bed size={20} />, label: 'Sơ đồ phòng' }, 
+      { key: '/admin/bookings/create', icon: <CalendarPlus size={20} />, label: 'Đặt phòng' },
+      { key: '/admin/invoices', icon: <Receipt size={20} />, label: 'Hóa Đơn & Thu ngân' }, 
+      { key: '/admin/bookings', icon: <CalendarCheck size={20} />, label: 'Quản lý Đơn đặt phòng' },
     ]},
-    { key: 'grp_hotel_setup', label: renderGroupTitle('QUẢN LÝ KHÁCH SẠN'), type: 'group', children: [
+    { key: 'grp_hotel_setup', label: renderGroupTitle('THIẾT LẬP KHÁCH SẠN'), type: 'group', children: [
       { key: '/admin/room-setup', icon: <Door size={20} />, label: 'Hạng Phòng' },
-      { key: '/admin/rooms', icon: <Bed size={20} />, label: 'Sơ đồ phòng' },
       { key: '/admin/inventory-setup', icon: <Archive size={20} />, label: 'Kho Vật tư' },
       { key: '/admin/amenities', icon: <WifiHigh size={20} />, label: 'Tiện ích phòng' },
       { key: '/admin/services', icon: <Coffee size={20} />, label: 'Dịch vụ & Phụ thu' },
-    ]},
-    { key: 'grp_business_finance', label: renderGroupTitle('KINH DOANH & TÀI CHÍNH'), type: 'group', children: [
-      // { key: '/admin/bookings', icon: <CalendarCheck size={20} />, label: 'Đơn Đặt Phòng' }, // Mai làm
-      // { key: '/admin/invoices', icon: <Receipt size={20} />, label: 'Hóa Đơn & Thu ngân' }, // Mốt làm
       { key: '/admin/vouchers', icon: <Ticket size={20} />, label: 'Mã Khuyến Mãi' },
     ]},
-    { key: 'grp_content_crm', label: renderGroupTitle('QUẢN LÝ NỘI DUNG'), type: 'group', children: [
+
+    { key: 'grp_content_crm', label: renderGroupTitle('NỘI DUNG & CRM'), type: 'group', children: [
       { key: '/admin/memberships', icon: <Crown size={20} />, label: 'Hạng Thành Viên' },
       { key: '/admin/reviews', icon: <Star size={20} />, label: 'Đánh giá từ khách' },
       { key: '/admin/attractions', icon: <MapPin size={20} />, label: 'Điểm du lịch' },
       { key: '/admin/categories', icon: <Article size={20} />, label: 'Bài viết & Blog' },
     ]},
+
+    { key: 'grp_system_hr', label: renderGroupTitle('HỆ THỐNG & NHÂN SỰ'), type: 'group', children: [
+      { key: '/admin/users', icon: <Users size={20} />, label: 'Người dùng' },
+      { key: '/admin/shifts', icon: <Clock size={20} />, label: 'Chấm công ca làm' },
+      { key: '/admin/roles', icon: <Key size={20} />, label: 'Vai trò & Quyền' },
+    ]},
+
     { key: 'grp_reports_audit', label: renderGroupTitle('BÁO CÁO & GIÁM SÁT'), type: 'group', children: [
       { key: '/admin/loss-damages', icon: <WarningCircle size={20} />, label: 'Báo cáo Hư hỏng' },
-      // { key: '/admin/performance', icon: <ChartLineUp size={20} />, label: 'KPI Nhân viên' },
       { key: '/admin/audit-logs', icon: <ListIcon size={20} />, label: 'Lịch sử hệ thống' },
     ]},
-    { key: '/admin/shifts', icon: <Clock size={20} />, label: 'Chấm công ca làm' },
-  ];
+];
 
   const SidebarContent = () => (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#001529' }}>
