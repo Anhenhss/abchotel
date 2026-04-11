@@ -20,6 +20,35 @@ namespace abchotel.DTOs
         public decimal BalanceDue => FinalTotal - AmountPaid; // Số tiền còn nợ
         public string Status { get; set; }
         public DateTime? CreatedAt { get; set; }
+        public List<InvoiceRoomDetail> RoomDetails { get; set; } = new List<InvoiceRoomDetail>();
+        public List<InvoiceServiceDetail> Services { get; set; } = new List<InvoiceServiceDetail>();
+        public List<InvoiceDamageDetail> Damages { get; set; } = new List<InvoiceDamageDetail>();
+    }
+
+    // 2. TẠO THÊM 3 CLASS NHỎ ĐỂ CHỨA DỮ LIỆU TỪNG MÓN
+    public class InvoiceRoomDetail
+    {
+        public string RoomTypeName { get; set; }
+        public string RoomNumber { get; set; }
+        public DateTime CheckIn { get; set; }
+        public DateTime CheckOut { get; set; }
+        public decimal Price { get; set; }
+        public int Duration { get; set; } // Số đêm hoặc số giờ
+        public decimal SubTotal { get; set; }
+    }
+
+    public class InvoiceServiceDetail
+    {
+        public string ServiceName { get; set; }
+        public int Quantity { get; set; }
+        public decimal TotalAmount { get; set; }
+        public DateTime Date { get; set; }
+    }
+
+    public class InvoiceDamageDetail
+    {
+        public string ItemName { get; set; }
+        public decimal PenaltyAmount { get; set; }
     }
 
     public class PaymentRequest

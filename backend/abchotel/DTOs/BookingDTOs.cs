@@ -67,6 +67,7 @@ namespace abchotel.DTOs
     {
         [Required]
         public int RoomTypeId { get; set; }
+        public int? RoomId { get; set; }
         [Required]
         public int Quantity { get; set; } // Khách muốn đặt mấy phòng loại này?
         [Required]

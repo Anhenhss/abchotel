@@ -32,6 +32,7 @@ import MembershipsPage from '../pages/MembershipsPage';
 import ServicesPage from '../pages/ServicesPage';
 import BookingsPage from '../pages/BookingsPage';
 import CreateBookingPage from "../pages/CreateBookingPage";
+import InvoicesPage from "../pages/InvoicesPage";
 
 export default function AppRoutes() {
   const { checkAuth, isInitialized } = useAuthStore();
@@ -167,6 +168,11 @@ export default function AppRoutes() {
         <Route path="bookings/create" element={
           <RequirePermission requiredPermissions={["MANAGE_BOOKINGS"]}>
              <CreateBookingPage />
+          </RequirePermission>
+        } />
+        <Route path="invoices" element={
+          <RequirePermission requiredPermissions={["MANAGE_BOOKINGS"]}>
+            <InvoicesPage />
           </RequirePermission>
         } />
 

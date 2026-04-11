@@ -11,5 +11,8 @@ export const bookingApi = {
   updateStatus: (id, status, reason = '') => axiosClient.patch(`/Bookings/${id}/status`, { status, reason }),
   
   searchRooms: (data) => axiosClient.post('/Bookings/search', data),
-  createBooking: (data) => axiosClient.post('/Bookings/create', data)
+  createBooking: (data) => axiosClient.post('/Bookings/create', data),
+  // Lấy danh sách số phòng cụ thể (Phòng vật lý)
+  getSpecificRooms: (roomTypeId, checkIn, checkOut) => 
+      axiosClient.get('/Bookings/specific-rooms', { params: { roomTypeId, checkIn, checkOut } }),
 };

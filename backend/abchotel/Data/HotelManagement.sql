@@ -1012,7 +1012,32 @@ BEGIN
     DROP TABLE #TempResult;
 END
 GO
-
+-- Thuật toán lấy danh sách Số Phòng Cụ Thể đang trống
+CREATE PROCEDURE [dbo].[sp_GetAvailableRoomNumbers]
+    @RoomTypeId INT,
+    @CheckIn DATETIME,
+    @CheckOut DATETIME
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    SELECT 
+        r.id AS RoomId, 
+        r.room_number AS RoomNumber
+    FROM [dbo].[Rooms] r
+    WHERE r.room_type_id = @RoomTypeId
+      AND r.status = 'Available'
+      AND r.id NOT IN (
+          SELECT bd.room_id
+          FROM [dbo].[Booking_Details] bd
+          JOIN [dbo].[Bookings] b ON bd.booking_id = b.id
+          WHERE bd.room_id IS NOT NULL 
+            AND b.status != 'Cancelled'
+            -- Thuật toán loại trừ các phòng đã có người đặt trùng ngày
+            AND NOT (bd.check_out_date <= @CheckIn OR bd.check_in_date >= @CheckOut)
+      )
+END
+GO
 -- 2. Thuật toán Khóa và Đặt phòng (Lưu đúng cấu trúc applied_price)
 CREATE PROCEDURE [dbo].[sp_BookAndLockRooms]
     @BookingId INT,           

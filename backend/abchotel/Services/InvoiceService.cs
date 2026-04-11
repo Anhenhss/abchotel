@@ -64,16 +64,97 @@ namespace abchotel.Services
 
         public async Task<InvoiceResponse> GetInvoiceByIdAsync(int id)
         {
-            var i = await _context.Invoices.Include(i => i.Booking).Include(i => i.Payments).FirstOrDefaultAsync(x => x.Id == id);
-            if (i == null) return null;
+            // BƯỚC 1: Dùng Include để móc sâu xuống đáy Database
+            var invoice = await _context.Invoices
+                .Include(i => i.Payments)
+                .Include(i => i.Booking)
+                    .ThenInclude(b => b.BookingDetails)
+                        .ThenInclude(bd => bd.RoomType)
+                .Include(i => i.Booking)
+                    .ThenInclude(b => b.BookingDetails)
+                        .ThenInclude(bd => bd.Room)
+                .Include(i => i.Booking)
+                    .ThenInclude(b => b.BookingDetails)
+                        .ThenInclude(bd => bd.OrderServices)
+                            
+                .Include(i => i.Booking)
+                    .ThenInclude(b => b.BookingDetails)
+                        .ThenInclude(bd => bd.LossAndDamages)
+                .FirstOrDefaultAsync(x => x.Id == id);
 
-            return new InvoiceResponse
+            if (invoice == null) return null;
+
+            // BƯỚC 2: Nhào nặn dữ liệu ra DTO
+            var response = new InvoiceResponse
             {
-                Id = i.Id, BookingId = i.BookingId, BookingCode = i.Booking?.BookingCode, GuestName = i.Booking?.GuestName,
-                TotalRoomAmount = i.TotalRoomAmount ?? 0, TotalServiceAmount = i.TotalServiceAmount ?? 0,
-                DiscountAmount = i.DiscountAmount ?? 0, TaxAmount = i.TaxAmount ?? 0, FinalTotal = i.FinalTotal ?? 0,
-                AmountPaid = i.Payments.Sum(p => p.AmountPaid), Status = i.Status, CreatedAt = i.CreatedAt
+                Id = invoice.Id,
+                BookingId = invoice.BookingId,
+                BookingCode = invoice.Booking?.BookingCode,
+                GuestName = invoice.Booking?.GuestName,
+                TotalRoomAmount = invoice.TotalRoomAmount ?? 0,
+                TotalServiceAmount = invoice.TotalServiceAmount ?? 0,
+                DiscountAmount = invoice.DiscountAmount ?? 0,
+                TaxAmount = invoice.TaxAmount ?? 0,
+                FinalTotal = invoice.FinalTotal ?? 0,
+                AmountPaid = invoice.Payments.Sum(p => p.AmountPaid),
+                Status = invoice.Status,
+                CreatedAt = invoice.CreatedAt
             };
+
+            // BƯỚC 3: Rút trích chi tiết từng khoản mục
+            if (invoice.Booking != null && invoice.Booking.BookingDetails != null)
+            {
+                foreach (var detail in invoice.Booking.BookingDetails)
+                {
+                    // 3.1 Tiền phòng
+                    int duration = detail.PriceType == "HOURLY"
+                        ? (int)Math.Ceiling((detail.CheckOutDate - detail.CheckInDate).TotalHours)
+                        : (int)(detail.CheckOutDate.Date - detail.CheckInDate.Date).TotalDays;
+                    if (duration <= 0) duration = 1;
+
+                    response.RoomDetails.Add(new InvoiceRoomDetail
+                    {
+                        RoomTypeName = detail.RoomType?.Name ?? "N/A",
+                        RoomNumber = detail.Room?.RoomNumber ?? "Chưa xếp",
+                        CheckIn = detail.CheckInDate,
+                        CheckOut = detail.CheckOutDate,
+                        Price = detail.AppliedPrice,
+                        Duration = duration,
+                        SubTotal = detail.AppliedPrice * duration
+                    });
+
+                    // 3.2 Tiền dịch vụ ăn uống / Minibar
+                    if (detail.OrderServices != null)
+                    {
+                        foreach (var os in detail.OrderServices.Where(o => o.Status != "Cancelled"))
+                        {
+                            response.Services.Add(new InvoiceServiceDetail
+                            {
+                                // Giả sử bảng OrderService có thuộc tính Service.Name. Nếu không, em sửa lại theo model của em.
+                                ServiceName = os.Service?.Name ?? "Dịch vụ phòng", 
+                                Quantity = os.Quantity ?? 1,
+                                TotalAmount = os.TotalAmount ?? 0,
+                                Date = os.OrderDate ?? DateTime.Now
+                            });
+                        }
+                    }
+
+                    // 3.3 Tiền phạt / Hư hỏng
+                    if (detail.LossAndDamages != null)
+                    {
+                        foreach (var ld in detail.LossAndDamages.Where(l => l.Status != "Cancelled"))
+                        {
+                            response.Damages.Add(new InvoiceDamageDetail
+                            {
+                                ItemName = ld.ItemName,
+                                PenaltyAmount = ld.PenaltyAmount
+                            });
+                        }
+                    }
+                }
+            }
+
+            return response;
         }
 
         // 🔥 MỚI: HÀM LẤY HÓA ĐƠN THEO MÃ BOOKING

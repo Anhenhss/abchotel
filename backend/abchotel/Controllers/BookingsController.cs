@@ -68,5 +68,11 @@ namespace abchotel.Controllers
             if (!success) return NotFound(new { message = "Không tìm thấy đơn đặt phòng." });
             return Ok(new { message = "Cập nhật trạng thái thành công." });
         }
+        [HttpGet("specific-rooms")]
+        public async Task<IActionResult> GetSpecificRooms([FromQuery] int roomTypeId, [FromQuery] DateTime checkIn, [FromQuery] DateTime checkOut)
+        {
+            var rooms = await _bookingService.GetAvailableSpecificRoomsAsync(roomTypeId, checkIn, checkOut);
+            return Ok(rooms);
+        }
     }
 }

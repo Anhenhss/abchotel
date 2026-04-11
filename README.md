@@ -2,11 +2,21 @@
 Sử dung .NET 10.0 SDK
 Bước 1: Chạy SQL create database, use database, execute hết các dữ liệu
 Bước 2: Chạy lệnh sau
-dotnet tool install --global dotnet-ef
+dotnet tool install --global dotnet-ef 
 dotnet restore
 dotnet clean
 dotnet build
 npm install react-quill-new
+máy tính trường 
+dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org
+dotnet nuget locals all --clear
+dotnet tool install --global dotnet-ef
+dotnet run
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+cd frontend\abchotel-frontend
+npm install
+npm install @vitejs/plugin-react --save-dev
+npm run dev
  
 Bước 3: Nếu Models đã có 20 class rồi thì không cần chạy câu lệnh này
 dotnet ef dbcontext scaffold "Server=.\SQLEXPRESS;Database=HotelManagementDB;Trusted_Connection=True;TrustServerCertificate=True;" Microsoft.EntityFrameworkCore.SqlServer -o Models --context-dir Data -c HotelDbContext --namespace abchotel.Models --context-namespace abchotel.Data --data-annotations -f

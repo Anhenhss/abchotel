@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Button, Space, Typography, Tag, Modal, Form, Select, InputNumber, notification, Tooltip, Row, Col, Grid, Divider } from 'antd';
-import { Receipt, Calculator, Money, CreditCard, QrCode } from '@phosphor-icons/react';
+import { Card, Table, Button, Space, Typography, Tag, Input, notification, Tooltip, Grid, Divider, Empty, Tabs, Statistic, Row, Col } from 'antd';
+import { MagnifyingGlass, Receipt, Money, CheckCircle, WarningCircle, Eye, Printer } from '@phosphor-icons/react';
 import dayjs from 'dayjs';
 
 import { invoiceApi } from '../api/invoiceApi';
-import { useSignalR } from '../hooks/useSignalR';
+import InvoiceDetailDrawer from '../components/InvoiceDetailDrawer';
 import { COLORS } from '../constants/theme';
 
 const { Title, Text } = Typography;
@@ -14,130 +14,109 @@ export default function InvoicesPage() {
   const screens = useBreakpoint();
   const [api, contextHolder] = notification.useNotification({ placement: 'bottomRight' });
 
+  // States
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [selectedInvoice, setSelectedInvoice] = useState(null);
-  const [isPayModalOpen, setIsPayModalOpen] = useState(false);
-  const [payForm] = Form.useForm();
+  const [searchText, setSearchText] = useState('');
+  const [activeTab, setActiveTab] = useState('Unpaid'); // Lễ tân luôn quan tâm ai còn nợ tiền trước tiên
 
-  const fetchInvoices = async (isSilent = false) => {
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
+
+  // Lấy dữ liệu
+  const fetchInvoices = async () => {
     try {
-      if (!isSilent) setLoading(true);
-      const res = await invoiceApi.getAll();
+      setLoading(true);
+      const res = await invoiceApi.getAll(); // Em nhớ đảm bảo Backend có API GET /api/Invoices nhé
       setInvoices(res || []);
     } catch (error) {
-      if (!isSilent) api.error({ message: 'Lỗi', description: 'Không thể tải danh sách hóa đơn.' });
+      api.error({ message: 'Lỗi', description: 'Không thể tải danh sách hóa đơn.' });
     } finally {
-      if (!isSilent) setLoading(false);
+      setLoading(false);
     }
   };
 
   useEffect(() => { fetchInvoices(); }, []);
 
-  // Lắng nghe có ai thanh toán thì load lại bảng
-  useSignalR((notification) => {
-    if (notification.permission === "MANAGE_INVOICES") fetchInvoices(true);
-  });
-
-  // Gọi API ép hệ thống cộng lại tiền
-  const handleRecalculate = async (id) => {
-    try {
-      setLoading(true);
-      await invoiceApi.recalculate(id);
-      api.success({ message: 'Thành công', description: 'Đã cập nhật lại tổng tiền hóa đơn.' });
-      fetchInvoices();
-    } catch (e) {
-      api.error({ message: 'Lỗi', description: e.response?.data?.message || 'Không thể tính lại.' });
-    } finally {
-      setLoading(false);
-    }
+  const openDrawer = (id) => {
+    setSelectedInvoiceId(id);
+    setIsDrawerOpen(true);
   };
 
-  const openPayModal = (invoice) => {
-    setSelectedInvoice(invoice);
-    payForm.resetFields();
-    // Gợi ý số tiền mặc định là số tiền còn nợ
-    payForm.setFieldsValue({ amountPaid: invoice.finalTotal - invoice.amountPaid, paymentMethod: 'Cash' });
-    setIsPayModalOpen(true);
-  };
-
-  const handlePayment = async (values) => {
-    try {
-      setLoading(true);
+  // 🔥 THUẬT TOÁN LỌC VÀ SẮP XẾP
+  const processedInvoices = invoices
+    .filter(inv => {
+      // 1. Lọc theo Tab (Unpaid / Paid / All)
+      if (activeTab !== 'ALL' && inv.status !== activeTab) return false;
       
-      if (values.paymentMethod === 'VNPay') {
-        // NẾU LÀ VNPAY: Gọi API lấy Link và chuyển hướng
-        const res = await invoiceApi.createVnPayUrl(selectedInvoice.id);
-        window.location.href = res.url; // CHUYỂN HƯỚNG TỚI NGÂN HÀNG
-      } else {
-        // NẾU LÀ TIỀN MẶT/CHUYỂN KHOẢN TAY: Trừ tiền luôn
-        await invoiceApi.payCash({
-          invoiceId: selectedInvoice.id,
-          paymentMethod: values.paymentMethod,
-          amountPaid: values.amountPaid,
-          transactionCode: values.transactionCode || 'TIENMAT'
-        });
-        api.success({ message: 'Thành công', description: 'Đã ghi nhận thanh toán.' });
-        setIsPayModalOpen(false);
-        fetchInvoices();
-      }
-    } catch (e) {
-      api.error({ message: 'Lỗi', description: e.response?.data?.message || 'Lỗi thanh toán.' });
-    } finally {
-      setLoading(false);
+      // 2. Lọc theo tìm kiếm (Mã phòng, Tên khách)
+      const searchLower = searchText.toLowerCase();
+      return (
+        inv.bookingCode?.toLowerCase().includes(searchLower) ||
+        inv.guestName?.toLowerCase().includes(searchLower) ||
+        inv.id.toString().includes(searchLower)
+      );
+    })
+    .sort((a, b) => {
+      // Ưu tiên hóa đơn mới nhất lên đầu
+      return dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf();
+    });
+
+  // Tính toán thống kê nhanh cho Thu ngân
+  const totalUnpaid = invoices.filter(i => i.status === 'Unpaid').reduce((sum, i) => sum + (i.finalTotal - i.amountPaid), 0);
+  const totalPaidToday = invoices.filter(i => i.status === 'Paid' && dayjs(i.updatedAt).isSame(dayjs(), 'day')).reduce((sum, i) => sum + i.amountPaid, 0);
+
+  const renderStatus = (status) => {
+    switch (status) {
+      case 'Unpaid': return <Tag color="error" icon={<WarningCircle/>}>CHƯA THU ĐỦ</Tag>;
+      case 'Paid': return <Tag color="success" icon={<CheckCircle/>}>ĐÃ THANH TOÁN</Tag>;
+      case 'Cancelled': return <Tag color="default">ĐÃ HỦY</Tag>;
+      default: return <Tag>{status}</Tag>;
     }
   };
 
   const columns = [
     {
-      title: 'Mã Hóa Đơn', key: 'code',
+      title: 'Mã HĐ', dataIndex: 'id', key: 'id', width: 80,
+      render: (text) => <Text strong>#{text}</Text>
+    },
+    {
+      title: 'Khách hàng / Mã Đơn', key: 'guest',
       render: (_, record) => (
         <Space direction="vertical" size={0}>
-          <Text strong style={{ color: COLORS.MIDNIGHT_BLUE }}>#{record.id}</Text>
-          <Text type="secondary" style={{ fontSize: 12 }}>{dayjs(record.createdAt).format('DD/MM/YYYY HH:mm')}</Text>
+          <Text strong style={{ color: COLORS.DARKEST }}>{record.guestName || 'Khách vãng lai'}</Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>Booking: <Text strong style={{ color: COLORS.MIDNIGHT_BLUE }}>{record.bookingCode}</Text></Text>
         </Space>
       )
     },
     {
-      title: 'Mã Đặt Phòng', dataIndex: 'bookingCode', key: 'bookingCode',
-      render: (text) => <Tag color="blue" style={{fontWeight: 'bold'}}>{text}</Tag>
+      title: 'Tổng tiền', dataIndex: 'finalTotal', key: 'finalTotal', align: 'right',
+      render: (val) => <Text strong style={{ color: COLORS.ACCENT_RED, fontSize: 15 }}>{new Intl.NumberFormat('vi-VN').format(val)}đ</Text>
     },
     {
-      title: 'Khách hàng', dataIndex: 'guestName', key: 'guestName',
-      render: (text) => <Text strong>{text}</Text>
-    },
-    {
-      title: 'Tổng tiền', key: 'total', align: 'right',
-      render: (_, record) => (
-        <Space direction="vertical" size={0} style={{ textAlign: 'right' }}>
-          <Text strong style={{ color: COLORS.ACCENT_RED, fontSize: 16 }}>{new Intl.NumberFormat('vi-VN').format(record.finalTotal)}đ</Text>
-          {record.status !== 'Paid' && (
-             <Text type="secondary" style={{ fontSize: 12 }}>Còn nợ: {new Intl.NumberFormat('vi-VN').format(record.finalTotal - record.amountPaid)}đ</Text>
-          )}
-        </Space>
-      )
-    },
-    {
-      title: 'Trạng thái', dataIndex: 'status', key: 'status', align: 'center',
-      render: (status) => {
-        if (status === 'Paid') return <Tag color="success">Đã thanh toán</Tag>;
-        if (status === 'Partial') return <Tag color="warning">Thanh toán 1 phần</Tag>;
-        return <Tag color="error">Chưa thanh toán</Tag>;
+      title: 'Còn nợ', key: 'debt', align: 'right',
+      render: (_, record) => {
+        const debt = record.finalTotal - record.amountPaid;
+        return <Text strong style={{ color: debt > 0 ? COLORS.ERROR : COLORS.SUCCESS }}>
+          {new Intl.NumberFormat('vi-VN').format(debt)}đ
+        </Text>
       }
     },
     {
-      title: 'Thao tác', key: 'actions', align: 'center',
+      title: 'Trạng thái', dataIndex: 'status', key: 'status', align: 'center',
+      render: (status) => renderStatus(status)
+    },
+    {
+      title: 'Thao tác', key: 'actions', align: 'center', width: 100,
       render: (_, record) => (
-        <Space>
-          <Tooltip title="Tính lại tiền (Gom dịch vụ/phụ thu)">
-            <Button type="text" icon={<Calculator size={20} />} disabled={record.status === 'Paid'} onClick={() => handleRecalculate(record.id)} />
-          </Tooltip>
-          <Tooltip title="Thu tiền">
-            <Button type="primary" style={{ backgroundColor: COLORS.SUCCESS }} icon={<Money size={18} />} disabled={record.status === 'Paid'} onClick={() => openPayModal(record)}>
-              Thu tiền
-            </Button>
-          </Tooltip>
-        </Space>
+        <Tooltip title={record.status === 'Unpaid' ? "Thu Tiền" : "Xem Hóa Đơn"}>
+          <Button 
+            type={record.status === 'Unpaid' ? "primary" : "default"} 
+            icon={record.status === 'Unpaid' ? <Money size={20} /> : <Eye size={20} />} 
+            onClick={() => openDrawer(record.id)} 
+            style={record.status === 'Unpaid' ? { backgroundColor: COLORS.MIDNIGHT_BLUE } : {}}
+          />
+        </Tooltip>
       )
     }
   ];
@@ -145,40 +124,105 @@ export default function InvoicesPage() {
   return (
     <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
       {contextHolder}
-      <Title level={3} style={{ color: COLORS.MIDNIGHT_BLUE, marginBottom: 24 }}>Hóa Đơn & Thu Ngân</Title>
       
-      <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-        <Table columns={columns} dataSource={invoices} rowKey="id" loading={loading} pagination={{ pageSize: 10 }} />
+      {/* KHỐI THỐNG KÊ NHANH */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+         <Col xs={24} md={12}>
+            <Card variant="borderless" style={{ borderRadius: 12, backgroundColor: '#fef2f2', border: '1px solid #fecaca' }}>
+               <Statistic 
+                  title={<Text strong style={{ color: '#991b1b' }}>Tổng Nợ Cần Thu (Chưa thanh toán)</Text>}
+                  value={totalUnpaid} 
+                  suffix="VNĐ"
+                  valueStyle={{ color: '#dc2626', fontWeight: 'bold' }}
+                  prefix={<WarningCircle />}
+               />
+            </Card>
+         </Col>
+         <Col xs={24} md={12}>
+            <Card variant="borderless" style={{ borderRadius: 12, backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+               <Statistic 
+                  title={<Text strong style={{ color: '#166534' }}>Doanh thu Thực nhận (Hôm nay)</Text>}
+                  value={totalPaidToday} 
+                  suffix="VNĐ"
+                  valueStyle={{ color: '#16a34a', fontWeight: 'bold' }}
+                  prefix={<Money />}
+               />
+            </Card>
+         </Col>
+      </Row>
+
+      <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.03)', padding: screens.md ? 0 : '16px 0' }}>
+        
+        {/* THANH TÌM KIẾM VÀ TABS PHÂN LOẠI */}
+        <div style={{ display: 'flex', flexDirection: screens.xs ? 'column' : 'row', justifyContent: 'space-between', alignItems: screens.xs ? 'stretch' : 'center', marginBottom: 16, gap: 16, padding: screens.md ? '0' : '0 16px' }}>
+          <Tabs 
+            activeKey={activeTab} 
+            onChange={setActiveTab} 
+            style={{ flex: 1 }}
+            items={[
+              { key: 'Unpaid', label: 'Chưa thanh toán (Cần thu)' },
+              { key: 'Paid', label: 'Đã thanh toán xong' },
+              { key: 'ALL', label: 'Tất cả hóa đơn' },
+            ]}
+          />
+          <Input 
+            placeholder="Tìm mã HĐ, mã Đơn, Tên khách..." 
+            prefix={<MagnifyingGlass color={COLORS.MUTED} />} 
+            allowClear 
+            onChange={e => setSearchText(e.target.value)}
+            style={{ width: screens.xs ? '100%' : 280 }}
+            size="large"
+          />
+        </div>
+
+        {/* HIỂN THỊ DỮ LIỆU */}
+        {screens.md ? (
+          <Table 
+            columns={columns} dataSource={processedInvoices} rowKey="id" loading={loading}
+            pagination={{ pageSize: 10 }} rowClassName={(record, index) => index % 2 === 0 ? 'table-row-light' : 'table-row-dark'}
+          />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 16px' }}>
+            {processedInvoices.length === 0 ? <Empty description="Không có hóa đơn nào" /> : processedInvoices.map(record => {
+              return (
+                <div key={record.id} style={{ border: `1px solid ${COLORS.LIGHTEST}`, borderRadius: 8, padding: 16, backgroundColor: '#fff' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                    <Text strong style={{ fontSize: 16, color: COLORS.MIDNIGHT_BLUE }}>HĐ #{record.id}</Text>
+                    {renderStatus(record.status)}
+                  </div>
+                  <Space direction="vertical" size={2} style={{ width: '100%', marginBottom: 12 }}>
+                    <Text strong>{record.guestName || 'Khách vãng lai'}</Text>
+                    <Text type="secondary" style={{ fontSize: 13 }}>Booking: {record.bookingCode}</Text>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
+                       <Text>Tổng tiền:</Text>
+                       <Text strong style={{ color: COLORS.ACCENT_RED }}>{new Intl.NumberFormat('vi-VN').format(record.finalTotal)}đ</Text>
+                    </div>
+                  </Space>
+                  <Divider style={{ margin: '8px 0' }} />
+                  <Button type={record.status === 'Unpaid' ? "primary" : "default"} block ghost={record.status !== 'Unpaid'} onClick={() => openDrawer(record.id)} style={record.status === 'Unpaid' ? { backgroundColor: COLORS.MIDNIGHT_BLUE } : {}}>
+                    {record.status === 'Unpaid' ? "THU TIỀN NGAY" : "Xem chi tiết"}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </Card>
 
-      {/* MODAL THANH TOÁN */}
-      <Modal title={<Space><Receipt size={24} color={COLORS.MIDNIGHT_BLUE}/> <Title level={4} style={{ margin: 0 }}>Xử lý Thanh toán</Title></Space>} open={isPayModalOpen} onCancel={() => setIsPayModalOpen(false)} footer={null} centered>
-        <Form form={payForm} layout="vertical" onFinish={handlePayment} style={{ marginTop: 24 }}>
-          
-          <Row gutter={16}>
-            <Col span={24}>
-              <Form.Item name="paymentMethod" label="Phương thức thanh toán" rules={[{ required: true }]}>
-                <Select size="large">
-                  <Select.Option value="Cash"><Space><Money color="green" /> Tiền mặt</Space></Select.Option>
-                  <Select.Option value="Bank Transfer"><Space><CreditCard color="blue" /> Chuyển khoản (Xác nhận tay)</Space></Select.Option>
-                  <Select.Option value="VNPay"><Space><QrCode color="red" /> VNPay (Mở cổng quét QR)</Space></Select.Option>
-                </Select>
-              </Form.Item>
-            </Col>
-            
-            <Col span={24}>
-              <Form.Item name="amountPaid" label="Số tiền thu (VNĐ)" rules={[{ required: true }]}>
-                <InputNumber size="large" style={{ width: '100%' }} formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} />
-              </Form.Item>
-            </Col>
-          </Row>
+      {/* COMPONENT NGĂN KÉO CHI TIẾT */}
+      <InvoiceDetailDrawer 
+         isOpen={isDrawerOpen} 
+         onClose={() => setIsDrawerOpen(false)} 
+         invoiceId={selectedInvoiceId} 
+         onSuccess={() => fetchInvoices()} // Thu tiền xong bắt bảng danh sách load lại data mới
+      />
 
-          <Divider style={{ margin: '12px 0' }} />
-          <div style={{ textAlign: 'right' }}>
-            <Button size="large" type="primary" htmlType="submit" loading={loading} style={{ backgroundColor: COLORS.MIDNIGHT_BLUE }}>Xác nhận Thanh toán</Button>
-          </div>
-        </Form>
-      </Modal>
+      <style>{`
+        .ant-table-thead > tr > th { background-color: ${COLORS.LIGHTEST} !important; color: ${COLORS.MIDNIGHT_BLUE} !important; font-weight: 700 !important; }
+        .table-row-light { background-color: #ffffff; }
+        .table-row-dark { background-color: #fcfcfc; }
+        .ant-tabs-nav::before { border-bottom: none !important; }
+      `}</style>
     </div>
   );
 }

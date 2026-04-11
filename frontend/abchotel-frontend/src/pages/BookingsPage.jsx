@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Table, Button, Space, Typography, Tag, Input, notification, Tooltip, Popconfirm, Grid, Divider, Empty, Tabs } from 'antd';
-import { MagnifyingGlass, CalendarCheck, Eye, XCircle, CheckCircle, ClockCounterClockwise } from '@phosphor-icons/react';
+import { MagnifyingGlass, Eye, XCircle, CheckCircle, ClockCounterClockwise } from '@phosphor-icons/react';
 import dayjs from 'dayjs';
+import { useNavigate } from 'react-router-dom'; // 🔥 Đã có import
 
 import { bookingApi } from '../api/bookingApi';
 import { useSignalR } from '../hooks/useSignalR';
@@ -15,22 +16,22 @@ const { useBreakpoint } = Grid;
 export default function BookingsPage() {
   const screens = useBreakpoint();
   const [api, contextHolder] = notification.useNotification({ placement: 'bottomRight' });
+  
+  // 🔥 FIX LỖI SỐ 1: KHỞI TẠO NAVIGATE ĐỂ CHUYỂN TRANG
+  const navigate = useNavigate(); 
 
   // States
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
-  const [activeTab, setActiveTab] = useState('ALL'); // Lọc theo trạng thái
+  const [activeTab, setActiveTab] = useState('ALL'); 
 
-  // Drawer States (Chuẩn bị cho bước sau)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedBookingCode, setSelectedBookingCode] = useState(null);
 
-  // Lấy dữ liệu
   const fetchBookings = async (isSilent = false) => {
     try {
       if (!isSilent) setLoading(true);
-      // Giả định backend có API lấy toàn bộ Booking
       const res = await bookingApi.getAll(); 
       setBookings(res || []);
     } catch (error) {
@@ -42,14 +43,12 @@ export default function BookingsPage() {
 
   useEffect(() => { fetchBookings(); }, []);
 
-  // Lắng nghe thông báo Realtime từ hệ thống (VD: Có khách vừa đặt phòng trên Web)
   useSignalR((notification) => {
     if (notification.permission === "MANAGE_BOOKINGS") {
       fetchBookings(true);
     }
   });
 
-  // Xử lý đổi trạng thái nhanh (Hủy đơn nếu No-Show)
   const handleCancelBooking = async (id) => {
     try {
       setLoading(true);
@@ -68,13 +67,23 @@ export default function BookingsPage() {
     setIsDrawerOpen(true);
   };
 
-  // 🔥 THUẬT TOÁN LỌC VÀ SẮP XẾP (ĐẨY ĐƠN KHÓA XUỐNG CUỐI)
+  // 🔥 THUẬT TOÁN LỌC VÀ SẮP XẾP NÂNG CẤP
   const processedBookings = bookings
     .filter(b => {
-      // 1. Lọc theo Tab (Trạng thái)
-      if (activeTab !== 'ALL' && b.status !== activeTab) return false;
+      // 1. Lọc theo Tab
+      if (activeTab !== 'ALL') {
+         if (activeTab === 'ArrivalsToday') {
+            // Lọc ra những đơn Pending/Confirmed VÀ được tạo hôm nay
+            // (Lưu ý: Để chuẩn nhất, Backend của em nên trả thêm cột ExpectedCheckIn. Tạm thời mình dùng ngày tạo nhé)
+            const isToday = dayjs(b.createdAt).isSame(dayjs(), 'day');
+            const isExpectedToArrive = b.status === 'Pending' || b.status === 'Confirmed';
+            if (!isToday || !isExpectedToArrive) return false;
+         } else if (b.status !== activeTab) {
+            return false;
+         }
+      }
       
-      // 2. Lọc theo thanh tìm kiếm (Mã đơn, Tên khách, SĐT)
+      // 2. Lọc theo thanh tìm kiếm
       const searchLower = searchText.toLowerCase();
       return (
         b.bookingCode?.toLowerCase().includes(searchLower) ||
@@ -83,22 +92,19 @@ export default function BookingsPage() {
       );
     })
     .sort((a, b) => {
-      // Đẩy Cancelled và Completed xuống dưới cùng
       const getWeight = (status) => {
-        if (status === 'Cancelled' || status === 'Completed') return 10; // Nặng nhất, rớt xuống đáy
-        if (status === 'Pending') return 1; // Cần xử lý gấp, nổi lên đầu
-        return 5; // Còn lại ở giữa
+        if (status === 'Cancelled' || status === 'Completed') return 10; 
+        if (status === 'Pending') return 1; 
+        return 5; 
       };
       
       const weightA = getWeight(a.status);
       const weightB = getWeight(b.status);
       
       if (weightA !== weightB) return weightA - weightB;
-      // Cùng trạng thái thì cái nào mới tạo xếp trên
       return dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf();
     });
 
-  // Hàm render UI Trạng thái
   const renderStatus = (status) => {
     switch (status) {
       case 'Pending': return <Tag color="warning" icon={<ClockCounterClockwise/>}>Chờ thanh toán</Tag>;
@@ -110,7 +116,6 @@ export default function BookingsPage() {
     }
   };
 
-  // Cấu hình Cột cho Table (PC)
   const columns = [
     {
       title: 'Mã Đơn', dataIndex: 'bookingCode', key: 'code',
@@ -132,8 +137,8 @@ export default function BookingsPage() {
       title: 'Thời gian lưu trú', key: 'dates',
       render: (_, record) => (
         <Space direction="vertical" size={0}>
-          <Text style={{ fontSize: 13 }}>Vào: <Text strong>{record.actualCheckIn ? dayjs(record.actualCheckIn).format('DD/MM/YY HH:mm') : 'Chưa nhận'}</Text></Text>
-          <Text style={{ fontSize: 13 }}>Ra: <Text strong>{record.actualCheckOut ? dayjs(record.actualCheckOut).format('DD/MM/YY HH:mm') : 'Chưa trả'}</Text></Text>
+          <Text style={{ fontSize: 13 }}>Tạo lúc: <Text strong>{dayjs(record.createdAt).format('DD/MM/YY HH:mm')}</Text></Text>
+          <Text style={{ fontSize: 13 }}>Ra (Thực tế): <Text strong>{record.actualCheckOut ? dayjs(record.actualCheckOut).format('DD/MM/YY HH:mm') : 'Chưa trả'}</Text></Text>
         </Space>
       )
     },
@@ -151,7 +156,6 @@ export default function BookingsPage() {
               <Button type="primary" ghost icon={<Eye size={20} />} onClick={() => openDrawer(record.bookingCode)} style={{ borderColor: COLORS.LIGHT, color: COLORS.MIDNIGHT_BLUE }} />
             </Tooltip>
             
-            {/* Nút Hủy chỉ hiện khi đơn đang Pending hoặc Confirmed */}
             {!isLocked && record.status !== 'Checked_in' && (
               <Popconfirm title="Khách No-Show? Bạn chắc chắn muốn hủy đơn này?" onConfirm={() => handleCancelBooking(record.id)}>
                 <Button type="text" danger icon={<XCircle size={20} />} />
@@ -170,7 +174,6 @@ export default function BookingsPage() {
 
       <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.03)', padding: screens.md ? 0 : '16px 0' }}>
         
-        {/* THANH TÌM KIẾM VÀ TABS PHÂN LOẠI */}
         <div style={{ display: 'flex', flexDirection: screens.xs ? 'column' : 'row', justifyContent: 'space-between', alignItems: screens.xs ? 'stretch' : 'center', marginBottom: 16, gap: 16, padding: screens.md ? '0' : '0 16px' }}>
           <Tabs 
             activeKey={activeTab} 
@@ -178,6 +181,7 @@ export default function BookingsPage() {
             style={{ flex: 1 }}
             items={[
               { key: 'ALL', label: 'Tất cả đơn' },
+              { key: 'ArrivalsToday', label: 'Đến hôm nay' },
               { key: 'Pending', label: 'Chờ thanh toán' },
               { key: 'Confirmed', label: 'Sắp đến' },
               { key: 'Checked_in', label: 'Đang lưu trú' },
@@ -194,7 +198,6 @@ export default function BookingsPage() {
           <Button type="primary" size="large" style={{ backgroundColor: COLORS.MIDNIGHT_BLUE }} onClick={() => navigate('/admin/bookings/create')}>+ Đặt Phòng Mới</Button>
         </div>
 
-        {/* HIỂN THỊ DỮ LIỆU (PC BẢNG / MOBILE CARD) */}
         {screens.md ? (
           <Table 
             columns={columns} dataSource={processedBookings} rowKey="id" loading={loading}
@@ -202,7 +205,7 @@ export default function BookingsPage() {
           />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 16px' }}>
-            {processedBookings.length === 0 ? <Empty description="Không có đơn đặt phòng nào" /> : processedBookings.map(record => {
+            {processedBookings.length === 0 ? <Empty description="Không có đơn nào phù hợp" /> : processedBookings.map(record => {
               const isLocked = record.status === 'Cancelled' || record.status === 'Completed';
               return (
                 <div key={record.id} style={{ border: `1px solid ${COLORS.LIGHTEST}`, borderRadius: 8, padding: 16, backgroundColor: isLocked ? '#fafafa' : '#fff', opacity: isLocked ? 0.6 : 1 }}>
@@ -224,7 +227,6 @@ export default function BookingsPage() {
         )}
       </Card>
 
-      {/* COMPONENT NGĂN KÉO CHI TIẾT SẼ GẮN VÀO ĐÂY */}
       <BookingDetailDrawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} bookingCode={selectedBookingCode} />
 
       <style>{`

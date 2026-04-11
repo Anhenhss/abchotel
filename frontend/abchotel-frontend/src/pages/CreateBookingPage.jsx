@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Card, Steps, Button, Form, Input, DatePicker, InputNumber, Row, Col, Typography, Space, notification, List, Tag, Divider, Result } from 'antd';
-import { MagnifyingGlass, User, CreditCard, Bed, IdentificationCard } from '@phosphor-icons/react';
+import { Card, Steps, Button, Form, Input, DatePicker, InputNumber, Row, Col, Typography, Space, notification, Tag, Divider, Result, Select, Radio } from 'antd';
+import { MagnifyingGlass, User, CreditCard, IdentificationCard, Door, Clock } from '@phosphor-icons/react';
 import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 
@@ -15,15 +15,16 @@ export default function CreateBookingPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  // Lưu trữ dữ liệu qua các bước
   const [searchForm] = Form.useForm();
   const [guestForm] = Form.useForm();
   
   const [availableRooms, setAvailableRooms] = useState([]);
-  const [selectedRooms, setSelectedRooms] = useState([]); // Giỏ hàng phòng
+  const [selectedRooms, setSelectedRooms] = useState([]); 
   const [bookingSuccessData, setBookingSuccessData] = useState(null);
+  
+  const [specificRoomsList, setSpecificRoomsList] = useState([]);
 
-  // ================= BƯỚC 1: TÌM PHÒNG =================
+  // ================= BƯỚC 1: TÌM HẠNG PHÒNG (ĐÃ NÂNG CẤP HOURLY/NIGHTLY) =================
   const handleSearch = async (values) => {
     try {
       setLoading(true);
@@ -33,7 +34,7 @@ export default function CreateBookingPage() {
         adults: values.adults,
         children: values.children,
         requestedRooms: 1,
-        priceType: 'NIGHTLY'
+        priceType: values.priceType // 🔥 ĐÃ LẤY TỪ FORM THAY VÌ HARDCODE
       };
       const res = await bookingApi.searchRooms(request);
       setAvailableRooms(res || []);
@@ -45,51 +46,61 @@ export default function CreateBookingPage() {
     }
   };
 
-  const handleSelectRoom = (roomType) => {
-    // Cho phép đặt 1 phòng, nếu muốn nhiều hơn thì phát triển thêm mảng quantity
-    setSelectedRooms([{
-      roomTypeId: roomType.roomTypeId,
-      roomTypeName: roomType.roomTypeName,
-      quantity: 1,
-      price: roomType.subTotal,
-      checkInDate: searchForm.getFieldValue('dates')[0].format('YYYY-MM-DDTHH:mm:ss'),
-      checkOutDate: searchForm.getFieldValue('dates')[1].format('YYYY-MM-DDTHH:mm:ss'),
-      priceType: 'NIGHTLY'
-    }]);
-    setCurrentStep(1); // Chuyển sang bước nhập thông tin khách
+  const handleSelectRoom = async (roomType) => {
+    const checkIn = searchForm.getFieldValue('dates')[0].format('YYYY-MM-DDTHH:mm:ss');
+    const checkOut = searchForm.getFieldValue('dates')[1].format('YYYY-MM-DDTHH:mm:ss');
+    const currentPriceType = searchForm.getFieldValue('priceType'); // 🔥 Lấy loại giá hiện tại
+    
+    try {
+        setLoading(true);
+        // Lấy số phòng vật lý trống
+        const specificRooms = await bookingApi.getSpecificRooms(roomType.roomTypeId, checkIn, checkOut);
+        setSpecificRoomsList(specificRooms);
+
+        setSelectedRooms([{
+            roomTypeId: roomType.roomTypeId,
+            roomTypeName: roomType.roomTypeName,
+            roomId: null, 
+            quantity: 1,
+            price: roomType.subTotal,
+            checkInDate: checkIn,
+            checkOutDate: checkOut,
+            priceType: currentPriceType // 🔥 Truyền đúng loại giá xuống Giỏ hàng
+        }]);
+        
+        setCurrentStep(1); 
+    } catch (error) {
+        api.error({ message: 'Lỗi', description: 'Không tải được danh sách phòng vật lý.' });
+    } finally {
+        setLoading(false);
+    }
   };
 
-  // ================= BƯỚC 2: TẠO ĐƠN =================
+  // ================= BƯỚC 2: TẠO ĐƠN & CHỌN SỐ PHÒNG =================
   const handleCreateBooking = async (values) => {
-    if (selectedRooms.length === 0) return api.error({ message: 'Lỗi', description: 'Chưa chọn phòng nào.' });
-
     try {
       setLoading(true);
+      
+      const finalRooms = [...selectedRooms];
+      finalRooms[0].roomId = values.selectedRoomId; 
+
       const request = {
         guestName: values.guestName,
         guestPhone: values.guestPhone.trim(),
-        guestEmail: values.guestEmail,
-        identityNumber: values.identityNumber, // Lễ tân gõ CCCD vào đây
-        specialRequests: values.specialRequests,
-        rooms: selectedRooms
+        guestEmail: values.guestEmail ? values.guestEmail.trim() : null,
+        identityNumber: values.identityNumber ? values.identityNumber.trim() : null,
+        specialRequests: values.specialRequests || "",
+        rooms: finalRooms 
       };
       
       const res = await bookingApi.createBooking(request);
       setBookingSuccessData(res);
-      setCurrentStep(2); // Sang bước thành công
+      setCurrentStep(2); 
     } catch (error) {
         const data = error.response?.data;
         let errorMsg = 'Lỗi khi tạo đơn. Vui lòng thử lại.';
-  
-        if (data?.errors) {
-           // Nếu lỗi do gõ sai định dạng (VD: Số điện thoại sai, thiếu trường)
-           const firstError = Object.values(data.errors)[0][0];
-           errorMsg = firstError;
-        } else if (data?.message) {
-           // Nếu lỗi do Database SQL ném ra (VD: Có người vừa giành mất phòng)
-           errorMsg = data.message;
-        }
-  
+        if (data?.errors) errorMsg = Object.values(data.errors)[0][0];
+        else if (data?.message) errorMsg = data.message;
         api.error({ message: 'Lỗi Dữ liệu', description: errorMsg });
     } finally {
       setLoading(false);
@@ -101,24 +112,42 @@ export default function CreateBookingPage() {
   return (
     <div style={{ animation: 'fadeIn 0.3s ease-out', maxWidth: 1000, margin: '0 auto' }}>
       {contextHolder}
-      <Title level={3} style={{ color: COLORS.MIDNIGHT_BLUE, marginBottom: 24 }}>Lễ tân: Đặt phòng trực tiếp (Walk-in)</Title>
+      <Title level={3} style={{ color: COLORS.MIDNIGHT_BLUE, marginBottom: 24 }}>Lễ tân: Đặt phòng trực tiếp</Title>
 
       <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.03)', marginBottom: 24 }}>
         <Steps current={currentStep} items={[
           { title: 'Tìm phòng', icon: <MagnifyingGlass size={24} /> },
-          { title: 'Khách hàng', icon: <User size={24} /> },
-          { title: 'Hoàn tất', icon: <CreditCard size={24} /> },
+          { title: 'Khách & Xếp phòng', icon: <User size={24} /> },
+          { title: 'Nhận chìa khóa', icon: <CreditCard size={24} /> },
         ]} />
       </Card>
 
-      {/* ================= GIAO DIỆN BƯỚC 1 ================= */}
       {currentStep === 0 && (
         <Card variant="borderless" style={{ borderRadius: 12 }}>
-          <Form form={searchForm} layout="vertical" onFinish={handleSearch} initialValues={{ adults: 2, children: 0 }}>
+          {/* 🔥 FORM ĐÃ ĐƯỢC NÂNG CẤP */}
+          <Form form={searchForm} layout="vertical" onFinish={handleSearch} initialValues={{ adults: 2, children: 0, priceType: 'NIGHTLY' }}>
             <Row gutter={16}>
+              <Col span={24} style={{ marginBottom: 16 }}>
+                 {/* Nút chọn Theo Ngày / Theo Giờ */}
+                 <Form.Item name="priceType" noStyle>
+                    <Radio.Group optionType="button" buttonStyle="solid" size="large">
+                      <Radio.Button value="NIGHTLY"><Door size={18} style={{ verticalAlign: 'middle', marginRight: 8 }}/>Thuê Theo Đêm</Radio.Button>
+                      <Radio.Button value="HOURLY"><Clock size={18} style={{ verticalAlign: 'middle', marginRight: 8 }}/>Thuê Theo Giờ</Radio.Button>
+                    </Radio.Group>
+                 </Form.Item>
+              </Col>
+
               <Col xs={24} md={12}>
-                <Form.Item name="dates" label="Ngày Nhận - Trả phòng" rules={[{ required: true, message: 'Chọn ngày' }]}>
-                  <DatePicker.RangePicker size="large" style={{ width: '100%' }} format="DD/MM/YYYY" />
+                <Form.Item name="dates" label="Ngày (và Giờ) Nhận - Trả phòng" rules={[{ required: true, message: 'Chọn thời gian' }]}>
+                  <DatePicker.RangePicker 
+                    size="large" 
+                    style={{ width: '100%' }} 
+                    format="DD/MM/YYYY HH:mm" 
+                    showTime={{ format: 'HH:mm' }} 
+                    
+                    // 🔥 THÊM ĐÚNG 1 DÒNG NÀY ĐỂ BÔI ĐEN NGÀY QUÁ KHỨ
+                    disabledDate={(current) => current && current < dayjs().startOf('day')} 
+                  />
                 </Form.Item>
               </Col>
               <Col xs={12} md={6}>
@@ -141,12 +170,14 @@ export default function CreateBookingPage() {
                       <Title level={5} style={{ color: COLORS.MIDNIGHT_BLUE }}>{item.roomTypeName}</Title>
                       <Space direction="vertical" size={2} style={{ width: '100%' }}>
                         <Text>Trống: <Tag color="green">{item.remainingRooms} phòng</Tag></Text>
-                        {item.isUrgent && <Text type="danger" style={{fontSize: 12}}>Sắp hết phòng!</Text>}
+                        <Text type="secondary">
+                            Giá {searchForm.getFieldValue('priceType') === 'HOURLY' ? 'mỗi giờ' : 'mỗi đêm'}: {new Intl.NumberFormat('vi-VN').format(item.pricePerUnit)}đ
+                        </Text>
                         <Text strong style={{ color: COLORS.ACCENT_RED, fontSize: 18, display: 'block', marginTop: 8 }}>
-                          {new Intl.NumberFormat('vi-VN').format(item.subTotal)}đ
+                          Tổng: {new Intl.NumberFormat('vi-VN').format(item.subTotal)}đ
                         </Text>
                         <Button type="primary" block onClick={() => handleSelectRoom(item)} style={{ marginTop: 8, backgroundColor: COLORS.MIDNIGHT_BLUE }}>
-                          Chọn phòng này
+                          Chọn hạng này
                         </Button>
                       </Space>
                     </Card>
@@ -158,41 +189,36 @@ export default function CreateBookingPage() {
         </Card>
       )}
 
-      {/* ================= GIAO DIỆN BƯỚC 2 ================= */}
       {currentStep === 1 && (
         <Row gutter={24}>
           <Col xs={24} md={16}>
-            <Card title="Thông tin khách nhận phòng" variant="borderless" style={{ borderRadius: 12 }}>
+            <Card title="Khách hàng & Gán phòng cụ thể" variant="borderless" style={{ borderRadius: 12 }}>
               <Form form={guestForm} layout="vertical" onFinish={handleCreateBooking}>
+                
+                {/* 🔥 GIAO DIỆN CHỌN SỐ PHÒNG CỤ THỂ */}
+                <div style={{ padding: '16px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, marginBottom: 24 }}>
+                    <Title level={5} style={{ color: '#166534', marginTop: 0 }}><Door size={20} style={{ verticalAlign: 'middle' }}/> Gán Số Phòng (Check-in)</Title>
+                    <Form.Item 
+                        name="selectedRoomId" 
+                        label="Chọn phòng trống" 
+                        rules={[{ required: true, message: 'Bắt buộc chọn 1 phòng cho khách vãng lai' }]}
+                    >
+                        {/* Map dữ liệu từ API lên Select */}
+                        <Select size="large" placeholder="-- Click để chọn phòng --" options={specificRoomsList.map(r => ({ value: r.roomId, label: `Phòng ${r.roomNumber}` }))} />
+                    </Form.Item>
+                </div>
+
                 <Row gutter={16}>
-                  <Col xs={24} md={12}>
-                    <Form.Item name="guestName" label="Họ và Tên" rules={[{ required: true }]}>
-                      <Input size="large" prefix={<User color={COLORS.MUTED}/>} placeholder="VD: Nguyễn Văn A" />
-                    </Form.Item>
-                  </Col>
-                  <Col xs={24} md={12}>
-                    <Form.Item name="guestEmail" label="Email">
-                      <Input size="large" placeholder="VD: email@domain.com" />
-                    </Form.Item>
-                  </Col>
-                  <Col xs={24} md={12}>
-                    <Form.Item name="guestPhone" label="Số điện thoại" rules={[{ required: true }]}>
-                      <Input size="large" placeholder="09xxxx" />
-                    </Form.Item>
-                  </Col>
-                  <Col xs={24} md={12}>
-                    <Form.Item name="identityNumber" label="Số CCCD / Passport (Bắt buộc theo Luật)">
-                      <Input size="large" prefix={<IdentificationCard color={COLORS.MUTED}/>} placeholder="Nhập 12 số CCCD" />
-                    </Form.Item>
-                  </Col>
-                  <Col span={24}>
-                    <Form.Item name="specialRequests" label="Ghi chú thêm"><Input.TextArea rows={2} /></Form.Item>
-                  </Col>
+                  <Col xs={24} md={12}><Form.Item name="guestName" label="Họ và Tên" rules={[{ required: true }]}><Input size="large" placeholder="VD: Nguyễn Văn A" /></Form.Item></Col>
+                  <Col xs={24} md={12}><Form.Item name="guestPhone" label="Số điện thoại" rules={[{ required: true }]}><Input size="large" placeholder="09xxxx" /></Form.Item></Col>
+                  <Col xs={24} md={12}><Form.Item name="guestEmail" label="Email (Tùy chọn)"><Input size="large" placeholder="VD: email@domain.com" /></Form.Item></Col>
+                  <Col xs={24} md={12}><Form.Item name="identityNumber" label="Số CCCD / Passport (Tùy chọn)"><Input size="large" prefix={<IdentificationCard color={COLORS.MUTED}/>} placeholder="Nhập 12 số CCCD" /></Form.Item></Col>
+                  <Col span={24}><Form.Item name="specialRequests" label="Ghi chú thêm"><Input.TextArea rows={2} /></Form.Item></Col>
                 </Row>
                 
                 <Space style={{ marginTop: 16 }}>
                   <Button size="large" onClick={() => setCurrentStep(0)}>Quay lại</Button>
-                  <Button size="large" type="primary" htmlType="submit" loading={loading} style={{ backgroundColor: COLORS.MIDNIGHT_BLUE }}>Xác nhận Đặt phòng</Button>
+                  <Button size="large" type="primary" htmlType="submit" loading={loading} style={{ backgroundColor: COLORS.MIDNIGHT_BLUE }}>Tạo Đơn & Check-in</Button>
                 </Space>
               </Form>
             </Card>
@@ -203,7 +229,10 @@ export default function CreateBookingPage() {
                {selectedRooms.map((r, idx) => (
                  <div key={idx} style={{ marginBottom: 16 }}>
                    <Text strong>{r.roomTypeName}</Text><br/>
-                   <Text type="secondary">{dayjs(r.checkInDate).format('DD/MM')} - {dayjs(r.checkOutDate).format('DD/MM')}</Text>
+                   <Tag color="blue">{r.priceType === 'HOURLY' ? 'Thuê Theo Giờ' : 'Thuê Theo Đêm'}</Tag>
+                   <div style={{ marginTop: 8 }}>
+                     <Text type="secondary">{dayjs(r.checkInDate).format('DD/MM/YY HH:mm')} - {dayjs(r.checkOutDate).format('DD/MM/YY HH:mm')}</Text>
+                   </div>
                  </div>
                ))}
                <Divider style={{ margin: '12px 0' }}/>
@@ -216,19 +245,18 @@ export default function CreateBookingPage() {
         </Row>
       )}
 
-      {/* ================= GIAO DIỆN BƯỚC 3 ================= */}
       {currentStep === 2 && (
         <Card variant="borderless" style={{ borderRadius: 12, textAlign: 'center', padding: '40px 0' }}>
           <Result
             status="success"
-            title="Tạo Đơn Đặt Phòng Thành Công!"
-            subTitle={`Mã đơn hệ thống: ${bookingSuccessData?.bookingCode}. Hệ thống đã tự động khóa phòng để tránh trùng lặp.`}
+            title="Nhận Phòng Thành Công!"
+            subTitle={`Đơn ${bookingSuccessData?.bookingCode} đã được tạo và Tự động Check-in. Hãy giao chìa khóa cho khách.`}
             extra={[
-              <Button type="primary" key="console" size="large" onClick={() => navigate('/admin/bookings')} style={{ backgroundColor: COLORS.MIDNIGHT_BLUE }}>
-                Về danh sách Lễ tân
+              <Button type="primary" key="console" size="large" onClick={() => navigate('/admin/rooms')} style={{ backgroundColor: COLORS.SUCCESS }}>
+                Xem Sơ Đồ Phòng
               </Button>,
-              <Button key="buy" size="large" onClick={() => { setCurrentStep(0); searchForm.resetFields(); guestForm.resetFields(); setAvailableRooms([]); }}>
-                Tạo thêm đơn khác
+              <Button key="buy" size="large" onClick={() => { setCurrentStep(0); searchForm.resetFields(); guestForm.resetFields(); setAvailableRooms([]); setSpecificRoomsList([]); }}>
+                Tạo Đơn Mới
               </Button>
             ]}
           />
