@@ -560,31 +560,91 @@ SET IDENTITY_INSERT [dbo].[Equipments] OFF;
 GO
 -- Phòng
 SET IDENTITY_INSERT [dbo].[Room_Types] ON;
-INSERT INTO [dbo].[Room_Types] ([id], [name], [base_price], [price_per_hour], [capacity_adults], [capacity_children], [description]) VALUES 
-(1, N'Standard Single', 400000, 40000, 1, 0, N'Phòng tiêu chuẩn 1 giường đơn'),
-(2, N'Standard Double', 500000, 50000, 2, 1, N'Phòng tiêu chuẩn 1 giường đôi'),
-(3, N'Superior City View', 700000, 70000, 2, 1, N'Phòng cao cấp hướng phố'),
-(4, N'Deluxe Ocean View', 900000, 90000, 2, 2, N'Phòng Deluxe hướng biển'),
-(5, N'Premium Deluxe', 1200000, 120000, 2, 2, N'Phòng Premium tiện nghi cao cấp'),
-(6, N'Family Suite', 1500000, 150000, 4, 2, N'Phòng Suite cho gia đình'),
-(7, N'Junior Suite', 1800000, 180000, 2, 2, N'Phòng Suite nhỏ nhắn sang trọng'),
-(8, N'Executive Suite', 2500000, 250000, 2, 2, N'Phòng Suite cho doanh nhân'),
-(9, N'Presidential Suite', 5000000, 500000, 4, 2, N'Phòng Tổng thống'),
-(10, N'Royal Villa', 8000000, 800000, 6, 4, N'Biệt thự hoàng gia nguyên căn');
+
+INSERT INTO [dbo].[Room_Types]
+([id], [name], [base_price], [price_per_hour], [capacity_adults], [capacity_children],
+ [size_sqm], [bed_type], [view_direction], [description], [is_active])
+VALUES
+
+(1, N'Standard Single', 400000, 40000, 1, 0, 20, N'Single', N'City', N'Phòng tiêu chuẩn 1 người', 1),
+(2, N'Standard Double', 500000, 50000, 2, 1, 25, N'Double', N'City', N'Phòng tiêu chuẩn giường đôi', 1),
+(3, N'Superior', 650000, 65000, 2, 1, 28, N'Queen', N'City', N'Phòng nâng cấp', 1),
+(4, N'Deluxe', 850000, 85000, 2, 2, 32, N'King', N'City', N'Phòng deluxe cao cấp', 1),
+(5, N'Deluxe Ocean View', 1000000, 100000, 2, 2, 35, N'King', N'Ocean', N'Phòng hướng biển', 1),
+(6, N'Family Room', 1400000, 140000, 4, 2, 45, N'2 Double Beds', N'City', N'Phòng gia đình', 1),
+(7, N'Junior Suite', 1700000, 170000, 2, 2, 50, N'King', N'City', N'Suite nhỏ', 1),
+(8, N'Presidential Suite', 5000000, 500000, 4, 2, 120, N'King', N'Ocean', N'Phòng tổng thống siêu sang', 1),
+(9, N'Meeting Room', 300000, 300000, 10, 0, 40, N'No Bed', N'City', N'Phòng họp nhỏ', 1),
+(10, N'Conference Hall', 1000000, 1000000, 50, 0, 150, N'No Bed', N'City', N'Hội trường lớn', 1);
 SET IDENTITY_INSERT [dbo].[Room_Types] OFF;
 GO
 SET IDENTITY_INSERT [dbo].[Rooms] ON;
-INSERT INTO [dbo].[Rooms] ([id], [room_type_id], [room_number], [floor], [status]) VALUES 
-(1, 1, N'101', 1, N'Available'), 
-(2, 2, N'102', 1, N'Occupied'), 
-(3, 3, N'201', 2, N'Cleaning'),
-(4, 4, N'202', 2, N'Maintenance'), 
-(5, 5, N'301', 3, N'Available'), 
-(6, 6, N'302', 3, N'Occupied'),
-(7, 7, N'401', 4, N'Available'), 
-(8, 8, N'402', 4, N'Available'), 
-(9, 9, N'501', 5, N'Available'),
-(10, 10, N'VILLA-1', 1, N'Available');
+
+INSERT INTO [dbo].[Rooms]
+([id], [room_type_id], [room_number], [floor], [status], [cleaning_status], [is_active])
+VALUES
+
+-- ===== TYPE 1 (101-105) =====
+(1,1,N'101',1,N'Available',N'Clean',1),
+(2,1,N'102',1,N'Occupied',N'Clean',1),
+(3,1,N'103',1,N'Available',N'Dirty',1),
+(4,1,N'104',1,N'Available',N'Clean',1),
+(5,1,N'105',1,N'Maintenance',N'Dirty',1),
+
+-- ===== TYPE 2 (201-205) =====
+(6,2,N'201',2,N'Available',N'Clean',1),
+(7,2,N'202',2,N'Occupied',N'Clean',1),
+(8,2,N'203',2,N'Available',N'Dirty',1),
+(9,2,N'204',2,N'Available',N'Clean',1),
+(10,2,N'205',2,N'Maintenance',N'Dirty',1),
+
+-- ===== TYPE 3 (301-305) =====
+(11,3,N'301',3,N'Available',N'Clean',1),
+(12,3,N'302',3,N'Occupied',N'Clean',1),
+(13,3,N'303',3,N'Available',N'Dirty',1),
+(14,3,N'304',3,N'Available',N'Clean',1),
+(15,3,N'305',3,N'Maintenance',N'Dirty',1),
+
+-- ===== TYPE 4 (401-405) =====
+(16,4,N'401',4,N'Available',N'Clean',1),
+(17,4,N'402',4,N'Occupied',N'Clean',1),
+(18,4,N'403',4,N'Available',N'Dirty',1),
+(19,4,N'404',4,N'Available',N'Clean',1),
+(20,4,N'405',4,N'Maintenance',N'Dirty',1),
+
+-- ===== TYPE 5 (501-505) =====
+(21,5,N'501',5,N'Available',N'Clean',1),
+(22,5,N'502',5,N'Occupied',N'Clean',1),
+(23,5,N'503',5,N'Available',N'Dirty',1),
+(24,5,N'504',5,N'Available',N'Clean',1),
+(25,5,N'505',5,N'Maintenance',N'Dirty',1),
+
+-- ===== TYPE 6 (601-605) =====
+(26,6,N'601',6,N'Available',N'Clean',1),
+(27,6,N'602',6,N'Occupied',N'Clean',1),
+(28,6,N'603',6,N'Available',N'Dirty',1),
+(29,6,N'604',6,N'Available',N'Clean',1),
+(30,6,N'605',6,N'Maintenance',N'Dirty',1),
+
+-- ===== TYPE 7 (701-705) =====
+(31,7,N'701',7,N'Available',N'Clean',1),
+(32,7,N'702',7,N'Occupied',N'Clean',1),
+(33,7,N'703',7,N'Available',N'Dirty',1),
+(34,7,N'704',7,N'Available',N'Clean',1),
+(35,7,N'705',7,N'Maintenance',N'Dirty',1),
+
+-- ===== TYPE 8 - PRESIDENTIAL (801-803) =====
+(36,8,N'801',8,N'Available',N'Clean',1),
+(37,8,N'802',8,N'Occupied',N'Clean',1),
+(38,8,N'803',8,N'Available',N'Dirty',1),
+
+-- ===== MEETING ROOM =====
+(39,9,N'MR-01',1,N'Available',N'Clean',1),
+(40,9,N'MR-02',1,N'Occupied',N'Clean',1),
+
+-- ===== CONFERENCE HALL =====
+(41,10,N'HALL-01',1,N'Available',N'Clean',1);
+
 SET IDENTITY_INSERT [dbo].[Rooms] OFF;
 GO
 SET IDENTITY_INSERT [dbo].[Room_Inventory] ON;

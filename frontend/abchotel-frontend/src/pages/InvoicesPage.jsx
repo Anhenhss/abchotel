@@ -133,7 +133,7 @@ export default function InvoicesPage() {
                   title={<Text strong style={{ color: '#991b1b' }}>Tổng Nợ Cần Thu (Chưa thanh toán)</Text>}
                   value={totalUnpaid} 
                   suffix="VNĐ"
-                  valueStyle={{ color: '#dc2626', fontWeight: 'bold' }}
+                  styles={{ content: { color: '#dc2626', fontWeight: 'bold' } }}
                   prefix={<WarningCircle />}
                />
             </Card>
@@ -144,7 +144,7 @@ export default function InvoicesPage() {
                   title={<Text strong style={{ color: '#166534' }}>Doanh thu Thực nhận (Hôm nay)</Text>}
                   value={totalPaidToday} 
                   suffix="VNĐ"
-                  valueStyle={{ color: '#16a34a', fontWeight: 'bold' }}
+                  styles={{ content: { color: '#16a34a', fontWeight: 'bold' } }}
                   prefix={<Money />}
                />
             </Card>

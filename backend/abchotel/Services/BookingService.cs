@@ -137,7 +137,7 @@ namespace abchotel.Services
                             currentPrice = item.PriceType == "HOURLY" ? roomType.PricePerHour : roomType.BasePrice;
                         }
 
-                        // 4.2. Khóa bảo vệ: Kiểm tra xem phòng 201 có bị ai chiếm mất trong tích tắc không?
+                        // 4.2. Khóa bảo vệ: Kiểm tra xem phòng có bị ai chiếm mất trong tích tắc không?
                         bool isRoomBusy = await _context.BookingDetails.AnyAsync(bd => 
                             bd.RoomId == item.RoomId &&
                             bd.Booking.Status != "Cancelled" &&
@@ -152,7 +152,7 @@ namespace abchotel.Services
                             return (false, null, $"Phòng số này vừa bị người khác đặt mất. Vui lòng chọn phòng khác.");
                         }
 
-                        // 4.3. Lưu trực tiếp phòng 201 vào Database
+                        // 4.3. Lưu trực tiếp phòng vào Database
                         var detail = new BookingDetail
                         {
                             BookingId = booking.Id,
@@ -164,6 +164,13 @@ namespace abchotel.Services
                             PriceType = item.PriceType
                         };
                         _context.BookingDetails.Add(detail);
+
+                        // 🔥 VÁ LỖI TẠI ĐÂY: Đưa đoạn khóa phòng vật lý vào bên trong vòng lặp
+                        var physicalRoom = await _context.Rooms.FindAsync(item.RoomId.Value);
+                        if (physicalRoom != null)
+                        {
+                            physicalRoom.Status = "Occupied"; 
+                        }
                     }
                     else 
                     {
@@ -172,7 +179,7 @@ namespace abchotel.Services
                     }
                 }
 
-                // Nếu là khách vãng lai, chuyển trạng thái đơn thành Checked_in (Đã nhận phòng) ngay lập tức
+                // Nếu là khách vãng lai, chuyển trạng thái đơn tổng thành Checked_in (Đã nhận phòng)
                 if (isWalkIn)
                 {
                     booking.Status = "Checked_in";

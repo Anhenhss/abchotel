@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Drawer, Descriptions, Table, Tag, Button, Space, Typography, Divider, Spin, notification, Collapse, Modal, Form, Select, InputNumber } from 'antd';
+import { Card, Drawer, Descriptions, Table, Tag, Button, Space, Typography, Divider, Spin, notification, Collapse, Modal, Form, Select, InputNumber } from 'antd';
 import { Printer, CreditCard, ShoppingCart, WarningCircle, CheckCircle, Calculator, Money, QrCode } from '@phosphor-icons/react';
 import dayjs from 'dayjs';
 
@@ -92,7 +92,7 @@ export default function InvoiceDetailDrawer({ isOpen, onClose, invoiceId, onSucc
       {contextHolder}
       <Drawer
         title={<Space><Calculator size={24} color={COLORS.MIDNIGHT_BLUE}/> <Title level={4} style={{ margin: 0 }}>Hóa đơn #{invoiceId}</Title></Space>}
-        placement="right" width={600} onClose={onClose} open={isOpen}
+        placement="right" size="large" onClose={onClose} open={isOpen}
       >
         {loading && !invoice ? <div style={{ textAlign: 'center', marginTop: 100 }}><Spin size="large" /></div> : invoice && (
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>

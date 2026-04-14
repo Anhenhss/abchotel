@@ -171,7 +171,7 @@ export default function AppRoutes() {
           </RequirePermission>
         } />
         <Route path="invoices" element={
-          <RequirePermission requiredPermissions={["MANAGE_BOOKINGS"]}>
+          <RequirePermission requiredPermissions={["MANAGE_INVOICES"]}>
             <InvoicesPage />
           </RequirePermission>
         } />

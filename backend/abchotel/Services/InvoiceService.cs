@@ -16,7 +16,6 @@ namespace abchotel.Services
         Task<List<InvoiceResponse>> GetAllInvoicesAsync(string status = null);
         Task<InvoiceResponse> GetInvoiceByIdAsync(int id);
         
-        // 🔥 MỚI: TÌM HÓA ĐƠN THEO MÃ ĐẶT PHÒNG
         Task<InvoiceResponse> GetInvoiceByBookingCodeAsync(string bookingCode);
         
         Task<bool> RecalculateInvoiceAsync(int invoiceId);
@@ -49,22 +48,40 @@ namespace abchotel.Services
 
         public async Task<List<InvoiceResponse>> GetAllInvoicesAsync(string status = null)
         {
-            var query = _context.Invoices.Include(i => i.Booking).Include(i => i.Payments).AsQueryable();
-            if (!string.IsNullOrEmpty(status)) query = query.Where(i => i.Status == status);
+            var query = _context.Invoices
+                .Include(i => i.Booking)
+                .Include(i => i.Payments)
+                .AsQueryable();
+                
+            if (!string.IsNullOrEmpty(status)) 
+                query = query.Where(i => i.Status == status);
 
-            return await query.OrderByDescending(i => i.CreatedAt).Select(i => new InvoiceResponse
+            // 🔥 Kéo dữ liệu từ SQL lên RAM trước
+            var invoices = await query.OrderByDescending(i => i.CreatedAt).ToListAsync();
+
+            // 🔥 Sau đó mới Map sang DTO (Bỏ qua rào cản dịch SQL của EF Core)
+            return invoices.Select(i => new InvoiceResponse
             {
-                Id = i.Id, BookingId = i.BookingId, BookingCode = i.Booking != null ? i.Booking.BookingCode : "N/A",
-                GuestName = i.Booking != null ? i.Booking.GuestName : "N/A", TotalRoomAmount = i.TotalRoomAmount ?? 0,
-                TotalServiceAmount = i.TotalServiceAmount ?? 0, DiscountAmount = i.DiscountAmount ?? 0,
-                TaxAmount = i.TaxAmount ?? 0, FinalTotal = i.FinalTotal ?? 0,
-                AmountPaid = i.Payments.Sum(p => p.AmountPaid), Status = i.Status, CreatedAt = i.CreatedAt
-            }).ToListAsync();
+                Id = i.Id, 
+                BookingId = i.BookingId, 
+                BookingCode = i.Booking != null ? i.Booking.BookingCode : "N/A",
+                GuestName = i.Booking != null ? i.Booking.GuestName : "Khách vãng lai", 
+                TotalRoomAmount = i.TotalRoomAmount ?? 0,
+                TotalServiceAmount = i.TotalServiceAmount ?? 0, 
+                DiscountAmount = i.DiscountAmount ?? 0,
+                TaxAmount = i.TaxAmount ?? 0, 
+                FinalTotal = i.FinalTotal ?? 0,
+                AmountPaid = i.Payments != null ? i.Payments.Sum(p => p.AmountPaid) : 0, 
+                Status = i.Status, 
+                CreatedAt = i.CreatedAt
+                // Các List chi tiết bên dưới tự động rỗng, không bị lỗi EF Core nữa
+            }).ToList();
         }
 
         public async Task<InvoiceResponse> GetInvoiceByIdAsync(int id)
         {
             // BƯỚC 1: Dùng Include để móc sâu xuống đáy Database
+            // Chú ý: Đã sửa lại đường dẫn Include cho đúng với OrderServiceDetails
             var invoice = await _context.Invoices
                 .Include(i => i.Payments)
                 .Include(i => i.Booking)
@@ -75,8 +92,10 @@ namespace abchotel.Services
                         .ThenInclude(bd => bd.Room)
                 .Include(i => i.Booking)
                     .ThenInclude(b => b.BookingDetails)
+                        // 🔥 ĐÃ VÁ LỖI: Đi qua OrderServices, rồi móc xuống OrderServiceDetails, rồi móc lấy Service (Tên món)
                         .ThenInclude(bd => bd.OrderServices)
-                            
+                            .ThenInclude(os => os.OrderServiceDetails)
+                                .ThenInclude(osd => osd.Service)
                 .Include(i => i.Booking)
                     .ThenInclude(b => b.BookingDetails)
                         .ThenInclude(bd => bd.LossAndDamages)
@@ -128,14 +147,20 @@ namespace abchotel.Services
                     {
                         foreach (var os in detail.OrderServices.Where(o => o.Status != "Cancelled"))
                         {
-                            response.Services.Add(new InvoiceServiceDetail
+                            // 🔥 ĐÃ VÁ LỖI: Lặp qua từng món trong OrderServiceDetails để lấy Quantity và ServiceName
+                            if (os.OrderServiceDetails != null)
                             {
-                                // Giả sử bảng OrderService có thuộc tính Service.Name. Nếu không, em sửa lại theo model của em.
-                                ServiceName = os.Service?.Name ?? "Dịch vụ phòng", 
-                                Quantity = os.Quantity ?? 1,
-                                TotalAmount = os.TotalAmount ?? 0,
-                                Date = os.OrderDate ?? DateTime.Now
-                            });
+                                foreach (var item in os.OrderServiceDetails)
+                                {
+                                    response.Services.Add(new InvoiceServiceDetail
+                                    {
+                                        ServiceName = item.Service?.Name ?? "Dịch vụ phòng", 
+                                        Quantity = item.Quantity,
+                                        TotalAmount = item.Quantity * item.UnitPrice, // Hoặc lấy trực tiếp os.TotalAmount nếu em muốn
+                                        Date = os.OrderDate ?? DateTime.Now
+                                    });
+                                }
+                            }
                         }
                     }
 
@@ -146,7 +171,7 @@ namespace abchotel.Services
                         {
                             response.Damages.Add(new InvoiceDamageDetail
                             {
-                                ItemName = ld.ItemName,
+                                ItemName = ld.Description ?? "Phạt hư hỏng/Mất mát", 
                                 PenaltyAmount = ld.PenaltyAmount
                             });
                         }
@@ -157,7 +182,7 @@ namespace abchotel.Services
             return response;
         }
 
-        // 🔥 MỚI: HÀM LẤY HÓA ĐƠN THEO MÃ BOOKING
+        //  HÀM LẤY HÓA ĐƠN THEO MÃ BOOKING
         public async Task<InvoiceResponse> GetInvoiceByBookingCodeAsync(string bookingCode)
         {
             var i = await _context.Invoices.Include(i => i.Booking).Include(i => i.Payments)

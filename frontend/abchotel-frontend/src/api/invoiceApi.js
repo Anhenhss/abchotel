@@ -9,5 +9,7 @@ export const invoiceApi = {
   
   // 🔥 THÊM 2 API NÀY ĐỂ ADD DỊCH VỤ / HƯ HỎNG NHANH
   addService: (invoiceId, data) => axiosClient.post(`/Invoices/${invoiceId}/add-service`, data),
-  addDamage: (invoiceId, data) => axiosClient.post(`/Invoices/${invoiceId}/add-damage`, data)
+  addDamage: (invoiceId, data) => axiosClient.post(`/Invoices/${invoiceId}/add-damage`, data),
+  // Lấy hóa đơn bằng mã Booking
+  getByBookingCode: (code) => axiosClient.get(`/Invoices/by-booking/${code}`),
 };
