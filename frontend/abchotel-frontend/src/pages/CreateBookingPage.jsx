@@ -28,7 +28,7 @@ export default function CreateBookingPage() {
   const [bookingSuccessData, setBookingSuccessData] = useState(null);
   const [specificRoomsList, setSpecificRoomsList] = useState([]);
 
-  // 🔥 THUẬT TOÁN CHẶN GIỜ QUÁ KHỨ TRONG NGÀY HÔM NAY
+  // 1. KHÓA GIỜ TRÊN GIAO DIỆN (UI)
   const disabledTime = (current) => {
     if (current && current.isSame(dayjs(), 'day')) {
       return {
@@ -48,12 +48,12 @@ export default function CreateBookingPage() {
     const checkInDate = values.dates[0];
     const checkOutDate = values.dates[1];
     
-    // Kiểm tra giờ thuê theo giờ có bị quá 24h không
+    // Ràng buộc nghiệp vụ: Thuê theo giờ không quá 24h
     const hoursDiff = checkOutDate.diff(checkInDate, 'hour');
     if (values.priceType === 'HOURLY' && hoursDiff > 24) {
         return api.warning({ 
-            message: 'Sai nghiệp vụ', 
-            description: 'Thuê theo giờ chỉ tối đa 24 tiếng. Vui lòng chọn Thuê Theo Đêm.' 
+            message: 'Sai nghiệp vụ Khách sạn', 
+            description: 'Khách Thuê Theo Giờ chỉ được chọn tối đa 24 tiếng. Nếu khách ở lâu hơn, vui lòng chọn Thuê Theo Đêm.' 
         });
     }
 
@@ -69,7 +69,7 @@ export default function CreateBookingPage() {
       };
       const res = await bookingApi.searchRooms(request);
       setAvailableRooms(res || []);
-      if (res.length === 0) api.warning({ message: 'Hết phòng', description: 'Không có phòng nào trống.' });
+      if (res.length === 0) api.warning({ message: 'Hết phòng', description: 'Không có phòng nào trống trong giai đoạn này.' });
     } catch (error) { api.error({ message: 'Lỗi', description: 'Lỗi tìm phòng.' }); } 
     finally { setLoading(false); }
   };
@@ -98,7 +98,7 @@ export default function CreateBookingPage() {
         
         guestForm.setFieldsValue({ selectedRoomId: null });
         setCurrentStep(1); 
-    } catch (error) { api.error({ message: 'Lỗi', description: 'Không tải được danh sách phòng.' }); } 
+    } catch (error) { api.error({ message: 'Lỗi', description: 'Không tải được danh sách phòng vật lý.' }); } 
     finally { setLoading(false); }
   };
 
@@ -120,7 +120,7 @@ export default function CreateBookingPage() {
       setCurrentStep(2); 
     } catch (error) {
         const data = error.response?.data;
-        let errorMsg = 'Lỗi tạo đơn. Thử lại.';
+        let errorMsg = 'Lỗi khi tạo đơn. Vui lòng thử lại.';
         if (data?.errors) errorMsg = Object.values(data.errors)[0][0];
         else if (data?.message) errorMsg = data.message;
         api.error({ message: 'Lỗi Dữ liệu', description: errorMsg });
@@ -162,14 +162,29 @@ export default function CreateBookingPage() {
               </Col>
 
               <Col xs={24} md={12}>
-                <Form.Item name="dates" label={<Text strong style={{ color: LUXURY_COLORS.DARKEST }}>Ngày (và Giờ) Nhận - Trả phòng</Text>} rules={[{ required: true, message: 'Chọn thời gian' }]}>
+                {/* 2. KHÓA BẰNG VALIDATOR (RÀO CHẮN CUỐI CÙNG Ở FORM) */}
+                <Form.Item 
+                    name="dates" 
+                    label={<Text strong style={{ color: LUXURY_COLORS.DARKEST }}>Ngày (và Giờ) Nhận - Trả phòng</Text>} 
+                    rules={[
+                        { required: true, message: 'Vui lòng chọn thời gian' },
+                        {
+                            validator: (_, value) => {
+                                if (value && value[0] && value[0].isBefore(dayjs(), 'minute')) {
+                                    return Promise.reject(new Error('Giờ nhận phòng không được nằm trong quá khứ!'));
+                                }
+                                return Promise.resolve();
+                            }
+                        }
+                    ]}
+                >
                   <DatePicker.RangePicker 
                     size="large" 
                     style={{ width: '100%', borderColor: LUXURY_COLORS.LIGHT_BLUE }} 
                     format="DD/MM/YYYY HH:mm" 
                     showTime={{ format: 'HH:mm', defaultValue: [dayjs('14:00', 'HH:mm'), dayjs('12:00', 'HH:mm')] }} 
                     disabledDate={(current) => current && current < dayjs().startOf('day')} 
-                    disabledTime={disabledTime} // 🔥 GẮN HÀM CHẶN GIỜ VÀO ĐÂY
+                    disabledTime={disabledTime} 
                   />
                 </Form.Item>
               </Col>
@@ -273,8 +288,8 @@ export default function CreateBookingPage() {
                        {r.priceType === 'HOURLY' ? 'Thuê Theo Giờ' : 'Thuê Theo Đêm'}
                    </Tag>
                    <div style={{ marginTop: 12 }}>
-                     <Text style={{ color: LUXURY_COLORS.MUTED_BLUE, display: 'block' }}>Vào: <Text strong style={{ color: LUXURY_COLORS.DARKEST }}>{dayjs(r.checkInDate).format('DD/MM/YY HH:mm')}</Text></Text>
-                     <Text style={{ color: LUXURY_COLORS.MUTED_BLUE, display: 'block' }}>Ra: &nbsp;&nbsp;<Text strong style={{ color: LUXURY_COLORS.DARKEST }}>{dayjs(r.checkOutDate).format('DD/MM/YY HH:mm')}</Text></Text>
+                     <Text style={{ color: LUXURY_COLORS.MUTED_BLUE, display: 'block' }}>Vào: <Text strong style={{ color: LUXURY_COLORS.DARKEST }}>{dayjs(r.checkInDate).format('DD/MM/YYYY HH:mm')}</Text></Text>
+                     <Text style={{ color: LUXURY_COLORS.MUTED_BLUE, display: 'block' }}>Ra: &nbsp;&nbsp;<Text strong style={{ color: LUXURY_COLORS.DARKEST }}>{dayjs(r.checkOutDate).format('DD/MM/YYYY HH:mm')}</Text></Text>
                    </div>
                  </div>
                ))}

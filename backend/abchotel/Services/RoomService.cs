@@ -82,12 +82,36 @@ namespace abchotel.Services
 
         public async Task<RoomResponse> GetRoomByIdAsync(int id)
         {
+            // 1. Lấy thông tin phòng và hạng phòng (Giữ nguyên toàn bộ dữ liệu gốc của em)
             var room = await _context.Rooms
                 .Include(r => r.RoomType) 
                 .FirstOrDefaultAsync(r => r.Id == id);
 
             if (room == null) return null;
 
+            // 2. 🔥 LOGIC TÌM KHÁCH ĐANG Ở (Dùng để mở khóa gọi dịch vụ)
+            // Thầy dùng try-catch ở đây để dù có lỗi dữ liệu Booking thì thông tin Phòng vẫn hiện lên được
+            int? currentBookingDetailId = null;
+            try 
+            {
+                if (room.Status == "Occupied")
+                {
+                    var activeBookingDetail = await _context.BookingDetails
+                        .Include(bd => bd.Booking)
+                        .Where(bd => bd.RoomId == id && bd.Booking.Status == "Checked_in")
+                        .OrderByDescending(bd => bd.Id)
+                        .FirstOrDefaultAsync();
+                        
+                    currentBookingDetailId = activeBookingDetail?.Id;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Nếu lỗi tìm booking thì chỉ ghi log, không làm sập cả trang chi tiết phòng
+                System.Diagnostics.Debug.WriteLine("Lỗi tìm BookingDetail: " + ex.Message);
+            }
+
+            // 3. MAP DỮ LIỆU (Giữ nguyên 100% các trường dữ liệu cũ của em)
             return new RoomResponse
             {
                 Id = room.Id,
@@ -104,9 +128,13 @@ namespace abchotel.Services
                 SizeSqm = room.RoomType?.SizeSqm,
                 ViewDirection = room.RoomType?.ViewDirection ?? "Chưa cập nhật",
                 BasePrice = room.RoomType?.BasePrice ?? 0,
-                PricePerHour = room.RoomType?.PricePerHour ?? 0
+                PricePerHour = room.RoomType?.PricePerHour ?? 0,
+
+                // 🔥 GỬI THÊM ID NÀY VỀ ĐỂ FRONTEND KHÔNG BỊ BÁO "PHÒNG TRỐNG"
+                CurrentBookingDetailId = currentBookingDetailId 
             };
         }
+        
 
         public async Task<(bool IsSuccess, string Message)> CreateRoomAsync(CreateRoomRequest request)
         {

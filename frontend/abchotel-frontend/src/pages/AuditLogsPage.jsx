@@ -1,215 +1,344 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Typography, Space, Tag, Select, Row, Col, Grid, List, Avatar } from 'antd';
-import { Database, Clock, UserCircle, Plus, PencilSimple, Trash } from '@phosphor-icons/react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, Typography, Space, Tag, Select, Table, Avatar, Badge, DatePicker, Button, notification } from 'antd';
+import { User, DownloadSimple } from '@phosphor-icons/react';
 import dayjs from 'dayjs';
 import { reportApi } from '../api/reportApi';
-import { COLORS } from '../constants/theme';
+
+// 🔥 IMPORT SIGNALR ĐỂ REALTIME
+import { useSignalR } from '../hooks/useSignalR';
 
 const { Title, Text } = Typography;
-const { useBreakpoint } = Grid;
+
+// Bảng màu quyền lực
+const THEME = {
+    NAVY_DARK: '#0D1821', 
+    DARK_RED: '#8A1538', 
+    COLD_BLUE: '#1C2E4A',
+    BG_LIGHT: '#F8FAFC'
+};
 
 export default function AuditLogsPage() {
-  const screens = useBreakpoint();
+  // 🔥 FIX WARNING: Đổi message thành title ở các hàm gọi api.success / api.error
+  const [api, contextHolder] = notification.useNotification();
+  
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [tableName, setTableName] = useState(null);
-  const [top, setTop] = useState(100);
 
-  const fetchLogs = async () => {
+  // States cho Bộ lọc
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(null);
+
+  const fetchLogs = useCallback(async (isSilent = false) => {
     try {
-      setLoading(true);
-      const params = { top };
-      if (tableName) params.tableName = tableName;
-
-      const res = await reportApi.getAuditLogs(params);
+      if (!isSilent) setLoading(true);
+      const res = await reportApi.getAuditLogs({ top: 500 }); 
       
-      // Lọc bỏ bảng Notifications để tránh rác màn hình
-      const filteredLogs = res.filter(log => log.tableName !== 'Notifications');
-      setLogs(filteredLogs || []);
-    } catch (error) {
-      console.error("Lỗi tải lịch sử", error);
-    } finally {
-      setLoading(false);
+      // Bóc tách chuỗi JSON
+      const parsedData = res.map(item => {
+          let detailObj = { TotalEvents: 0, Events: [] };
+          try {
+              if (item.logData) detailObj = JSON.parse(item.logData);
+          } catch (error) {
+              console.error("Lỗi parse JSON log:", error);
+          }
+          return { ...item, detail: detailObj };
+      });
+
+      setLogs(parsedData);
+    } catch (e) { 
+      console.error(e); 
+    } finally { 
+      if (!isSilent) setLoading(false); 
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchLogs();
-  }, [tableName, top]);
+  }, [fetchLogs]);
 
-  // 🔥 BỘ NÃO CỦA TRANG: THUẬT TOÁN "DỊCH" JSON THÀNH TIẾNG VIỆT (ĐÃ NÂNG CẤP)
-  const generateHumanReadableLog = (record) => {
-    let newObj = {};
-    let oldObj = {};
-    try {
-      if (record.newValue) newObj = JSON.parse(record.newValue);
-      if (record.oldValue) oldObj = JSON.parse(record.oldValue);
-    } catch (e) {}
+  // 🔥 TÍCH HỢP REALTIME SIGNALR: Tự động tải lại data ngầm khi có sự kiện mới
+  useSignalR(() => {
+    fetchLogs(true); // true = tải ngầm, không hiện spinner xoay xoay gây khó chịu
+  });
 
-    // Đồng bộ hóa các từ khóa của Entity Framework Core (ADDED, MODIFIED, DELETED)
-    const rawAction = record.action?.toUpperCase() || '';
-    let action = rawAction;
-    if (rawAction === 'MODIFIED') action = 'UPDATE';
-    if (rawAction === 'ADDED') action = 'CREATE';
-    if (rawAction === 'DELETED') action = 'DELETE';
+  // Lấy danh sách Nhân viên duy nhất từ dữ liệu để đưa vào Dropdown lọc
+  const uniqueUsers = [...new Set(logs.map(item => item.performedBy))].filter(Boolean);
 
-    const table = record.tableName;
-    const id = record.recordId;
+  // THUẬT TOÁN LỌC DỮ LIỆU
+  const filteredLogs = logs.filter(log => {
+    let matchUser = true;
+    let matchDate = true;
 
-    // 1. Phân tích log của bảng Phòng
-    if (table === 'Rooms') {
-      if (action === 'UPDATE') {
-        if (newObj.status || newObj.Status) return <span>Đã chuyển trạng thái kinh doanh của phòng (Mã: {id}) thành: <Tag color="blue" style={{margin:0}}>{newObj.status || newObj.Status}</Tag></span>;
-        if (newObj.cleaningStatus || newObj.CleaningStatus) return <span>Đã chuyển trạng thái dọn phòng (Mã: {id}) thành: <Tag color="orange" style={{margin:0}}>{newObj.cleaningStatus || newObj.CleaningStatus}</Tag></span>;
-      }
+    if (selectedUser) {
+        matchUser = log.performedBy === selectedUser;
+    }
+    if (selectedDate) {
+        matchDate = dayjs(log.createdAt).isSame(selectedDate, 'day');
     }
 
-    // 2. Phân tích log của bảng Người dùng
-    if (table === 'Users') {
-      if (action === 'UPDATE') {
-        if (newObj.RoleId !== undefined || newObj.role_id !== undefined) return <span>Đã thay đổi <b>Chức vụ / Phân quyền</b> của nhân viên (Mã: {id}).</span>;
-        if (newObj.Status !== undefined || newObj.status !== undefined) return <span>Đã <b>{newObj.Status || newObj.status ? 'mở khóa' : 'khóa'}</b> tài khoản người dùng (Mã: {id}).</span>;
-      }
+    return matchUser && matchDate;
+  });
+
+  // 🔥 THUẬT TOÁN XUẤT FILE EXCEL CHUẨN XÁC 100%
+  const handleExport = (type) => {
+    const dataToExport = type === 'all' ? logs : filteredLogs;
+    
+    if (dataToExport.length === 0) {
+      api.error({ title: 'Lỗi xuất file', description: 'Không có dữ liệu để xuất.' });
+      return;
     }
 
-    // 3. Phân tích log của bảng Hạng phòng
-    if (table === 'Room_Types') {
-      if (action === 'UPDATE' && (newObj.basePrice || newObj.price)) {
-        return <span>Đã cập nhật <b>Giá qua đêm</b> của Hạng phòng (Mã: {id}) thành: <Text strong style={{color: COLORS.ACCENT_RED}}>{new Intl.NumberFormat('vi-VN').format(newObj.basePrice || newObj.price)}đ</Text></span>;
-      }
-      if (action === 'UPDATE' && newObj.pricePerHour) {
-        return <span>Đã cập nhật <b>Giá theo giờ</b> của Hạng phòng (Mã: {id}) thành: <Text strong style={{color: COLORS.ACCENT_RED}}>{new Intl.NumberFormat('vi-VN').format(newObj.pricePerHour)}đ</Text></span>;
-      }
-    }
+    // Tạo cấu trúc bảng HTML để Excel tự động chia cột và nhận diện màu sắc
+    let tableHtml = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8">
+        <style>
+          th { background-color: #1C2E4A; color: #ffffff; font-weight: bold; border: 1px solid #dddddd; padding: 5px; }
+          td { border: 1px solid #dddddd; padding: 5px; }
+        </style>
+      </head>
+      <body>
+        <table>
+          <thead>
+            <tr>
+              <th>Ngày</th>
+              <th>Giờ</th>
+              <th>Nhân viên</th>
+              <th>Hành động</th>
+              <th>Đối tượng</th>
+              <th>Nội dung chi tiết</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
 
-    // 4. Phân tích log của bảng Đặt phòng (Bookings)
-    if (table === 'Bookings') {
-      if (action === 'UPDATE' && (newObj.status || newObj.Status)) {
-        return <span>Đã cập nhật đơn đặt phòng (Mã: {id}) sang trạng thái: <Tag color="green" style={{margin:0}}>{newObj.status || newObj.Status}</Tag></span>;
-      }
-    }
+    // Phân rã dữ liệu từ JSON ra từng dòng của bảng
+    dataToExport.forEach(log => {
+        const dateStr = dayjs(log.createdAt).format('DD/MM/YYYY');
+        const user = log.performedBy || 'Hệ thống';
+        const events = log.detail?.Events || [];
 
-    // 5. Nếu không thuộc case đặc biệt, tự động so sánh JSON để tìm ra cột bị đổi
-    let changedFields = "";
-    if (action === 'UPDATE' && Object.keys(newObj).length > 0) {
-      const diffs = [];
-      Object.keys(newObj).forEach(key => {
-        // So sánh giá trị cũ và mới, nếu khác nhau thì đưa vào mảng diffs
-        if (oldObj[key] !== newObj[key]) {
-          diffs.push(key);
-        }
-      });
-      if (diffs.length > 0) {
-        changedFields = ` (Đổi thông tin: ${diffs.join(', ')})`;
-      } else {
-        changedFields = ` (Đã cập nhật: ${Object.keys(newObj).join(', ')})`;
-      }
-    }
+        events.forEach(ev => {
+            const timeStr = dayjs(ev.timestamp).format('HH:mm:ss');
+            const action = ev.actionType;
+            const entity = translateEntity(ev.entityType);
+            const message = ev.message || '';
 
-    // 6. Tên bảng chuẩn Tiếng Việt
-    const tableVn = 
-      table === 'Invoices' ? 'Hóa đơn' :
-      table === 'Services' ? 'Dịch vụ' :
-      table === 'Roles' ? 'Vai trò nhân sự' :
-      table === 'Role_Permissions' ? 'Phân quyền hệ thống' :
-      table === 'Articles' ? 'Bài viết / Tin tức' :
-      table === 'Attractions' ? 'Điểm du lịch' :
-      table === 'Vouchers' ? 'Mã khuyến mãi' :
-      table === 'Equipments' ? 'Kho Vật tư' :
-      table === 'Loss_And_Damages' ? 'Biên bản Hư hỏng/Mất mát' :
-      table === 'Users' ? 'Tài khoản nhân sự' :
-      table === 'Rooms' ? 'Danh sách Phòng' :
-      table === 'Bookings' ? 'Đơn đặt phòng' : table;
+            tableHtml += `
+              <tr>
+                <td style="text-align: center;">${dateStr}</td>
+                <td style="text-align: center;">${timeStr}</td>
+                <td>${user}</td>
+                <td style="text-align: center;">${action}</td>
+                <td>${entity}</td>
+                <td>${message}</td>
+              </tr>
+            `;
+        });
+    });
 
-    switch (action) {
-      case 'CREATE': return <span>Đã tạo mới hồ sơ <b>{tableVn}</b> (Mã ID: {id}).</span>;
-      case 'UPDATE': return <span>Đã cập nhật hồ sơ <b>{tableVn}</b> (Mã ID: {id}) <Text type="secondary">{changedFields}</Text>.</span>;
-      case 'DELETE': return <span>Đã xóa dữ liệu khỏi <b>{tableVn}</b> (Mã ID: {id}).</span>;
-      default: return <span>Đã thao tác trên <b>{tableVn}</b> (Mã ID: {id}).</span>;
+    tableHtml += `</tbody></table></body></html>`;
+
+    // Tạo file Excel (.xls) thay vì CSV
+    const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Nhat_Ky_He_Thong_${dayjs().format('DDMMYYYY_HHmm')}.xls`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    api.success({
+        title: 'Xuất Excel thành công',
+        description: `Đã tải xuống file Excel ${type === 'all' ? 'toàn bộ' : 'theo bộ lọc'} cho hệ thống.`
+    });
+  };
+
+  // Hàm tạo Tag cho Hành động
+  const getActionTag = (type) => {
+    switch(type?.toUpperCase()) {
+        case 'CREATE': case 'ADDED': return <Text strong style={{ color: '#d97706', fontSize: 13 }}>CREATE</Text>;
+        case 'UPDATE': case 'MODIFIED': return <Text strong style={{ color: '#2563eb', fontSize: 13 }}>UPDATE</Text>;
+        case 'DELETE': case 'DELETED': return <Text strong style={{ color: '#dc2626', fontSize: 13 }}>DELETE</Text>;
+        default: return <Text strong style={{ color: '#475569', fontSize: 13 }}>{type}</Text>;
     }
   };
 
-  const getActionIcon = (actionStr) => {
-    const action = actionStr?.toUpperCase() || '';
-    if (action === 'CREATE' || action === 'ADDED') return <Avatar style={{ backgroundColor: '#f6ffed', color: '#52c41a' }} icon={<Plus weight="bold" />} />;
-    if (action === 'UPDATE' || action === 'MODIFIED') return <Avatar style={{ backgroundColor: '#e6f7ff', color: '#1890ff' }} icon={<PencilSimple weight="bold" />} />;
-    if (action === 'DELETE' || action === 'DELETED') return <Avatar style={{ backgroundColor: '#fff1f0', color: '#f5222d' }} icon={<Trash weight="bold" />} />;
-    return <Avatar style={{ backgroundColor: '#f0f0f0', color: '#595959' }} icon={<Database weight="bold" />} />;
+  const translateEntity = (entity) => {
+      const dict = {
+          'LossAndDamage': 'Thất thoát & Đền bù',
+          'Rooms': 'Phòng',
+          'Bookings': 'Đặt phòng',
+          'Users': 'Nhân sự',
+          'Invoices': 'Hóa đơn',
+          'Equipments': 'Vật tư',
+          'Services': 'Dịch vụ',
+          'Vouchers': 'Khuyến mãi',
+          'Articles': 'Bài viết'
+      };
+      return dict[entity] || entity;
+  };
+
+  // ================= CỘT CHO BẢNG CHÍNH (GOM NHÓM) =================
+  const columns = [
+    { 
+        title: <Text strong style={{ color: THEME.COLD_BLUE }}>Ngày</Text>, 
+        dataIndex: 'createdAt', 
+        key: 'date',
+        width: 150,
+        render: (val) => <Text strong>{dayjs(val).format('DD/MM/YYYY')}</Text> 
+    },
+    { 
+        title: <Text strong style={{ color: THEME.COLD_BLUE }}>Nhân viên</Text>, 
+        key: 'user',
+        width: 250,
+        render: (_, record) => (
+            <Space>
+                <Avatar size="small" icon={<User />} style={{ backgroundColor: THEME.COLD_BLUE }} />
+                <Text strong>{record.performedBy || 'Hệ thống'}</Text>
+                {record.logType === 'System' && <Tag color="blue">Hệ thống</Tag>}
+            </Space>
+        )
+    },
+    { 
+        title: <Text strong style={{ color: THEME.COLD_BLUE }}>Tóm tắt hoạt động</Text>, 
+        key: 'summary',
+        render: (_, record) => {
+            const events = record.detail?.Events || [];
+            if (events.length === 0) return <Text type="secondary">Ghi nhận hoạt động hệ thống</Text>;
+            
+            const firstMessage = events[0].message;
+            const extraCount = events.length - 1;
+            
+            return (
+                <Text style={{ color: THEME.NAVY_DARK }}>
+                    {firstMessage} {extraCount > 0 && <Text type="secondary" italic>(và {extraCount} sự kiện khác)</Text>}
+                </Text>
+            );
+        }
+    }
+  ];
+
+  // ================= CỘT CHO BẢNG CHI TIẾT (KHI BẤM XỔ XUỐNG) =================
+  const expandedRowRender = (record) => {
+    const nestedColumns = [
+      { 
+          title: 'Giờ', 
+          dataIndex: 'timestamp', 
+          key: 'time',
+          width: 120,
+          render: (val) => <Text type="secondary">{dayjs(val).format('HH:mm:ss')}</Text> 
+      },
+      { 
+          title: 'Hành động', 
+          dataIndex: 'actionType', 
+          key: 'action',
+          width: 120,
+          render: (val) => getActionTag(val)
+      },
+      { 
+          title: 'Đối tượng', 
+          dataIndex: 'entityType', 
+          key: 'entity',
+          width: 180,
+          render: (val) => <Text>{translateEntity(val)}</Text>
+      },
+      { 
+          title: 'Nội dung', 
+          dataIndex: 'message', 
+          key: 'message',
+          render: (val) => <Text style={{ color: THEME.NAVY_DARK }}>{val}</Text>
+      },
+    ];
+
+    return (
+        <div style={{ padding: '8px 24px 24px 24px', backgroundColor: THEME.BG_LIGHT }}>
+            <Table 
+                columns={nestedColumns} 
+                dataSource={record.detail?.Events || []} 
+                pagination={false} 
+                // 🔥 FIX WARNING: Chỉ sử dụng eventId, bỏ index
+                rowKey={(item) => item.eventId || Math.random().toString()}
+                size="small"
+                className="nested-audit-table"
+                scroll={{ x: 700 }} // Cuộn ngang cho bảng nhỏ
+            />
+        </div>
+    );
   };
 
   return (
-    <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
-      <Title level={3} style={{ color: COLORS.MIDNIGHT_BLUE, fontFamily: '"Source Serif 4", serif', marginBottom: 24 }}>Nhật ký Hoạt động Hệ thống (Audit Logs)</Title>
+    <div style={{ animation: 'fadeIn 0.5s ease-in-out' }}>
+      {contextHolder}
+      <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }} bodyStyle={{ padding: 24 }}>
+        
+        {/* HEADER & LỌC */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+          <Space align="center" size="middle">
+            <div style={{ width: 4, height: 24, backgroundColor: THEME.DARK_RED, borderRadius: 2 }}></div>
+            <Title level={3} style={{ color: THEME.NAVY_DARK, margin: 0 }}>Nhật ký hoạt động</Title>
+          </Space>
 
-      <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }} bodyStyle={{ padding: screens.xs ? 12 : 24 }}>
-        <div style={{ display: 'flex', flexDirection: screens.xs ? 'column' : 'row', justifyContent: 'space-between', alignItems: screens.xs ? 'stretch' : 'center', marginBottom: 20, gap: 16 }}>
-          <Text style={{ color: '#52677D', fontSize: 15 }}>
-            Theo dõi tự động mọi thao tác thêm, sửa, xóa dữ liệu của nhân viên trên hệ thống cơ sở dữ liệu.
-          </Text>
-          
-          <Space direction={screens.xs ? 'vertical' : 'horizontal'} size={screens.xs ? 'small' : 'middle'} style={{ width: screens.xs ? '100%' : 'auto' }}>
-            <Select 
-              placeholder="Lọc theo phân hệ" 
-              allowClear 
-              style={{ width: screens.xs ? '100%' : 200 }} 
-              size="large"
-              onChange={(val) => setTableName(val)}
-              options={[
-                { value: 'Users', label: 'Quản lý Nhân sự' },
-                { value: 'Rooms', label: 'Quản lý Phòng' },
-                { value: 'Bookings', label: 'Quản lý Đặt phòng' },
-                { value: 'Invoices', label: 'Quản lý Hóa đơn' },
-                { value: 'Equipments', label: 'Quản lý Kho vật tư' },
-                { value: 'Role_Permissions', label: 'Phân quyền hệ thống' },
-              ]}
-            />
-            <Select 
-              value={top}
-              style={{ width: screens.xs ? '100%' : 150 }} 
-              size="large"
-              onChange={(val) => setTop(val)}
-              options={[
-                { value: 50, label: '50 dòng mới nhất' },
-                { value: 100, label: '100 dòng mới nhất' },
-                { value: 500, label: '500 dòng mới nhất' },
-              ]}
-            />
+          <Space size="middle" wrap>
+             <Select 
+                placeholder="Lọc theo nhân viên" 
+                style={{ width: 180 }} 
+                allowClear 
+                onChange={(value) => setSelectedUser(value)}
+                options={uniqueUsers.map(user => ({ value: user, label: user }))}
+             />
+             <DatePicker 
+                placeholder="Lọc theo ngày" 
+                style={{ width: 150 }} 
+                format="DD/MM/YYYY"
+                allowClear
+                onChange={(date) => setSelectedDate(date)}
+             />
+             
+             <Button icon={<DownloadSimple />} onClick={() => handleExport('filter')}>Xuất theo bộ lọc</Button>
+             <Button type="primary" style={{ backgroundColor: '#1d4ed8' }} icon={<DownloadSimple />} onClick={() => handleExport('all')}>Xuất toàn bộ (CSV)</Button>
           </Space>
         </div>
 
-        {/* HIỂN THỊ DẠNG LIST TIMELINE SẠCH SẼ */}
-        <List
-          loading={loading}
-          itemLayout="horizontal"
-          dataSource={logs}
-          renderItem={(record) => (
-            <List.Item style={{ padding: '16px 0', borderBottom: '1px solid #f0f0f0' }}>
-              <List.Item.Meta
-                avatar={getActionIcon(record.action)}
-                title={
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                    <Space>
-                      <UserCircle size={20} color={COLORS.MIDNIGHT_BLUE} weight="fill" />
-                      <Text strong style={{ fontSize: 15, color: COLORS.MIDNIGHT_BLUE }}>{record.performedBy}</Text>
-                    </Space>
-                    <Space style={{ color: '#8c8c8c' }}>
-                      <Clock size={14}/>
-                      <Text type="secondary" style={{ fontSize: 13 }}>
-                        {dayjs(record.createdAt).format('HH:mm:ss - DD/MM/YYYY')}
-                      </Text>
-                    </Space>
-                  </div>
-                }
-                description={
-                  <div style={{ marginTop: 8, fontSize: 14, color: COLORS.DARKEST }}>
-                    {generateHumanReadableLog(record)}
-                  </div>
-                }
-              />
-            </List.Item>
-          )}
+        {/* BẢNG DỮ LIỆU ĐÃ ĐƯỢC LỌC */}
+        <Table 
+            columns={columns} 
+            dataSource={filteredLogs} 
+            rowKey="id" 
+            loading={loading}
+            expandable={{ expandedRowRender, expandRowByClick: true }}
+            pagination={{ pageSize: 15 }}
+            className="main-audit-table"
+            scroll={{ x: 'max-content' }} // 🔥 XỬ LÝ LỖI ÉP CHỮ TRÊN MOBILE (Vuốt ngang)
         />
+
       </Card>
+
+      <style>{`
+        /* Style cho bảng chính */
+        .main-audit-table .ant-table-thead > tr > th {
+            background-color: #f8fafc !important;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .main-audit-table .ant-table-row { cursor: pointer; }
+        
+        /* Style cho bảng chi tiết (Nested) */
+        .nested-audit-table .ant-table-thead > tr > th {
+            background-color: #e2e8f0 !important;
+            color: #475569 !important;
+            font-weight: 600;
+            border-bottom: none;
+        }
+        .nested-audit-table .ant-table-tbody > tr > td {
+            background-color: transparent !important;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+      `}</style>
     </div>
   );
 }

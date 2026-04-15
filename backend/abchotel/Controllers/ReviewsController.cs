@@ -38,7 +38,7 @@ namespace abchotel.Controllers
         {
             var userId = GetCurrentUserId();
             var result = await _reviewService.CreateReviewAsync(userId, request);
-            
+
             if (!result.IsSuccess) return BadRequest(new { message = result.Message });
             return Ok(new { message = result.Message });
         }
@@ -48,7 +48,7 @@ namespace abchotel.Controllers
         // ==========================================
 
         [HttpGet]
-        [Authorize(Policy = "MANAGE_CONTENT")] 
+        [Authorize(Policy = "MANAGE_CONTENT")]
         public async Task<IActionResult> GetAllReviewsForAdmin([FromQuery] bool? isVisible)
         {
             var reviews = await _reviewService.GetAllReviewsForAdminAsync(isVisible);
@@ -80,6 +80,13 @@ namespace abchotel.Controllers
             var success = await _reviewService.ToggleSoftDeleteAsync(id);
             if (!success) return NotFound(new { message = "Không tìm thấy đánh giá." });
             return Ok(new { message = "Đã thay đổi trạng thái ẩn/hiện của đánh giá (Xóa mềm)." });
+        }
+        [HttpGet("top")]
+        [AllowAnonymous] // Ai cũng xem được trên trang chủ
+        public async Task<IActionResult> GetTopReviews([FromQuery] int count = 3)
+        {
+            var reviews = await _reviewService.GetTopPublicReviewsAsync(count);
+            return Ok(reviews);
         }
     }
 }

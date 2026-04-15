@@ -353,7 +353,7 @@ export default function RoomSetupPage() {
             <Col xs={12} md={6}><Form.Item name="capacityAdults" label="Người lớn" rules={[{ required: true }]}><InputNumber size="large" min={1} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item name="capacityChildren" label="Trẻ em" rules={[{ required: true }]}><InputNumber size="large" min={0} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={12} md={6}><Form.Item name="sizeSqm" label="Diện tích (m²)"><InputNumber size="large" min={1} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item name="bedType" label="Giường"><Select size="large" options={[{value: '1 Giường Đơn'}, {value: '2 Giường Đơn'}, {value: '1 Giường Đôi'}, {value: '2 Giường Đôi'}, {value: '1 Đôi + 1 Đơn'}]} /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item name="bedType" label="Giường"><Select size="large" options={[{value: '1 Giường Đơn'}, {value: '2 Giường Đơn'}, {value: '1 Giường Đôi'}, {value: '2 Giường Đôi'}, {value: '1 Đôi + 1 Đơn'}, {value: 'Không Giường'}]} /></Form.Item></Col>
           </Row>
           <Button type="primary" htmlType="submit" size="large" block loading={loading} style={{ backgroundColor: COLORS.MIDNIGHT_BLUE, fontWeight: 'bold', marginTop: 12 }}>LƯU THAY ĐỔI</Button>
         </Form>

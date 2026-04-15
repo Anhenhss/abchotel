@@ -9,7 +9,7 @@ namespace abchotel.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Policy = "MANAGE_SERVICES")] // Yêu cầu quyền quản lý dịch vụ
+    // 🔥 ĐÃ XÓA CHỮ AUTHORIZE Ở ĐÂY ĐỂ KHÁCH HÀNG VÀO ĐƯỢC CÁC HÀM XEM
     public class ServicesController : ControllerBase
     {
         private readonly IServiceCatalogService _serviceCatalog;
@@ -21,9 +21,11 @@ namespace abchotel.Controllers
 
         // --- API CATEGORIES ---
         [HttpGet("categories")]
+        [AllowAnonymous] // 🔥 Khách hàng được xem danh mục
         public async Task<IActionResult> GetCategories() => Ok(await _serviceCatalog.GetCategoriesAsync());
 
         [HttpPost("categories")]
+        [Authorize(Policy = "MANAGE_SERVICES")] // 🔥 Chỉ Quản lý mới được thêm
         public async Task<IActionResult> CreateCategory([FromBody] ServiceCategoryRequest request)
         {
             var res = await _serviceCatalog.CreateCategoryAsync(request);
@@ -32,6 +34,7 @@ namespace abchotel.Controllers
         }
 
         [HttpPut("categories/{id}")]
+        [Authorize(Policy = "MANAGE_SERVICES")]
         public async Task<IActionResult> UpdateCategory(int id, [FromBody] ServiceCategoryRequest request)
         {
             var res = await _serviceCatalog.UpdateCategoryAsync(id, request);
@@ -40,6 +43,7 @@ namespace abchotel.Controllers
         }
 
         [HttpDelete("categories/{id}")]
+        [Authorize(Policy = "MANAGE_SERVICES")]
         public async Task<IActionResult> DeleteCategory(int id)
         {
             try
@@ -56,10 +60,12 @@ namespace abchotel.Controllers
 
         // --- API SERVICES ---
         [HttpGet]
+        [AllowAnonymous] // 🔥 Khách hàng được xem Dịch vụ
         public async Task<IActionResult> GetServices([FromQuery] bool onlyActive = false) 
             => Ok(await _serviceCatalog.GetServicesAsync(onlyActive));
 
         [HttpPost]
+        [Authorize(Policy = "MANAGE_SERVICES")] // 🔥 Chỉ Quản lý mới được thêm
         public async Task<IActionResult> CreateService([FromBody] CreateServiceRequest request)
         {
             var res = await _serviceCatalog.CreateServiceAsync(request);
@@ -68,6 +74,7 @@ namespace abchotel.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Policy = "MANAGE_SERVICES")]
         public async Task<IActionResult> UpdateService(int id, [FromBody] UpdateServiceRequest request)
         {
             var res = await _serviceCatalog.UpdateServiceAsync(id, request);
@@ -76,6 +83,7 @@ namespace abchotel.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Policy = "MANAGE_SERVICES")]
         public async Task<IActionResult> ToggleStatus(int id)
         {
             var success = await _serviceCatalog.ToggleServiceStatusAsync(id);

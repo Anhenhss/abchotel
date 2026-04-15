@@ -90,12 +90,10 @@ namespace abchotel.Controllers
         [HttpGet("vnpay-return")]
         public async Task<IActionResult> VnPayReturn()
         {
-            // Đọc các Query String trên thanh địa chỉ URL do VNPay gửi về
             var response = _vnPayService.PaymentExecute(Request.Query);
 
             if (response.IsSuccess)
             {
-                // Nếu VNPay báo thành công -> Gọi hàm tính tiền của InvoiceService để gạch nợ
                 var invoice = await _invoiceService.GetInvoiceByIdAsync(response.InvoiceId);
                 if (invoice != null && invoice.Status != "Paid")
                 {
@@ -103,22 +101,18 @@ namespace abchotel.Controllers
                     {
                         InvoiceId = response.InvoiceId,
                         PaymentMethod = "VNPay",
-                        AmountPaid = invoice.BalanceDue, // Trả full
+                        AmountPaid = invoice.BalanceDue,
                         TransactionCode = response.TransactionId,
                         GatewayResponse = Request.QueryString.Value
                     };
-
                     await _invoiceService.ProcessPaymentAsync(paymentRequest);
                 }
-
-                // (Tuỳ chọn) Em có thể cho Redirect thẳng về Frontend bằng code này nếu không muốn trả JSON
-                // return Redirect($"http://localhost:3000/payment-result?status=success&invoiceId={response.InvoiceId}");
-
-                return Ok(new { message = "Thanh toán VNPay thành công!", invoiceId = response.InvoiceId });
+                
+                // 🔥 SỬA CHỖ NÀY: Chuyển hướng thẳng về frontend kèm thông báo
+                return Redirect($"http://localhost:3000/admin/invoices?payment=success&invoiceId={response.InvoiceId}");
             }
 
-            // Báo lỗi nếu khách ấn Hủy thanh toán hoặc thẻ không đủ tiền
-            return BadRequest(new { message = response.Message, invoiceId = response.InvoiceId });
+            return Redirect($"http://localhost:3000/admin/invoices?payment=failed&invoiceId={response.InvoiceId}&msg={Uri.EscapeDataString(response.Message)}");
         }
         [HttpPost("{id}/create-momo-url")]
         [Authorize] 
@@ -162,10 +156,12 @@ namespace abchotel.Controllers
                     };
                     await _invoiceService.ProcessPaymentAsync(paymentRequest);
                 }
-                return Ok(new { message = "Thanh toán MoMo thành công!", invoiceId = response.InvoiceId });
+                
+                // 🔥 SỬA CHỖ NÀY: Chuyển hướng thẳng về frontend
+                return Redirect($"http://localhost:3000/admin/invoices?payment=success&invoiceId={response.InvoiceId}");
             }
 
-            return BadRequest(new { message = response.Message, invoiceId = response.InvoiceId });
+            return Redirect($"http://localhost:3000/admin/invoices?payment=failed&invoiceId={response.InvoiceId}&msg={Uri.EscapeDataString(response.Message)}");
         }
     }
 }

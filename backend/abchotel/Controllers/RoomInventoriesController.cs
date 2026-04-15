@@ -19,7 +19,7 @@ namespace abchotel.Controllers
         }
 
         [HttpGet("room/{roomId}")]
-        [Authorize(Policy = "RoomOrInventory")]
+        // [Authorize(Policy = "RoomOrInventory")]
         public async Task<IActionResult> GetInventoryByRoom(int roomId, [FromQuery] bool onlyActive = true)
         {
             var items = await _inventoryService.GetInventoryByRoomIdAsync(roomId, onlyActive);

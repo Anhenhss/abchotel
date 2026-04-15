@@ -23,8 +23,7 @@ namespace abchotel.DTOs
 
     public class CreateVoucherRequest
     {
-        [Required(ErrorMessage = "Mã khuyến mãi không được để trống.")]
-        public string Code { get; set; }
+        public string? Code { get; set; }
         [Required]
         public string DiscountType { get; set; }
         [Required]

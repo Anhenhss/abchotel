@@ -19,6 +19,7 @@ namespace abchotel.Services
         Task<(bool IsSuccess, string Message)> ReportDamageAsync(int staffId, CreateLossDamageRequest request);
         Task<bool> UpdateStatusAsync(int id, string status);
         
+        
     }
 
     public class LossDamageService : ILossDamageService
@@ -26,12 +27,14 @@ namespace abchotel.Services
         private readonly HotelDbContext _context;
         private readonly INotificationService _notificationService;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IInvoiceService _invoiceService;
 
-        public LossDamageService(HotelDbContext context, INotificationService notificationService, IHttpContextAccessor httpContextAccessor)
+        public LossDamageService(HotelDbContext context, INotificationService notificationService, IHttpContextAccessor httpContextAccessor, IInvoiceService invoiceService)
         {
             _context = context;
             _notificationService = notificationService;
             _httpContextAccessor = httpContextAccessor;
+            _invoiceService = invoiceService; 
         }
 
         private async Task<string> GetCurrentUserNameAsync()
@@ -177,11 +180,26 @@ namespace abchotel.Services
 
             if (request.Quantity <= 0) return (false, "Số lượng hư hỏng phải lớn hơn 0.");
 
+            // 🔥 FIX LỖI "NO DATA": TỰ ĐỘNG TÌM KHÁCH ĐANG LƯU TRÚ Ở PHÒNG NÀY ĐỂ PHẠT
+            int targetBookingDetailId = request.BookingDetailId ?? 0;
+            if (targetBookingDetailId == 0) // Lễ tân hoặc buồng phòng không cung cấp mã
+            {
+                var activeBooking = await _context.BookingDetails
+                    .Include(bd => bd.Booking)
+                    .Where(bd => bd.RoomId == inventoryItem.RoomId && bd.Booking.Status == "Checked_in")
+                    .FirstOrDefaultAsync();
+
+                if (activeBooking != null)
+                {
+                    targetBookingDetailId = activeBooking.Id; // Bắt quả tang khách đang ở
+                }
+            }
+
             decimal penalty = (inventoryItem.PriceIfLost ?? 0) * request.Quantity;
 
             var lossRecord = new LossAndDamage
             {
-                BookingDetailId = request.BookingDetailId,
+                BookingDetailId = targetBookingDetailId, // Gán ID khách vào đây!
                 RoomInventoryId = request.RoomInventoryId,
                 Quantity = request.Quantity,
                 PenaltyAmount = penalty,
@@ -224,6 +242,16 @@ namespace abchotel.Services
                 "Cảnh báo: Ghi nhận sự cố mới",
                 $"[{userName}] vừa báo cáo phòng {roomNumStr} {actionStr} {request.Quantity} {equipName}. Phạt dự kiến: {penalty:N0} VNĐ."
             );
+
+            if (targetBookingDetailId > 0)
+            {
+                var bookingDetail = await _context.BookingDetails.FindAsync(targetBookingDetailId);
+                if (bookingDetail != null && bookingDetail.BookingId.HasValue)
+                {
+                    var invoice = await _context.Invoices.FirstOrDefaultAsync(i => i.BookingId == bookingDetail.BookingId.Value);
+                    if (invoice != null) await _invoiceService.RecalculateInvoiceAsync(invoice.Id);
+                }
+            }
 
             return (true, $"Ghi nhận thành công. Trạng thái: Chờ xử lý. Phạt: {penalty:N0} VNĐ.");
         }
@@ -284,6 +312,16 @@ namespace abchotel.Services
                 "Cập nhật Trạng thái Đền bù", 
                 $"[{userName}] đã cập nhật khoản đền bù phòng {roomNumStr} ({record.Quantity} {itemName}): {statusVn}."
             );
+
+            if (record.BookingDetailId.HasValue)
+            {
+                var bookingDetail = await _context.BookingDetails.FindAsync(record.BookingDetailId.Value);
+                if (bookingDetail != null && bookingDetail.BookingId.HasValue)
+                {
+                    var invoice = await _context.Invoices.FirstOrDefaultAsync(i => i.BookingId == bookingDetail.BookingId.Value);
+                    if (invoice != null) await _invoiceService.RecalculateInvoiceAsync(invoice.Id);
+                }
+            }
 
             return true;
         }

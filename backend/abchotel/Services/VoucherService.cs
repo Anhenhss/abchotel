@@ -89,15 +89,40 @@ namespace abchotel.Services
 
         public async Task<(bool IsSuccess, string Message)> CreateVoucherAsync(CreateVoucherRequest request)
         {
-            if (await _context.Vouchers.AnyAsync(v => v.Code.ToUpper() == request.Code.ToUpper()))
-                return (false, "Mã khuyến mãi này đã tồn tại.");
+            // 🔥 THUẬT TOÁN XỬ LÝ MÃ CODE TỰ ĐỘNG
+            string finalCode = request.Code?.Trim().ToUpper();
+
+            if (string.IsNullOrWhiteSpace(finalCode))
+            {
+                // Nếu không nhập, tự động sinh mã
+                // Ví dụ giảm 50.000 -> "V50K", giảm 15% -> "P15"
+                string prefix = request.DiscountType == "PERCENT" 
+                    ? $"P{request.DiscountValue:0}" 
+                    : $"V{request.DiscountValue / 1000:0}K";
+                
+                // Nối với 6 ký tự ngẫu nhiên
+                string randomStr = Guid.NewGuid().ToString("N").Substring(0, 6).ToUpper();
+                finalCode = $"{prefix}-{randomStr}"; // Kết quả VD: P15-A8B9C2 hoặc V50K-112233
+            }
+
+            // Kiểm tra xem mã (gõ tay hoặc tự sinh) có bị trùng với mã cũ trong Database không
+            if (await _context.Vouchers.AnyAsync(v => v.Code.ToUpper() == finalCode))
+                return (false, "Mã khuyến mãi này đã tồn tại trong hệ thống. Vui lòng chọn mã khác.");
 
             var voucher = new Voucher
             {
-                Code = request.Code.ToUpper(), DiscountType = request.DiscountType, DiscountValue = request.DiscountValue,
-                MinBookingValue = request.MinBookingValue, MaxDiscountAmount = request.MaxDiscountAmount,
-                RoomTypeId = request.RoomTypeId, ValidFrom = request.ValidFrom, ValidTo = request.ValidTo,
-                UsageLimit = request.UsageLimit, MaxUsesPerUser = request.MaxUsesPerUser, IsActive = true, CreatedAt = DateTime.Now
+                Code = finalCode, 
+                DiscountType = request.DiscountType, 
+                DiscountValue = request.DiscountValue,
+                MinBookingValue = request.MinBookingValue, 
+                MaxDiscountAmount = request.MaxDiscountAmount,
+                RoomTypeId = request.RoomTypeId, 
+                ValidFrom = request.ValidFrom, 
+                ValidTo = request.ValidTo,
+                UsageLimit = request.UsageLimit, 
+                MaxUsesPerUser = request.MaxUsesPerUser, 
+                IsActive = true, 
+                CreatedAt = DateTime.Now
             };
 
             _context.Vouchers.Add(voucher);

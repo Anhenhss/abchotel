@@ -204,7 +204,7 @@ export default function RoomSetupWizard() {
                 <Col xs={12} md={6}><Form.Item name="sizeSqm" label={<span style={{fontWeight: 600}}>Diện tích (m²)</span>}><InputNumber size="large" min={1} style={{ width: '100%' }} /></Form.Item></Col>
                 <Col xs={12} md={6}>
                   <Form.Item name="bedType" label={<span style={{fontWeight: 600}}>Loại giường</span>}>
-                    <Select size="large" options={[{value: '1 Giường Đơn'}, {value: '2 Giường Đơn'}, {value: '1 Giường Đôi'}, {value: '2 Giường Đôi'}, {value: '1 Đôi + 1 Đơn'}]} />
+                    <Select size="large" options={[{value: '1 Giường Đơn'}, {value: '2 Giường Đơn'}, {value: '1 Giường Đôi'}, {value: '2 Giường Đôi'}, {value: '1 Đôi + 1 Đơn'}, {value: 'Không Giường'}]} />
                   </Form.Item>
                 </Col>
                 <Col xs={24}>

@@ -60,8 +60,8 @@ namespace abchotel.DTOs
         [Required]
         [Range(1, double.MaxValue, ErrorMessage = "Số tiền thanh toán phải lớn hơn 0")]
         public decimal AmountPaid { get; set; }
-        public string TransactionCode { get; set; }
-        public string GatewayResponse { get; set; }
+        public string? TransactionCode { get; set; }
+        public string? GatewayResponse { get; set; }
     }
 
     public class PaymentResponse

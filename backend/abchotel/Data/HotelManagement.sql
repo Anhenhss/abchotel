@@ -405,11 +405,8 @@ GO
 CREATE TABLE [dbo].[Audit_Logs] (
     [id] INT IDENTITY(1,1) PRIMARY KEY,
     [user_id] INT NULL FOREIGN KEY REFERENCES [dbo].[Users](id),
-    [action] NVARCHAR(50) NOT NULL,
-    [table_name] NVARCHAR(100) NOT NULL,
-    [record_id] INT NOT NULL,
-    [old_value] NVARCHAR(MAX) NULL,
-    [new_value] NVARCHAR(MAX) NULL,
+    [log_type] NVARCHAR(50), 
+    [log_data] NVARCHAR(MAX) NOT NULL, 
     [created_at] DATETIME DEFAULT GETDATE()
 );
 GO
@@ -519,11 +516,16 @@ INSERT INTO [dbo].[Users] ([id], [role_id], [membership_id], [full_name], [email
 (14, 10, 2, N'Trương Thị Ánh', N'truongthianh23ct112@gmail.com', N'0901000007', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
 (15, 10, 3, N'Nguyễn Thị Hồng Nhung', N'honggnhungg1605@gmail.com', N'0901000008', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
 (16, 10, 4, N'Nguyễn Thị Phương Thảo', N'phuongthao2005ab@gmail.com', N'0901000009', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(17, 10, 5, N'Huỳnh Thị Trúc Ly', N'httly20092005@gmail.com', N'0901000010', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1);
+(17, 10, 5, N'Huỳnh Thị Trúc Ly', N'httly20092005@gmail.com', N'0901000010', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(18, 10, NULL, N'Trần Văn Nam', N'nam@gmail.com', N'0902000001', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(19, 10, NULL, N'Phan Thị Mai', N'mai@gmail.com', N'0902000002', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(20, 10, NULL, N'Lê Hoàng Long', N'long@gmail.com', N'0902000003', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(21, 10, NULL, N'Nguyễn Minh Anh', N'anh@gmail.com', N'0902000004', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(22, 10, NULL, N'Đỗ Quỳnh Chi', N'chi@gmail.com', N'0902000005', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1);
 SET IDENTITY_INSERT [dbo].[Users] OFF;
 GO
 GO
--- Vật tư
+-- Tiện ích & Vật tư
 SET IDENTITY_INSERT [dbo].[Amenities] ON;
 INSERT INTO [dbo].[Amenities] ([id], [name], [icon_url]) VALUES 
 (1, N'Wifi Miễn Phí', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775076276/abchotel/nbmk4rbzezt0zz2awm8a.png'), 
@@ -535,143 +537,359 @@ INSERT INTO [dbo].[Amenities] ([id], [name], [icon_url]) VALUES
 (7, N'Két Sắt', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775076224/abchotel/ckfycmh8knlccvjewkvx.png'),
 (8, N'Máy Sấy Tóc', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775076237/abchotel/rrrul4h2lm5okyve99xw.png'), 
 (9, N'Máy Pha Cà Phê', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775076250/abchotel/cgs3okt75wcjbq7gcqjj.png'),
-(10, N'Bàn Làm Việc', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775076262/abchotel/arcpp7q5oz4h0bzmamkg.png');
+(10, N'Bàn Làm Việc', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775076262/abchotel/arcpp7q5oz4h0bzmamkg.png'),
+(11, N'View Biển', N'url'),
+(12, N'View Thành Phố', N'url'),
+(13, N'Bồn Tắm Nằm', N'url'),
+(14, N'Dịch Vụ Phòng 24/7', N'url'),
+(15, N'Trò Chơi Truyền Hình', N'url'),
+(16, N'Bếp Nhỏ', N'url');
 SET IDENTITY_INSERT [dbo].[Amenities] OFF;
 GO
 SET IDENTITY_INSERT [dbo].[Equipments] ON;
-INSERT INTO [dbo].[Equipments] ([id], [item_code], [name], [category], [unit], [total_quantity], [in_use_quantity], [damaged_quantity], [liquidated_quantity], [base_price], [default_price_if_lost], [supplier], [is_active], [image_url]) VALUES 
-(1, 'TV-SS-43', N'Smart TV Samsung 43 inch', N'Điện tử', N'Cái', 60, 50, 1, 0, 7500000, 8000000, N'Samsung Vietnam', 1, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775147835/abchotel/sekontj2hjzfhr6eygki.jpg'),
-(2, 'AC-DK-9000', N'Điều hòa Daikin 9000 BTU', N'Điện tử', N'Cái', 60, 55, 0, 0, 8200000, 9000000, N'Daikin Vietnam', 1, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775147811/abchotel/od88omxgpn2gewxepdip.jpg'),
-(3, 'MB-AF-50', N'Tủ lạnh Minibar Aqua 50L', N'Điện tử', N'Cái', 70, 58, 2, 0, 2500000, 3000000, N'Aqua', 1, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775147793/abchotel/k9pkvzaoqhkl038pk7zz.jpg'),
-(4, 'HD-PN-1000', N'Máy sấy tóc Panasonic', N'Điện tử', N'Cái', 70, 58, 5, 1, 450000, 600000, N'Điện Máy Xanh', 1, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775147771/abchotel/qmyoa4cwy7npqagf3sbd.jpg'),
-(5, 'KL-SH-17', N'Ấm đun nước siêu tốc Sunhouse', N'Điện tử', N'Cái', 70, 58, 2, 2, 250000, 350000, N'Sunhouse', 1, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775147592/abchotel/vczhrb1xae2s4achqc3d.jpg'),
-(6, 'BD-KG-20', N'Giường King Size 2m x 2m2', N'Nội thất', N'Chiếc', 120, 100, 0, 0, 12000000, 15000000, N'Nội thất Hòa Phát', 1, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775147891/abchotel/efav4xkd2vz1frcljc2f.jpg'),
-(7, 'BD-SG-12', N'Giường Single 1m2 x 2m', N'Nội thất', N'Chiếc', 50, 41, 0, 0, 5500000, 7000000, N'Nội thất Hòa Phát', 1, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775147567/abchotel/bmndld75tbvlhh7acbjh.jpg'),
-(8, 'WD-WD-01', N'Tủ quần áo gỗ công nghiệp', N'Nội thất', N'Cái', 70, 58, 0, 0, 3500000, 5000000, N'Xưởng Gỗ An Cường', 1, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775146133/abchotel/lkibicpdakkdc2gqp6c4.jpg'),
-(9, 'TB-WK-01', N'Bàn làm việc + Ghế đệm', N'Nội thất', N'Bộ', 65, 54, 1, 0, 2200000, 3000000, N'Nội thất Hòa Phát', 1, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775146110/abchotel/snj7eeexxgrjvyuz9tlh.jpg'),
-(10, 'HG-WD-01', N'Móc treo quần áo bằng gỗ', N'Nội thất', N'Chiếc', 500, 408, 10, 5, 15000, 30000, N'Nhựa Duy Tân', 1, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775146097/abchotel/qujuesi0hzsb7feeafcj.jpg'),
-(11, 'TW-BT-01', N'Khăn tắm cotton 70x140cm', N'Đồ vải', N'Chiếc', 200, 110, 5, 10, 85000, 150000, N'Dệt may Thành Công', 1, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775145951/abchotel/lhdgm4ipfatqxingoxgo.jpg'),
-(12, 'TW-FC-01', N'Khăn mặt cotton 30x30cm', N'Đồ vải', N'Chiếc', 200, 108, 2, 5, 25000, 50000, N'Dệt may Thành Công', 1, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775145850/abchotel/mze1ksxfvwufy0hcnqxh.jpg'),
-(16, 'DR-LV-500', N'Nước suối Lavie 500ml', N'Minibar', N'Chai', 493, 108, 0, 0, 4000, 0, N'Lavie', 1, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775145833/abchotel/mk8ize4lr5dngdj3zbwg.jpg'),
-(17, 'DR-CC-320', N'Nước ngọt Coca Cola 320ml', N'Minibar', N'Lon', 296, 60, 0, 0, 7000, 20000, N'Coca Cola', 1, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775145819/abchotel/zdkidxk8g14a3limpkkb.jpg'),
-(18, 'DR-HB-330', N'Bia Heineken 330ml', N'Minibar', N'Lon', 200, 46, 0, 0, 16000, 35000, N'Heineken', 1, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775145794/abchotel/guk4pazknafewx765fxa.jpg'),
-(21, 'TV-SS-55', N'Tivi SamSung 55 inch', N'Điện tử', N'Cái', 10, 2, 0, 0, 15000000, 17000000, N'Điện Máy Xanh', 1, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775145674/abchotel/dxtsgusaa6vqqaje4i2e.jpg');
+INSERT INTO [dbo].[Equipments] ([id], [item_code], [name], [category], [unit], [total_quantity], [in_use_quantity], [damaged_quantity], [liquidated_quantity], [base_price], [default_price_if_lost], [supplier], [is_active], [image_url]) VALUES
+(1,'TV-SS-43',N'Smart TV Samsung 43 inch',N'Điện tử',N'Cái',60,50,1,0,7500000,8000000,N'Samsung Vietnam',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775147835/abchotel/sekontj2hjzfhr6eygki.jpg'),
+(2,'AC-DK-9000',N'Điều hòa Daikin 9000 BTU',N'Điện tử',N'Cái',60,55,0,0,8200000,9000000,N'Daikin Vietnam',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775147811/abchotel/od88omxgpn2gewxepdip.jpg'),
+(3,'MB-AQ-50',N'Tủ lạnh Minibar Aqua 50L',N'Điện tử',N'Cái',40,35,1,0,2500000,3000000,N'Aqua',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775147793/abchotel/k9pkvzaoqhkl038pk7zz.jpg'),
+(4,'HD-PN-1000',N'Máy sấy tóc Panasonic 1000W',N'Điện tử',N'Cái',40,35,2,1,450000,600000,N'Điện Máy Xanh',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775147771/abchotel/qmyoa4cwy7npqagf3sbd.jpg'),
+(5,'KL-SH-17',N'Ấm đun nước Sunhouse 1.7L',N'Điện tử',N'Cái',40,36,1,1,250000,350000,N'Sunhouse',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775147592/abchotel/vczhrb1xae2s4achqc3d.jpg'),
+(6,'TV-SS-55',N'Smart TV Samsung 55 inch',N'Điện tử',N'Cái',5,3,0,0,15000000,17000000,N'Điện Máy Xanh',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775145674/abchotel/dxtsgusaa6vqqaje4i2e.jpg'),
+(7,'BED-SG-12',N'Giường Single 1m2 x 2m',N'Nội thất',N'Chiếc',40,35,0,0,5500000,7000000,N'Hòa Phát',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775147567/abchotel/bmndld75tbvlhh7acbjh.jpg'),
+(8,'BED-TWIN-12',N'Bộ 2 giường đơn Twin 1m2 x 2m',N'Nội thất',N'Bộ',25,22,0,0,9000000,12000000,N'Hòa Phát',1,NULL),
+(9,'BED-DB-18',N'Giường Double 1m8 x 2m',N'Nội thất',N'Chiếc',35,30,0,0,7500000,9000000,N'Hòa Phát',1,NULL),
+(10,'BED-KG-22',N'Giường King 2m x 2m2',N'Nội thất',N'Chiếc',20,18,0,0,12000000,15000000,N'Hòa Phát',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775147891/abchotel/efav4xkd2vz1frcljc2f.jpg'),
+(11,'WD-AC-01',N'Tủ quần áo gỗ An Cường',N'Nội thất',N'Cái',40,35,0,0,3500000,5000000,N'An Cường',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775146133/abchotel/lkibicpdakkdc2gqp6c4.jpg'),
+(12,'TB-HP-01',N'Bàn làm việc Hòa Phát 1m2',N'Nội thất',N'Bộ',40,34,1,0,2200000,3000000,N'Hòa Phát',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775146110/abchotel/snj7eeexxgrjvyuz9tlh.jpg'),
+(13,'HG-DT-01',N'Móc treo quần áo Duy Tân',N'Nội thất',N'Chiếc',500,420,10,5,15000,30000,N'Duy Tân',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775146097/abchotel/qujuesi0hzsb7feeafcj.jpg'),
+(14,'SAFE-PH-01',N'Két sắt điện tử Philips',N'Điện tử',N'Cái',40,35,0,0,1500000,2000000,N'Philips',1,NULL),
+(15,'TW-BT-70',N'Khăn tắm cotton 70x140cm',N'Đồ vải',N'Chiếc',250,180,5,5,85000,150000,N'Thành Công',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775145951/abchotel/lhdgm4ipfatqxingoxgo.jpg'),
+(16,'TW-FC-30',N'Khăn mặt cotton 30x30cm',N'Đồ vải',N'Chiếc',250,175,5,5,25000,50000,N'Thành Công',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775145850/abchotel/mze1ksxfvwufy0hcnqxh.jpg'),
+(17,'BS-SET-01',N'Bộ ga giường cotton 1m8',N'Đồ vải',N'Bộ',120,100,5,5,150000,300000,N'Thành Công',1,NULL),
+(18,'RB-TC-01',N'Áo choàng tắm cotton',N'Đồ vải',N'Chiếc',120,100,3,2,200000,400000,N'Thành Công',1,NULL),
+(19,'DR-LV-500',N'Nước suối Lavie 500ml',N'Minibar',N'Chai',800,300,0,0,4000,0,N'Lavie',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775145833/abchotel/mk8ize4lr5dngdj3zbwg.jpg'),
+(20,'DR-CC-320',N'Nước ngọt Coca Cola 320ml',N'Minibar',N'Lon',600,250,0,0,7000,20000,N'Coca Cola',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775145819/abchotel/zdkidxk8g14a3limpkkb.jpg'),
+(21,'DR-PS-330',N'Nước ngọt Pepsi 330ml',N'Minibar',N'Lon',500,220,0,0,7000,20000,N'Pepsi',1,NULL),
+(22,'DR-HB-330',N'Bia Heineken 330ml',N'Minibar',N'Lon',400,200,0,0,16000,35000,N'Heineken',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775145794/abchotel/guk4pazknafewx765fxa.jpg'),
+(23,'CF-NC-20',N'Cà phê Nescafe 20g',N'Minibar',N'Gói',700,300,0,0,3000,10000,N'Nescafe',1,NULL),
+(24,'SN-OS-50',N'Snack khoai tây Oishi 50g',N'Minibar',N'Gói',600,280,0,0,10000,30000,N'Oishi',1,NULL),
+(25,'SN-TT-50',N'Đậu phộng rang Tân Tân 50g',N'Minibar',N'Gói',600,260,0,0,8000,25000,N'Tân Tân',1,NULL),
+(26,'TB-CL-01',N'Bàn chải đánh răng Colgate',N'Đồ dùng',N'Chiếc',800,300,0,0,5000,20000,N'Colgate',1,NULL),
+(27,'SP-DV-30',N'Sữa tắm Dove 30ml',N'Đồ dùng',N'Chai',800,300,0,0,8000,30000,N'Dove',1,NULL),
+(28,'SH-DV-30',N'Dầu gội Dove 30ml',N'Đồ dùng',N'Chai',800,300,0,0,8000,30000,N'Dove',1,NULL),
+(29,'PJ-EP-01',N'Máy chiếu Epson EB-X05',N'Phòng họp',N'Cái',6,5,0,0,12000000,15000000,N'Epson',1,NULL),
+(30,'MC-SN-01',N'Micro không dây Sony UHF',N'Phòng họp',N'Cái',18,15,1,0,1500000,2500000,N'Sony',1,NULL),
+(31,'WB-BK-12',N'Bảng trắng di động Bách Khoa 1m2',N'Phòng họp',N'Cái',6,5,0,0,2000000,3000000,N'Bách Khoa',1,NULL),
+(32,'TB-MEET-18',N'Bàn họp Hòa Phát 1m8',N'Phòng họp',N'Cái',15,12,0,0,2500000,4000000,N'Hòa Phát',1,NULL),
+(33,'CH-MEET-HP',N'Ghế họp lưng cao Hòa Phát',N'Phòng họp',N'Cái',90,75,3,0,800000,1200000,N'Hòa Phát',1,NULL),
+(34,'LED-LG-200',N'Màn hình LED LG 200 inch',N'Hội trường',N'Bộ',2,2,0,0,150000000,200000000,N'LG',1,NULL),
+(35,'ST-EV-20',N'Sân khấu di động Event 20m2',N'Hội trường',N'Bộ',2,2,0,0,50000000,70000000,N'Event VN',1,NULL),
+(36,'CH-HALL-HP',N'Ghế hội trường Hòa Phát đệm nỉ',N'Hội trường',N'Cái',400,350,10,0,600000,900000,N'Hòa Phát',1,NULL),
+(37,'TB-HALL-18',N'Bàn hội trường Hòa Phát 1m8',N'Hội trường',N'Cái',120,100,5,0,1200000,2000000,N'Hòa Phát',1,NULL),
+(38,'TE-LP-20',N'Trà Lipton túi lọc 20g',N'Minibar',N'Hộp',300,120,0,0,25000,60000,N'Lipton',1,NULL),
+(39,'GL-GL-250',N'Ly thủy tinh Ocean 250ml',N'Đồ dùng',N'Chiếc',500,350,10,5,20000,50000,N'Ocean',1,NULL);
 SET IDENTITY_INSERT [dbo].[Equipments] OFF;
 GO
 -- Phòng
 SET IDENTITY_INSERT [dbo].[Room_Types] ON;
-
 INSERT INTO [dbo].[Room_Types]
 ([id], [name], [base_price], [price_per_hour], [capacity_adults], [capacity_children],
  [size_sqm], [bed_type], [view_direction], [description], [is_active])
 VALUES
-
-(1, N'Standard Single', 400000, 40000, 1, 0, 20, N'Single', N'City', N'Phòng tiêu chuẩn 1 người', 1),
-(2, N'Standard Double', 500000, 50000, 2, 1, 25, N'Double', N'City', N'Phòng tiêu chuẩn giường đôi', 1),
-(3, N'Superior', 650000, 65000, 2, 1, 28, N'Queen', N'City', N'Phòng nâng cấp', 1),
-(4, N'Deluxe', 850000, 85000, 2, 2, 32, N'King', N'City', N'Phòng deluxe cao cấp', 1),
-(5, N'Deluxe Ocean View', 1000000, 100000, 2, 2, 35, N'King', N'Ocean', N'Phòng hướng biển', 1),
-(6, N'Family Room', 1400000, 140000, 4, 2, 45, N'2 Double Beds', N'City', N'Phòng gia đình', 1),
-(7, N'Junior Suite', 1700000, 170000, 2, 2, 50, N'King', N'City', N'Suite nhỏ', 1),
-(8, N'Presidential Suite', 5000000, 500000, 4, 2, 120, N'King', N'Ocean', N'Phòng tổng thống siêu sang', 1),
-(9, N'Meeting Room', 300000, 300000, 10, 0, 40, N'No Bed', N'City', N'Phòng họp nhỏ', 1),
-(10, N'Conference Hall', 1000000, 1000000, 50, 0, 150, N'No Bed', N'City', N'Hội trường lớn', 1);
+(1, N'Standard Single', 400000, 40000, 1, 0, 20, N'1 Giường Đơn', N'View hồ bơi', N'Phòng tiêu chuẩn giường đơn', 1),
+(2, N'Standard Double', 500000, 50000, 2, 1, 25, N'1 Giường Đôi', N'View hồ bơi', N'Phòng tiêu chuẩn giường đôi', 1),
+(3, N'Superior', 650000, 65000, 2, 1, 28, N'2 Giường Đơn', N'View hồ bơi', N'Phòng nâng cấp', 1),
+(4, N'Deluxe City View', 850000, 85000, 2, 2, 32, N'1 Đôi + 1 Đơn', N'City', N'Phòng deluxe cao cấp hướng thành phố', 1),
+(5, N'Deluxe Ocean View', 1000000, 100000, 2, 2, 35, N'1 Đôi + 1 Đơn', N'Ocean', N'Phòng deluxe cao cấp Phòng hướng biển', 1),
+(6, N'Family Room', 1400000, 140000, 4, 2, 45, N'2 Giường Đôi', N'City', N'Phòng gia đình', 1),
+(7, N'Junior Suite', 1700000, 170000, 2, 2, 50, N'2 Giường Đôi', N'City', N'Suite nhỏ', 1),
+(8, N'Presidential Suite', 5000000, 500000, 4, 2, 120, N'2 Giường Đôi', N'Ocean', N'Phòng tổng thống siêu sang', 1),
+(9, N'Meeting Room', 300000, 300000, 10, 0, 40, N'Không giường', N'City', N'Phòng họp nhỏ', 1),
+(10, N'Conference Hall', 1000000, 1000000, 50, 0, 150, N'Không giường', N'City', N'Hội trường lớn', 1);
 SET IDENTITY_INSERT [dbo].[Room_Types] OFF;
 GO
 SET IDENTITY_INSERT [dbo].[Rooms] ON;
-
 INSERT INTO [dbo].[Rooms]
-([id], [room_type_id], [room_number], [floor], [status], [cleaning_status], [is_active])
-VALUES
-
--- ===== TYPE 1 (101-105) =====
+([id], [room_type_id], [room_number], [floor], [status], [cleaning_status], [is_active])VALUES
+-- ===== TYPE 1 =====
 (1,1,N'101',1,N'Available',N'Clean',1),
-(2,1,N'102',1,N'Occupied',N'Clean',1),
+(2,1,N'102',1,N'Available',N'Clean',1), 
 (3,1,N'103',1,N'Available',N'Dirty',1),
 (4,1,N'104',1,N'Available',N'Clean',1),
 (5,1,N'105',1,N'Maintenance',N'Dirty',1),
 
--- ===== TYPE 2 (201-205) =====
+-- ===== TYPE 2 =====
 (6,2,N'201',2,N'Available',N'Clean',1),
-(7,2,N'202',2,N'Occupied',N'Clean',1),
-(8,2,N'203',2,N'Available',N'Dirty',1),
+(7,2,N'202',2,N'Available',N'Clean',1),
+(8,2,N'203',2,N'Available',N'Dirty',1), -- sẽ dùng 6/2026
 (9,2,N'204',2,N'Available',N'Clean',1),
 (10,2,N'205',2,N'Maintenance',N'Dirty',1),
 
--- ===== TYPE 3 (301-305) =====
+-- ===== TYPE 3 =====
 (11,3,N'301',3,N'Available',N'Clean',1),
-(12,3,N'302',3,N'Occupied',N'Clean',1),
+(12,3,N'302',3,N'Available',N'Clean',1),
 (13,3,N'303',3,N'Available',N'Dirty',1),
 (14,3,N'304',3,N'Available',N'Clean',1),
 (15,3,N'305',3,N'Maintenance',N'Dirty',1),
 
--- ===== TYPE 4 (401-405) =====
+-- ===== TYPE 4 =====
 (16,4,N'401',4,N'Available',N'Clean',1),
-(17,4,N'402',4,N'Occupied',N'Clean',1),
+(17,4,N'402',4,N'Available',N'Clean',1),
 (18,4,N'403',4,N'Available',N'Dirty',1),
 (19,4,N'404',4,N'Available',N'Clean',1),
 (20,4,N'405',4,N'Maintenance',N'Dirty',1),
 
--- ===== TYPE 5 (501-505) =====
+-- ===== TYPE 5 =====
 (21,5,N'501',5,N'Available',N'Clean',1),
-(22,5,N'502',5,N'Occupied',N'Clean',1),
+(22,5,N'502',5,N'Available',N'Clean',1),
 (23,5,N'503',5,N'Available',N'Dirty',1),
 (24,5,N'504',5,N'Available',N'Clean',1),
 (25,5,N'505',5,N'Maintenance',N'Dirty',1),
 
--- ===== TYPE 6 (601-605) =====
+-- ===== TYPE 6 =====
 (26,6,N'601',6,N'Available',N'Clean',1),
-(27,6,N'602',6,N'Occupied',N'Clean',1),
+(27,6,N'602',6,N'Available',N'Clean',1),
 (28,6,N'603',6,N'Available',N'Dirty',1),
 (29,6,N'604',6,N'Available',N'Clean',1),
 (30,6,N'605',6,N'Maintenance',N'Dirty',1),
 
--- ===== TYPE 7 (701-705) =====
+-- ===== TYPE 7 =====
 (31,7,N'701',7,N'Available',N'Clean',1),
-(32,7,N'702',7,N'Occupied',N'Clean',1),
+(32,7,N'702',7,N'Available',N'Clean',1),
 (33,7,N'703',7,N'Available',N'Dirty',1),
 (34,7,N'704',7,N'Available',N'Clean',1),
 (35,7,N'705',7,N'Maintenance',N'Dirty',1),
 
--- ===== TYPE 8 - PRESIDENTIAL (801-803) =====
+-- ===== TYPE 8 =====
 (36,8,N'801',8,N'Available',N'Clean',1),
-(37,8,N'802',8,N'Occupied',N'Clean',1),
+(37,8,N'802',8,N'Available',N'Clean',1),
 (38,8,N'803',8,N'Available',N'Dirty',1),
 
--- ===== MEETING ROOM =====
+-- ===== MEETING =====
 (39,9,N'MR-01',1,N'Available',N'Clean',1),
-(40,9,N'MR-02',1,N'Occupied',N'Clean',1),
+(40,9,N'MR-02',1,N'Available',N'Clean',1),
+(41,9,N'MR-03',1,N'Available',N'Clean',1),
 
--- ===== CONFERENCE HALL =====
-(41,10,N'HALL-01',1,N'Available',N'Clean',1);
+-- ===== HALL =====
+(42,10,N'HALL-01',1,N'Available',N'Clean',1),
+(43,10,N'HALL-02',1,N'Maintenance',N'Dirty',1);
 
 SET IDENTITY_INSERT [dbo].[Rooms] OFF;
 GO
+-- Xóa sạch dữ liệu cũ của bảng Room_Inventory để làm lại cho chuẩn
+DELETE FROM [dbo].[Room_Inventory];
+GO
+
 SET IDENTITY_INSERT [dbo].[Room_Inventory] ON;
 INSERT INTO [dbo].[Room_Inventory] 
 ([id], [room_id], [equipmentId], [quantity], [price_if_lost], [is_active], [note]) VALUES
-(1, 1, 1, 1, 8000000.00, 1, N'Treo tường, kèm remote'),
-(2, 1, 2, 1, 9000000.00, 1, N'Mới bảo dưỡng tháng trước'),
-(3, 1, 3, 1, 3000000.00, 1, N'Nằm dưới kệ tivi'),
-(4, 1, 4, 1, 600000.00, 1, N'Cất trong ngăn kéo bàn'),
-(5, 1, 5, 1, 350000.00, 1, N'Để trên bàn làm việc'),
-(6, 1, 7, 1, 7000000.00, 1, N'Không bao gồm nệm'),
-(7, 1, 8, 1, 5000000.00, 1, N'Tủ 2 cánh lùa'),
-(8, 1, 9, 1, 3000000.00, 1, N'Đặt sát cửa sổ'),
-(9, 1, 10, 5, 30000.00, 1, N'Treo sẵn trong tủ'),
-(10, 1, 11, 2, 150000.00, 1, N'Gấp hình thiên nga trên giường'),
-(11, 1, 12, 2, 50000.00, 1, N'Cuộn tròn để trên kệ gương'),
-(12, 1, 16, 2, 0.00, 1, N'Miễn phí hàng ngày, để trên bàn'),
-(13, 1, 17, 2, 20000.00, 1, N'Ướp lạnh trong tủ'),
-(14, 1, 18, 2, 35000.00, 1, N'Ướp lạnh trong tủ'),
-(15, 3, 21, 1, 17000000.00, 1, N'Treo tường'),
-(16, 3, 2, 1, 9000000.00, 1, N'Điều hòa 9000 BTU'),
-(17, 3, 6, 1, 15000000.00, 1, N'Giường lớn giữa phòng'),
-(18, 3, 11, 2, 150000.00, 1, N'Gấp gọn gàng');
+
+-- =========================================================================
+-- PHÒNG 101 (ROOM ID: 1) - STANDARD SINGLE (Hạng 1)
+-- =========================================================================
+(1, 1, 1, 1, 8000000.00, 1, N'Treo tường, kèm remote'), -- TV 43 inch
+(2, 1, 2, 1, 9000000.00, 1, N'Điều hòa 9000 BTU'),
+(3, 1, 3, 1, 3000000.00, 1, N'Minibar đặt dưới kệ'),
+(4, 1, 4, 1, 600000.00, 1, N'Máy sấy tóc trong tủ kính'),
+(5, 1, 5, 1, 350000.00, 1, N'Ấm siêu tốc'),
+(6, 1, 7, 1, 7000000.00, 1, N'Giường Single'),
+(7, 1, 11, 1, 5000000.00, 1, N'Tủ quần áo'),
+(8, 1, 12, 1, 3000000.00, 1, N'Bàn làm việc'),
+(9, 1, 13, 5, 30000.00, 1, N'Móc treo quần áo'),
+(10, 1, 15, 1, 150000.00, 1, N'Khăn tắm'),
+(11, 1, 16, 1, 50000.00, 1, N'Khăn mặt'),
+(12, 1, 17, 1, 300000.00, 1, N'Ga giường'),
+(13, 1, 19, 2, 0.00, 1, N'Nước suối miễn phí hằng ngày'),
+
+-- =========================================================================
+-- PHÒNG 201 (ROOM ID: 6) - STANDARD DOUBLE (Hạng 2)
+-- =========================================================================
+(14, 6, 1, 1, 8000000.00, 1, N'TV 43 inch'),
+(15, 6, 2, 1, 9000000.00, 1, N'Điều hòa'),
+(16, 6, 3, 1, 3000000.00, 1, N'Minibar'),
+(17, 6, 4, 1, 600000.00, 1, N'Máy sấy tóc'),
+(18, 6, 5, 1, 350000.00, 1, N'Ấm siêu tốc'),
+(19, 6, 9, 1, 9000000.00, 1, N'Giường Double'),
+(20, 6, 11, 1, 5000000.00, 1, N'Tủ quần áo'),
+(21, 6, 12, 1, 3000000.00, 1, N'Bàn làm việc'),
+(22, 6, 13, 6, 30000.00, 1, N'Móc treo'),
+(23, 6, 15, 2, 150000.00, 1, N'Khăn tắm'),
+(24, 6, 16, 2, 50000.00, 1, N'Khăn mặt'),
+(25, 6, 17, 1, 300000.00, 1, N'Bộ ga giường'),
+(26, 6, 19, 2, 0.00, 1, N'Nước suối miễn phí'),
+(27, 6, 20, 2, 20000.00, 1, N'Coca Cola (Minibar)'),
+
+-- =========================================================================
+-- PHÒNG 301 (ROOM ID: 11) - SUPERIOR TWIN (Hạng 3)
+-- =========================================================================
+(28, 11, 1, 1, 8000000.00, 1, N'TV 43 inch'),
+(29, 11, 2, 1, 9000000.00, 1, N'Điều hòa'),
+(30, 11, 3, 1, 3000000.00, 1, N'Minibar'),
+(31, 11, 4, 1, 600000.00, 1, N'Máy sấy'),
+(32, 11, 5, 1, 350000.00, 1, N'Ấm đun nước'),
+(33, 11, 8, 1, 12000000.00, 1, N'Bộ 2 Giường Đơn Twin'),
+(34, 11, 11, 1, 5000000.00, 1, N'Tủ quần áo lớn'),
+(35, 11, 12, 1, 3000000.00, 1, N'Bàn làm việc'),
+(36, 11, 13, 6, 30000.00, 1, N'Móc áo'),
+(37, 11, 15, 2, 150000.00, 1, N'Khăn tắm'),
+(38, 11, 16, 2, 50000.00, 1, N'Khăn mặt'),
+(39, 11, 17, 2, 300000.00, 1, N'2 Bộ ga giường'),
+(40, 11, 19, 2, 0.00, 1, N'Nước suối miễn phí'),
+
+-- =========================================================================
+-- PHÒNG 401 (ROOM ID: 16) - DELUXE CITY VIEW (Hạng 4)
+-- =========================================================================
+(41, 16, 1, 1, 8000000.00, 1, N'TV 43 inch'),
+(42, 16, 2, 1, 9000000.00, 1, N'Điều hòa'),
+(43, 16, 3, 1, 3000000.00, 1, N'Minibar'),
+(44, 16, 4, 1, 600000.00, 1, N'Máy sấy'),
+(45, 16, 5, 1, 350000.00, 1, N'Ấm siêu tốc'),
+(46, 16, 14, 1, 2000000.00, 1, N'Két sắt điện tử Philips'),
+(47, 16, 9, 1, 9000000.00, 1, N'Giường Đôi'),
+(48, 16, 7, 1, 7000000.00, 1, N'Giường Đơn (phòng ghép)'),
+(49, 16, 11, 1, 5000000.00, 1, N'Tủ quần áo'),
+(50, 16, 12, 1, 3000000.00, 1, N'Bàn làm việc'),
+(51, 16, 13, 8, 30000.00, 1, N'Móc áo'),
+(52, 16, 15, 3, 150000.00, 1, N'Khăn tắm'),
+(53, 16, 16, 3, 50000.00, 1, N'Khăn mặt'),
+(54, 16, 17, 2, 300000.00, 1, N'Ga giường'),
+(55, 16, 18, 3, 400000.00, 1, N'Áo choàng tắm cao cấp'),
+(56, 16, 19, 3, 0.00, 1, N'Nước suối miễn phí'),
+(57, 16, 22, 2, 35000.00, 1, N'Heineken (Minibar)'),
+
+-- =========================================================================
+-- PHÒNG 501 (ROOM ID: 21) - DELUXE OCEAN VIEW (Hạng 5)
+-- =========================================================================
+(58, 21, 6, 1, 17000000.00, 1, N'Smart TV 55 inch (Nâng cấp)'),
+(59, 21, 2, 1, 9000000.00, 1, N'Điều hòa'),
+(60, 21, 3, 1, 3000000.00, 1, N'Minibar'),
+(61, 21, 4, 1, 600000.00, 1, N'Máy sấy'),
+(62, 21, 5, 1, 350000.00, 1, N'Ấm siêu tốc'),
+(63, 21, 14, 1, 2000000.00, 1, N'Két sắt'),
+(64, 21, 9, 1, 9000000.00, 1, N'Giường Đôi'),
+(65, 21, 7, 1, 7000000.00, 1, N'Giường Đơn'),
+(66, 21, 11, 1, 5000000.00, 1, N'Tủ quần áo'),
+(67, 21, 12, 1, 3000000.00, 1, N'Bàn làm việc'),
+(68, 21, 13, 8, 30000.00, 1, N'Móc treo'),
+(69, 21, 15, 3, 150000.00, 1, N'Khăn tắm'),
+(70, 21, 16, 3, 50000.00, 1, N'Khăn mặt'),
+(71, 21, 17, 2, 300000.00, 1, N'Ga giường'),
+(72, 21, 18, 3, 400000.00, 1, N'Áo choàng tắm'),
+(73, 21, 19, 3, 0.00, 1, N'Nước suối miễn phí'),
+
+-- =========================================================================
+-- PHÒNG 601 (ROOM ID: 26) - FAMILY ROOM (Hạng 6)
+-- =========================================================================
+(74, 26, 6, 1, 17000000.00, 1, N'Smart TV 55 inch'),
+(75, 26, 2, 2, 9000000.00, 1, N'2 Điều hòa cho phòng rộng'),
+(76, 26, 3, 1, 3000000.00, 1, N'Minibar'),
+(77, 26, 4, 1, 600000.00, 1, N'Máy sấy'),
+(78, 26, 5, 1, 350000.00, 1, N'Ấm siêu tốc'),
+(79, 26, 14, 1, 2000000.00, 1, N'Két sắt'),
+(80, 26, 9, 2, 9000000.00, 1, N'2 Giường Đôi'),
+(81, 26, 11, 2, 5000000.00, 1, N'2 Tủ quần áo'),
+(82, 26, 12, 1, 3000000.00, 1, N'Bàn làm việc lớn'),
+(83, 26, 13, 10, 30000.00, 1, N'Móc áo'),
+(84, 26, 15, 4, 150000.00, 1, N'Khăn tắm'),
+(85, 26, 16, 4, 50000.00, 1, N'Khăn mặt'),
+(86, 26, 17, 2, 300000.00, 1, N'Ga giường'),
+(87, 26, 18, 4, 400000.00, 1, N'Áo choàng tắm'),
+(88, 26, 19, 4, 0.00, 1, N'Nước suối miễn phí'),
+
+-- =========================================================================
+-- PHÒNG 701 (ROOM ID: 31) - JUNIOR SUITE (Hạng 7)
+-- =========================================================================
+(89, 31, 6, 1, 17000000.00, 1, N'Smart TV 55 inch'),
+(90, 31, 2, 2, 9000000.00, 1, N'2 Điều hòa'),
+(91, 31, 3, 1, 3000000.00, 1, N'Minibar'),
+(92, 31, 4, 1, 600000.00, 1, N'Máy sấy'),
+(93, 31, 5, 1, 350000.00, 1, N'Ấm siêu tốc'),
+(94, 31, 14, 1, 2000000.00, 1, N'Két sắt'),
+(95, 31, 9, 2, 9000000.00, 1, N'2 Giường Đôi'),
+(96, 31, 11, 2, 5000000.00, 1, N'2 Tủ quần áo'),
+(97, 31, 12, 1, 3000000.00, 1, N'Bàn làm việc doanh nhân'),
+(98, 31, 13, 10, 30000.00, 1, N'Móc áo gỗ'),
+(99, 31, 15, 4, 150000.00, 1, N'Khăn tắm dày'),
+(100, 31, 16, 4, 50000.00, 1, N'Khăn mặt'),
+(101, 31, 17, 2, 300000.00, 1, N'Ga giường lụa'),
+(102, 31, 18, 4, 400000.00, 1, N'Áo choàng tắm lụa'),
+(103, 31, 19, 4, 0.00, 1, N'Nước suối miễn phí'),
+
+-- =========================================================================
+-- PHÒNG 801 (ROOM ID: 36) - PRESIDENTIAL SUITE (Hạng 8 - VIP)
+-- =========================================================================
+(104, 36, 6, 2, 17000000.00, 1, N'2 Smart TV 55 inch (Phòng khách + Phòng ngủ)'),
+(105, 36, 2, 3, 9000000.00, 1, N'3 Điều hòa trung tâm'),
+(106, 36, 3, 2, 3000000.00, 1, N'2 Minibar (Rượu + Nước)'),
+(107, 36, 4, 2, 600000.00, 1, N'2 Máy sấy'),
+(108, 36, 5, 2, 350000.00, 1, N'2 Ấm siêu tốc'),
+(109, 36, 14, 2, 2000000.00, 1, N'2 Két sắt'),
+(110, 36, 10, 2, 15000000.00, 1, N'2 Giường King Size 2m x 2m2'),
+(111, 36, 11, 3, 5000000.00, 1, N'3 Tủ quần áo lớn'),
+(112, 36, 12, 2, 3000000.00, 1, N'Bàn làm việc cao cấp'),
+(113, 36, 13, 15, 30000.00, 1, N'Móc áo gỗ cao cấp'),
+(114, 36, 15, 6, 150000.00, 1, N'Khăn tắm lớn'),
+(115, 36, 16, 6, 50000.00, 1, N'Khăn mặt'),
+(116, 36, 17, 2, 300000.00, 1, N'Ga giường tơ tằm'),
+(117, 36, 18, 6, 400000.00, 1, N'Áo choàng nhung'),
+(118, 36, 19, 6, 0.00, 1, N'Nước khoáng nhập khẩu'),
+(119, 36, 22, 6, 35000.00, 1, N'Bia Heineken (Minibar)'),
+
+-- =========================================================================
+-- PHÒNG MR-01 (ROOM ID: 39) - MEETING ROOM (Hạng 9)
+-- =========================================================================
+(120, 39, 2, 2, 9000000.00, 1, N'2 Điều hòa'),
+(121, 39, 29, 1, 15000000.00, 1, N'Máy chiếu Epson'),
+(122, 39, 30, 2, 2500000.00, 1, N'Micro không dây Sony'),
+(123, 39, 31, 1, 3000000.00, 1, N'Bảng trắng di động'),
+(124, 39, 32, 1, 4000000.00, 1, N'Bàn họp Hòa Phát'),
+(125, 39, 33, 10, 1200000.00, 1, N'Ghế họp bọc da'),
+(126, 39, 39, 10, 50000.00, 1, N'Ly thủy tinh uống nước'),
+(127, 39, 19, 10, 0.00, 1, N'Nước suối Lavie trên bàn'),
+
+-- =========================================================================
+-- PHÒNG HALL-01 (ROOM ID: 42) - CONFERENCE HALL (Hạng 10)
+-- =========================================================================
+(128, 42, 2, 4, 9000000.00, 1, N'4 Điều hòa trung tâm'),
+(129, 42, 34, 1, 200000000.00, 1, N'Màn hình LED 200 inch'),
+(130, 42, 35, 1, 70000000.00, 1, N'Sân khấu di động'),
+(131, 42, 30, 4, 2500000.00, 1, N'4 Micro không dây'),
+(132, 42, 37, 10, 2000000.00, 1, N'10 Bàn hội trường (Dãy đầu)'),
+(133, 42, 36, 50, 900000.00, 1, N'50 Ghế hội trường nỉ đỏ'),
+(134, 42, 39, 50, 50000.00, 1, N'Ly thủy tinh'),
+(135, 42, 19, 50, 0.00, 1, N'Nước suối');
+
 SET IDENTITY_INSERT [dbo].[Room_Inventory] OFF;
 GO
 INSERT INTO [dbo].[RoomType_Amenities] ([room_type_id], [amenity_id]) VALUES
-(1, 1), (1, 2), (1, 3), (2, 1), (2, 2), (3, 4), (3, 5), (4, 6), (4, 7), (5, 8);
+-- 1. Standard Single (Tiêu chuẩn cơ bản + View Thành phố)
+(1, 1), (1, 2), (1, 3), (1, 6), (1, 8), (1, 12),
+
+-- 2. Standard Double (Giống Single nhưng cho 2 người)
+(2, 1), (2, 2), (2, 3), (2, 6), (2, 8), (2, 12),
+
+-- 3. Superior (Nâng cấp không gian, thêm Bàn làm việc và Két sắt)
+(3, 1), (3, 2), (3, 3), (3, 6), (3, 7), (3, 8), (3, 10), (3, 12),
+
+-- 4. Deluxe City View (Có Bồn tắm sứ, Ban công hướng phố)
+(4, 1), (4, 2), (4, 3), (4, 4), (4, 5), (4, 6), (4, 7), (4, 8), (4, 10), (4, 12),
+
+-- 5. Deluxe Ocean View (Giống Deluxe City nhưng View Biển)
+(5, 1), (5, 2), (5, 3), (5, 4), (5, 5), (5, 6), (5, 7), (5, 8), (5, 10), (5, 11),
+
+-- 6. Family Room (Ưu tiên gia đình: Thêm Bếp nhỏ, Trò chơi TV)
+(6, 1), (6, 2), (6, 3), (6, 4), (6, 6), (6, 7), (6, 8), (6, 12), (6, 15), (6, 16),
+
+-- 7. Junior Suite (Sang trọng: Có Dịch vụ 24/7, Máy pha Cà phê)
+(7, 1), (7, 2), (7, 3), (7, 4), (7, 5), (7, 6), (7, 7), (7, 8), (7, 9), (7, 10), (7, 12), (7, 14),
+
+-- 8. Presidential Suite (Trùm cuối: Có TẤT CẢ mọi thứ cao cấp nhất, Bồn tắm nằm xịn, View Biển)
+(8, 1), (8, 2), (8, 3), (8, 5), (8, 6), (8, 7), (8, 8), (8, 9), (8, 10), (8, 11), (8, 13), (8, 14), (8, 15), (8, 16),
+
+-- 9. Meeting Room (Phòng họp: Rất gọn gàng, chủ yếu công năng)
+(9, 1), (9, 3), (9, 9), (9, 10), -- (Wifi, Điều hòa, Máy pha cafe, Bàn làm việc)
+
+-- 10. Conference Hall (Hội trường: Chỉ cần mạng mạnh và mát mẻ)
+(10, 1), (10, 3); -- (Wifi, Điều hòa)
 GO
 SET IDENTITY_INSERT [dbo].[Room_Images] ON;
 
@@ -680,7 +898,7 @@ INSERT INTO [dbo].[Room_Images]
 VALUES
 -- Room Type 1
 (1, 1, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775058971/abchotel/j8qzhwycc1qpkattxmfz.jpg', 1, 1, '2026-04-01T22:56:12.417', NULL, NULL, NULL),
-(2, 1, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775058982/abchotel/flca5nefapqbloaus4mc.jpg', 0, 1, '2026-04-01T22:56:23.477', NULL, NULL, NULL),
+(2, 1, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775059269/abchotel/fmauuypbyjedul2hem1p.jpg', 0, 1, '2026-04-01T22:56:23.477', NULL, NULL, NULL),
 (3, 1, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775059005/abchotel/j07vv0vtttzedzdrs0bg.jpg', 0, 1, '2026-04-01T22:56:46.790', NULL, NULL, NULL),
 
 -- Room Type 2
@@ -691,17 +909,17 @@ VALUES
 -- Room Type 3
 (7, 3, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775057898/abchotel/yaruy1sorcoip3uzfrtb.jpg', 1, 1, '2026-04-01T22:38:19.930', NULL, NULL, NULL),
 (8, 3, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775057915/abchotel/ibenivntrzhxtcxcydjy.jpg', 0, 1, '2026-04-01T22:38:36.987', NULL, NULL, NULL),
-(9, 3, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775057924/abchotel/vs5gwxffxl6u2bcpefj8.jpg', 0, 1, '2026-04-01T22:38:46.373', NULL, NULL, NULL),
+(9, 3, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775054031/abchotel/bwcf0hyfhabgdkmaixxo.jpg', 0, 1, '2026-04-01T22:38:46.373', NULL, NULL, NULL),
 
 -- Room Type 4
-(10, 4, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775053950/abchotel/d5gdmk8o0p5h9qrgwrbi.jpg', 1, 1, '2026-04-01T21:32:31.733', NULL, NULL, NULL),
-(11, 4, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775054018/abchotel/jh9niiinimm5hwrjo1fu.jpg', 0, 1, '2026-04-01T21:33:40.007', NULL, NULL, NULL),
-(12, 4, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775054031/abchotel/bwcf0hyfhabgdkmaixxo.jpg', 0, 1, '2026-04-01T21:33:54.437', NULL, NULL, NULL),
+(10, 4, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775058066/abchotel/fxdakpiurrp0ycjixcu4.jpg', 1, 1, '2026-04-01T21:32:31.733', NULL, NULL, NULL),
+(11, 4, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775061734/abchotel/djqpllmnknw5ksusrd2f.jpg', 0, 1, '2026-04-01T21:33:40.007', NULL, NULL, NULL),
+(12, 4, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775057924/abchotel/vs5gwxffxl6u2bcpefj8.jpg', 0, 1, '2026-04-01T21:33:54.437', NULL, NULL, NULL),
 
 -- Room Type 5
-(13, 5, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775060681/abchotel/iiszfn7eqhhwd4rwhvpg.jpg', 1, 1, '2026-04-01T23:24:43.233', NULL, NULL, NULL),
-(14, 5, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775060706/abchotel/wkpqw9gutsuiaewmbtak.jpg', 0, 1, '2026-04-01T23:25:07.540', NULL, NULL, NULL),
-(15, 5, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775060722/abchotel/vcrjjsmozgzkutcoshbg.jpg', 0, 1, '2026-04-01T23:25:22.727', NULL, NULL, NULL),
+(13, 5, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775053950/abchotel/d5gdmk8o0p5h9qrgwrbi.jpg', 1, 1, '2026-04-01T23:24:43.233', NULL, NULL, NULL),
+(14, 5, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775061734/abchotel/djqpllmnknw5ksusrd2f.jpg', 0, 1, '2026-04-01T23:25:07.540', NULL, NULL, NULL),
+(15, 5, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775061658/abchotel/dpba6hsjd5vo8wnw3rep.jpg', 0, 1, '2026-04-01T23:25:22.727', NULL, NULL, NULL),
 
 -- Room Type 6
 (16, 6, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775060070/abchotel/face5dkumiff3xcckml0.jpg', 1, 1, '2026-04-01T23:14:32.873', NULL, NULL, NULL),
@@ -709,274 +927,420 @@ VALUES
 (18, 6, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775060133/abchotel/b4it7djpgpzxbhotfqa8.jpg', 0, 1, '2026-04-01T23:15:35.060', NULL, NULL, NULL),
 
 -- Room Type 7
-(19, 7, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775061751/abchotel/fym4bd0jk5yllb5iqamb.jpg', 1, 1, '2026-04-01T23:42:31.843', NULL, NULL, NULL),
-(20, 7, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775061658/abchotel/dpba6hsjd5vo8wnw3rep.jpg', 0, 1, '2026-04-01T23:40:59.327', NULL, NULL, NULL),
-(21, 7, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775061734/abchotel/djqpllmnknw5ksusrd2f.jpg', 0, 1, '2026-04-01T23:42:14.513', NULL, NULL, NULL),
+(19, 7, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775060681/abchotel/iiszfn7eqhhwd4rwhvpg.jpg', 1, 1, '2026-04-01T23:42:31.843', NULL, NULL, NULL),
+(20, 7, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775060706/abchotel/wkpqw9gutsuiaewmbtak.jpg', 0, 1, '2026-04-01T23:40:59.327', NULL, NULL, NULL),
+(21, 7, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775060722/abchotel/vcrjjsmozgzkutcoshbg.jpg', 0, 1, '2026-04-01T23:42:14.513', NULL, NULL, NULL),
 
 -- Room Type 8
-(22, 8, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775060623/abchotel/cddvvzbiku6rfx3zdmmf.jpg', 1, 1, '2026-04-01T23:23:44.140', NULL, NULL, NULL),
-(23, 8, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775060515/abchotel/izilhxudhh11wutxtb5f.jpg', 0, 1, '2026-04-01T23:21:56.560', NULL, NULL, NULL),
-(24, 8, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775060528/abchotel/sleplob5tocinv3i9jvq.jpg', 0, 1, '2026-04-01T23:22:10.370', NULL, NULL, NULL),
+(22, 8, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775060198/abchotel/yu7faahxu52q7cuntusm.jpg', 1, 1, '2026-04-01T23:23:44.140', NULL, NULL, NULL),
+(23, 8, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775060234/abchotel/rjd8bzs4hvl7kws5vvup.jpg', 0, 1, '2026-04-01T23:21:56.560', NULL, NULL, NULL),
+(24, 8, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775060254/abchotel/xtdkktn8snmn3xldzojt.jpg', 0, 1, '2026-04-01T23:22:10.370', NULL, NULL, NULL),
 
 -- Room Type 9
-(25, 9, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775060198/abchotel/yu7faahxu52q7cuntusm.jpg', 1, 1, '2026-04-01T23:16:40.597', NULL, NULL, NULL),
-(26, 9, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775060234/abchotel/rjd8bzs4hvl7kws5vvup.jpg', 0, 1, '2026-04-01T23:17:15.907', NULL, NULL, NULL),
-(27, 9, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775060254/abchotel/xtdkktn8snmn3xldzojt.jpg', 0, 1, '2026-04-01T23:17:34.970', NULL, NULL, NULL),
+(25, 9, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1776177004/abchotel/shlwlomgpu4oyxq4pbfh.jpg', 1, 1, '2026-04-01T23:16:40.597', NULL, NULL, NULL),
+(26, 9, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1776176995/abchotel/hymwn9k9933z9lsvwvkv.jpg', 0, 1, '2026-04-01T23:17:15.907', NULL, NULL, NULL),
+(27, 9, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1776177013/abchotel/wvveqru3svgjgtosdcjv.jpg', 0, 1, '2026-04-01T23:17:34.970', NULL, NULL, NULL),
 
 -- Room Type 10
-(28, 10, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775058048/abchotel/borrg46ezalheiaygmyd.jpg', 1, 1, '2026-04-01T22:40:48.793', NULL, NULL, NULL),
-(29, 10, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775058066/abchotel/fxdakpiurrp0ycjixcu4.jpg', 0, 1, '2026-04-01T22:41:07.453', NULL, NULL, NULL),
-(30, 10, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775058076/abchotel/pyf2zpsyncawhrsqlzwb.jpg', 0, 1, '2026-04-01T22:41:18.240', NULL, NULL, NULL),
-(31, 10, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775058086/abchotel/rskv2wdyiwvmt3suazfp.jpg', 0, 1, '2026-04-01T22:41:27.320', NULL, NULL, NULL);
+(28, 10, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1776176973/abchotel/xghgaeejyglsnusd3mvb.jpg', 1, 1, '2026-04-01T22:40:48.793', NULL, NULL, NULL),
+(29, 10, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1776176955/abchotel/vgeqdtqvo0f12mzlydfy.jpg', 0, 1, '2026-04-01T22:41:07.453', NULL, NULL, NULL),
+(30, 10, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1776176983/abchotel/cpgek83po3emg3zsdy2a.jpg', 0, 1, '2026-04-01T22:41:18.240', NULL, NULL, NULL);
 SET IDENTITY_INSERT [dbo].[Room_Images] OFF;
 GO
 -- Bài viết
 SET IDENTITY_INSERT [dbo].[Article_Categories] ON;
 INSERT INTO [dbo].[Article_Categories] ([id], [name], [slug]) VALUES 
-(1, N'Tin Tức Khách Sạn', 'tin-tuc-khach-san'), 
-(2, N'Cẩm Nang Du Lịch', 'cam-nang-du-lich'),
-(3, N'Khám Phá Ẩm Thực', 'kham-pha-am-thuc'), 
-(4, N'Sự Kiện & Lễ Hội', 'su-kien-le-hoi'),
-(5, N'Chương Trình Khuyến Mãi', 'chuong-trinh-khuyen-mai'), 
-(6, N'Văn Hóa Địa Phương', 'van-hoa-dia-phuong'),
-(7, N'Hướng Dẫn Di Chuyển', 'huong-dan-di-chuyen'), 
-(8, N'Góc Thư Giãn', 'goc-thu-gian'),
-(9, N'Hỏi Đáp (FAQ)', 'hoi-dap-faq'), 
-(10, N'Thư Viện Ảnh', 'thu-vien-anh');
+(1, N'Tin tức & Ưu đãi', 'tin-tuc-uu-dai'),
+(2, N'Cẩm nang du lịch Đà Nẵng', 'cam-nang-du-lich-da-nang'),
+(3, N'Ẩm thực & Trải nghiệm', 'am-thuc-trai-nghiem'),
+(4, N'Hướng dẫn & Thông tin', 'huong-dan-thong-tin');
 SET IDENTITY_INSERT [dbo].[Article_Categories] OFF;
 GO
 SET IDENTITY_INSERT [dbo].[Articles] ON;
-INSERT INTO [dbo].[Articles] ([id], [category_id], [author_id], [title], [slug], [short_description], [content], [thumbnail_url], [published_at]) VALUES 
-(1, 1, 1, N'Khai trương nhà hàng hải sản Ocean View', N'khai-truong-nha-hang', N'Chào đón nhà hàng mới mang đẳng cấp 5 sao ngay trong khuôn viên khách sạn với ưu đãi 20%.', NULL, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775068010/abchotel/zhiqb8waywm93dtx0vkh.jpg', '2026-03-06'),
-(2, 2, 2, N'5 điểm đến không thể bỏ lỡ khi đến đây', N'5-diem-den', N'Lưu lại ngay danh sách 5 địa điểm check-in cực hot xung quanh khách sạn của chúng tôi.', NULL, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775051779/abchotel/pygtbkrdfkaqmvolf7yg.jpg', '2026-03-06'),
-(3, 3, 3, N'Khám phá tinh hoa ẩm thực địa phương', N'mon-ngon-hai-san', N'Từ những gánh hàng rong đến các nhà hàng sang trọng, đây là những món bạn phải thử.', NULL, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775068189/abchotel/yumqrqbadves92v1idpu.jpg', '2026-03-06'),
-(4, 4, 1, N'Đại tiệc Countdown đếm ngược năm mới 2027', N'su-kien-nam-moi', N'Hòa cùng không khí lễ hội cuối năm với đêm nhạc hội và pháo hoa rực rỡ.', NULL, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775051977/abchotel/jjjmgilirxampfayomat.jpg', '2026-03-06'),
-(5, 5, 2, N'Gói nghỉ dưỡng gia đình - Mùa hè rực rỡ 2026', N'khuyen-mai-mua-he', N'Tận hưởng mùa hè bùng nổ với gói combo 3 ngày 2 đêm siêu tiết kiệm cho cả gia đình.', NULL, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775068210/abchotel/w72i22sz0gycbuaseah3.jpg', '2026-03-06'),
-(6, 6, 3, N'Lễ hội Nghinh Ông và nét đẹp văn hóa biển', N'lich-su-van-hoa', N'Cùng tìm hiểu về lễ hội truyền thống lớn nhất của ngư dân vùng biển.', NULL, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775068225/abchotel/hsr1vvx2axblkl4rh6rd.jpg', '2026-03-06'),
-(7, 7, 1, N'Hướng dẫn di chuyển từ sân bay về khách sạn', N'tu-san-bay-ve-ks', N'Chi tiết các phương tiện tiện lợi nhất để di chuyển từ sân bay quốc tế về thẳng khách sạn.', NULL, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775051887/abchotel/dwravtzojerdio4y19ix.jpg', '2026-03-06'),
-(8, 8, 2, N'Gợi ý lịch trình thư giãn cuối tuần hoàn hảo', N'cach-thu-gian', N'Chỉ với 2 ngày nghỉ, làm sao để xua tan mọi mệt mỏi và F5 lại bản thân? Đọc ngay!', NULL, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775068239/abchotel/ffyi4wyufzjs8uzrvwuu.jpg', '2026-03-06'),
-(9, 9, 3, N'Những quy định cần biết khi nhận và trả phòng', N'quy-dinh-nhan-tra', N'Giải đáp các thắc mắc thường gặp về giờ check-in, check-out và phụ phí phát sinh.', NULL, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775051909/abchotel/sauxn5rb0if3ouxjlder.jpg', '2026-03-06'),
-(10, 10, 1, N'Chiêm ngưỡng resort từ góc nhìn Flycam', N'bo-anh-resort', N'Bộ ảnh toàn cảnh khách sạn nhìn từ trên cao đẹp như một bức tranh.', NULL, N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775068254/abchotel/ynnbbgulwukdogjhgpgj.jpg', '2026-03-06');
+INSERT INTO [dbo].[Articles] 
+([id], [category_id], [author_id], [title], [slug], [short_description], [content], [thumbnail_url], [published_at]) 
+VALUES 
+
+-- 1. Tin tức & ưu đãi
+(1, 1, 1, N'Khai trương hồ bơi vô cực view biển Mỹ Khê', N'ho-boi-vo-cuc-my-khe',
+N'Trải nghiệm hồ bơi vô cực với tầm nhìn trực diện biển Mỹ Khê cực chill.',
+NULL,
+N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775068010/abchotel/zhiqb8waywm93dtx0vkh.jpg',
+'2026-03-01'),
+
+(2, 1, 2, N'Ưu đãi mùa hè 2026 - Combo nghỉ dưỡng 3N2Đ', N'uu-dai-mua-he-2026',
+N'Combo trọn gói bao gồm phòng + buffet sáng + xe đưa đón sân bay.',
+NULL,
+N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775068210/abchotel/w72i22sz0gycbuaseah3.jpg',
+'2026-03-02'),
+
+-- 2. Cẩm nang du lịch
+(3, 2, 2, N'Top 5 địa điểm gần khách sạn bạn nên ghé', N'top-dia-diem-da-nang',
+N'Các điểm check-in nổi bật như Bà Nà Hills, Cầu Rồng, Ngũ Hành Sơn.',
+NULL,
+N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775051779/abchotel/pygtbkrdfkaqmvolf7yg.jpg',
+'2026-03-03'),
+
+(4, 2, 3, N'Lịch trình 2 ngày 1 đêm tại Đà Nẵng', N'lich-trinh-2n1d-da-nang',
+N'Gợi ý lịch trình tiết kiệm thời gian cho khách du lịch ngắn ngày.',
+NULL,
+N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775068239/abchotel/ffyi4wyufzjs8uzrvwuu.jpg',
+'2026-03-04'),
+
+(5, 2, 1, N'Khám phá bán đảo Sơn Trà từ A-Z', N'ban-dao-son-tra',
+N'Điểm đến thiên nhiên nổi bật với chùa Linh Ứng và voọc chà vá.',
+NULL,
+N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775068225/abchotel/hsr1vvx2axblkl4rh6rd.jpg',
+'2026-03-05'),
+
+-- 3. Ẩm thực & trải nghiệm
+(6, 3, 3, N'Ăn gì ở Đà Nẵng? 7 món nhất định phải thử', N'am-thuc-da-nang',
+N'Mì Quảng, bún chả cá, bánh tráng cuốn thịt heo...',
+NULL,
+N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775068189/abchotel/yumqrqbadves92v1idpu.jpg',
+'2026-03-06'),
+
+(7, 3, 1, N'Trải nghiệm tiệc BBQ ngoài trời bên biển', N'bbq-ben-bien',
+N'Tận hưởng bữa tối lãng mạn với hải sản tươi sống.',
+NULL,
+N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775051977/abchotel/jjjmgilirxampfayomat.jpg',
+'2026-03-07'),
+
+-- 4. Hướng dẫn & thông tin
+(8, 4, 2, N'Hướng dẫn đi từ sân bay Đà Nẵng về khách sạn', N'di-chuyen-san-bay',
+N'Chi tiết taxi, Grab, xe đưa đón tiện lợi.',
+NULL,
+N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775051887/abchotel/dwravtzojerdio4y19ix.jpg',
+'2026-03-08'),
+
+(9, 4, 3, N'Giờ check-in và quy định khách sạn', N'checkin-checkout',
+N'Những thông tin quan trọng khách cần biết trước khi đặt phòng.',
+NULL,
+N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775051909/abchotel/sauxn5rb0if3ouxjlder.jpg',
+'2026-03-09'),
+
+(10, 4, 1, N'Kinh nghiệm du lịch Đà Nẵng mùa mưa', N'du-lich-mua-mua',
+N'Những lưu ý giúp chuyến đi vẫn trọn vẹn dù thời tiết xấu.',
+NULL,
+N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775068254/abchotel/ynnbbgulwukdogjhgpgj.jpg',
+'2026-03-10');
+
 SET IDENTITY_INSERT [dbo].[Articles] OFF;
 GO
 -- Điểm du lịch
 SET IDENTITY_INSERT [dbo].[Attractions] ON;
+INSERT INTO [dbo].[Attractions] 
+([id], [name], [distance_km], [description], [address], [latitude], [longitude], [map_embed_link]) 
+VALUES 
 
-INSERT INTO [dbo].[Attractions] ([id], [name], [distance_km], [description], [address], [latitude], [longitude], [map_embed_link]) VALUES 
-(1, N'Chợ Trung Tâm', 1.50, N'Khu chợ truyền thống sầm uất, bán đặc sản và hải sản tươi sống.', N'01 Nguyễn Thái Học, Phường 1, TP. Biển', 10.345678, 107.084123, N'https://maps.google.com/maps?q=10.345678,107.084123&z=15&output=embed'),
-(2, N'Bãi Biển Chính', 0.50, N'Bãi tắm công cộng tuyệt đẹp, cát trắng trải dài, nước biển trong xanh.', N'Đường Thùy Vân, Phường Thắng Tam, TP. Biển', 10.334102, 107.091564, N'https://maps.google.com/maps?q=10.334102,107.091564&z=15&output=embed'),
-(3, N'Bảo Tàng Thành Phố', 3.00, N'Lưu giữ giá trị lịch sử và hàng ngàn hiện vật văn hóa lâu đời.', N'98 Trần Hưng Đạo, Phường 3, TP. Biển', 10.348211, 107.072134, N'https://maps.google.com/maps?q=10.348211,107.072134&z=15&output=embed'),
-(4, N'Phố Đi Bộ', 1.00, N'Khu vực vui chơi giải trí về đêm, nhiều hoạt động nghệ thuật và ẩm thực đường phố.', N'Quảng trường Trung tâm, TP. Biển', 10.352134, 107.073456, N'https://maps.google.com/maps?q=10.352134,107.073456&z=15&output=embed'),
-(5, N'Chùa Cổ Lịch Sử', 5.50, N'Ngôi chùa linh thiêng với kiến trúc cổ kính nằm tựa lưng vào núi.', N'Núi Lớn, Phường 5, TP. Biển', 10.361522, 107.065211, N'https://maps.google.com/maps?q=10.361522,107.065211&z=15&output=embed'),
-(6, N'Khu Vui Chơi Giải Trí', 8.00, N'Công viên trò chơi quy mô lớn, cáp treo xuyên biển và công viên nước trên đỉnh núi.', N'Khu du lịch sinh thái, TP. Biển', 10.375533, 107.051122, N'https://maps.google.com/maps?q=10.375533,107.051122&z=15&output=embed'),
-(7, N'Suối Nước Nóng', 15.00, N'Điểm nghỉ dưỡng thiên nhiên, ngâm chân thư giãn và trải nghiệm khoáng nóng.', N'Quốc lộ 55, Huyện Ngoại Ô', 10.612544, 107.456833, N'https://maps.google.com/maps?q=10.612544,107.456833&z=15&output=embed'),
-(8, N'Làng Nghề Truyền Thống', 12.00, N'Trải nghiệm văn hóa bản địa, tìm hiểu quy trình làm gốm và đan lát thủ công.', N'Làng gốm mỹ nghệ, Huyện Ngoại Ô', 10.456155, 107.123544, N'https://maps.google.com/maps?q=10.456155,107.123544&z=15&output=embed'),
-(9, N'Trung Tâm Thương Mại', 2.00, N'Khu mua sắm cao cấp, tổ hợp rạp chiếu phim và chuỗi nhà hàng quốc tế.', N'Góc ngã tư Nguyễn Văn Linh, TP. Biển', 10.359866, 107.098855, N'https://maps.google.com/maps?q=10.359866,107.098855&z=15&output=embed'),
-(10, N'Điểm Ngắm Hoàng Hôn', 4.00, N'Nơi có view biển đón hoàng hôn đẹp nhất, góc check-in sống ảo cực chill.', N'Mũi Nghinh Phong, Phường 2, TP. Biển', 10.323577, 107.085466, N'https://maps.google.com/maps?q=10.323577,107.085466&z=15&output=embed');
+(1, N'Bãi biển Mỹ Khê', 0.50, 
+N'Một trong những bãi biển đẹp nhất hành tinh với cát trắng và nước biển trong xanh.', 
+N'Đường Võ Nguyên Giáp, Sơn Trà, Đà Nẵng', 
+16.0544, 108.2470, 
+N'https://maps.google.com/maps?q=16.0544,108.2470&z=15&output=embed'),
+
+(2, N'Cầu Rồng', 2.50, 
+N'Biểu tượng của Đà Nẵng, nổi bật với màn phun lửa và nước vào cuối tuần.', 
+N'Nguyễn Văn Linh, Hải Châu, Đà Nẵng', 
+16.0617, 108.2270, 
+N'https://maps.google.com/maps?q=16.0617,108.2270&z=15&output=embed'),
+
+(3, N'Cầu Tình Yêu', 2.70, 
+N'Địa điểm check-in lãng mạn bên sông Hàn với nhiều ổ khóa tình yêu.', 
+N'Trần Hưng Đạo, Sơn Trà, Đà Nẵng', 
+16.0610, 108.2290, 
+N'https://maps.google.com/maps?q=16.0610,108.2290&z=15&output=embed'),
+
+(4, N'Ngũ Hành Sơn', 8.00, 
+N'Danh thắng nổi tiếng với hệ thống hang động và chùa chiền linh thiêng.', 
+N'81 Huyền Trân Công Chúa, Ngũ Hành Sơn, Đà Nẵng', 
+15.9965, 108.2640, 
+N'https://maps.google.com/maps?q=15.9965,108.2640&z=15&output=embed'),
+
+(5, N'Bán đảo Sơn Trà', 10.00, 
+N'Khu bảo tồn thiên nhiên với cảnh quan hoang sơ và chùa Linh Ứng nổi tiếng.', 
+N'Thọ Quang, Sơn Trà, Đà Nẵng', 
+16.1139, 108.2772, 
+N'https://maps.google.com/maps?q=16.1139,108.2772&z=15&output=embed'),
+
+(6, N'Chùa Linh Ứng (Sơn Trà)', 11.00, 
+N'Ngôi chùa nổi tiếng với tượng Phật Quan Âm cao nhất Việt Nam.', 
+N'Hoàng Sa, Sơn Trà, Đà Nẵng', 
+16.1090, 108.2775, 
+N'https://maps.google.com/maps?q=16.1090,108.2775&z=15&output=embed'),
+
+(7, N'Bà Nà Hills', 25.00, 
+N'Khu du lịch nổi tiếng với Cầu Vàng và khí hậu mát mẻ quanh năm.', 
+N'Hòa Ninh, Hòa Vang, Đà Nẵng', 
+15.9950, 107.9886, 
+N'https://maps.google.com/maps?q=15.9950,107.9886&z=15&output=embed'),
+
+(8, N'Chợ Hàn', 3.00, 
+N'Khu chợ truyền thống nổi tiếng với đặc sản và quà lưu niệm.', 
+N'119 Trần Phú, Hải Châu, Đà Nẵng', 
+16.0678, 108.2230, 
+N'https://maps.google.com/maps?q=16.0678,108.2230&z=15&output=embed'),
+
+(9, N'Asia Park - Sun World', 4.50, 
+N'Công viên giải trí với vòng quay Sun Wheel khổng lồ.', 
+N'01 Phan Đăng Lưu, Hải Châu, Đà Nẵng', 
+16.0389, 108.2240, 
+N'https://maps.google.com/maps?q=16.0389,108.2240&z=15&output=embed'),
+
+(10, N'Đèo Hải Vân', 30.00, 
+N'Một trong những cung đường ven biển đẹp nhất Việt Nam.', 
+N'Đèo Hải Vân, Đà Nẵng - Thừa Thiên Huế', 
+16.1990, 108.1320, 
+N'https://maps.google.com/maps?q=16.1990,108.1320&z=15&output=embed');
+
 SET IDENTITY_INSERT [dbo].[Attractions] OFF;
 GO
 -- Vouchers
 SET IDENTITY_INSERT [dbo].[Vouchers] ON;
 INSERT INTO [dbo].[Vouchers] ([id], [code], [discount_type], [discount_value], [min_booking_value], [valid_from], [valid_to], [usage_limit]) VALUES
-(1, N'KM1', N'PERCENT', 10, 500000, '2025-01-01', '2026-12-31', 100),
-(2, N'KM2', N'FIXED_AMOUNT', 100000, 1000000, '2025-01-01', '2026-12-31', 50),
-(3, N'KM3', N'PERCENT', 15, 2000000, '2025-01-01', '2026-12-31', 30),
-(4, N'KM4', N'FIXED_AMOUNT', 200000, 1500000, '2025-01-01', '2026-12-31', 50),
-(5, N'KM5', N'PERCENT', 20, 3000000, '2025-01-01', '2026-12-31', 20),
-(6, N'KM6', N'FIXED_AMOUNT', 50000, 0, '2025-01-01', '2026-12-31', 200),
-(7, N'KM7', N'PERCENT', 5, 0, '2025-01-01', '2026-12-31', 500),
-(8, N'KM8', N'FIXED_AMOUNT', 500000, 5000000, '2025-01-01', '2026-12-31', 10),
-(9, N'KM9', N'PERCENT', 25, 10000000, '2025-01-01', '2026-12-31', 5),
-(10, N'KM10', N'FIXED_AMOUNT', 1000000, 20000000, '2025-01-01', '2026-12-31', 2);
+(1, N'TET2026', N'PERCENT', 15, 2000000, '2026-01-15', '2026-02-10', 100),
+(2, N'NEWYEAR2026', N'FIXED_AMOUNT', 300000, 1500000, '2025-12-25', '2026-01-05', 80),
+(3, N'GIOTOHUNG', N'PERCENT', 10, 1000000, '2026-04-05', '2026-04-10', 120),
+(4, N'LE304', N'PERCENT', 20, 3000000, '2026-04-25', '2026-05-02', 70),
+(5, N'LE29', N'FIXED_AMOUNT', 200000, 1500000, '2026-08-28', '2026-09-03', 90),
+(6, N'SUMMER2026', N'PERCENT', 15, 2500000, '2026-05-15', '2026-08-15', 150),
+(7, N'FLASHSALE', N'PERCENT', 10, 1000000, '2026-03-01', '2026-03-10', 200),
+(8, N'LASTMINUTE', N'FIXED_AMOUNT', 150000, 800000, '2026-01-01', '2026-12-31', 300),
+(9, N'WEEKEND', N'PERCENT', 10, 1200000, '2026-01-01', '2026-12-31', 500),
+(10, N'LONGSTAY', N'PERCENT', 20, 5000000, '2026-01-01', '2026-12-31', 100),
+(11, N'HONEYMOON', N'FIXED_AMOUNT', 500000, 4000000, '2026-01-01', '2026-12-31', 50),
+(12, N'CORPORATE', N'PERCENT', 12, 3000000, '2026-01-01', '2026-12-31', 200),
+(13, N'NOEL2026', N'PERCENT', 15, 2500000, '2026-12-20', '2026-12-26', 80),
+(14, N'YEAR-END', N'FIXED_AMOUNT', 400000, 3000000, '2026-12-27', '2026-12-31', 60),
+(15, N'VIP-GUEST', N'PERCENT', 25, 7000000, '2026-01-01', '2026-12-31', 30);
 SET IDENTITY_INSERT [dbo].[Vouchers] OFF;
 GO
 -- BOOKING
 SET IDENTITY_INSERT [dbo].[Bookings] ON;
-INSERT INTO [dbo].[Bookings] ([id], [user_id], [guest_name], [guest_phone], [booking_code], [status], [created_by]) VALUES 
-(1, 6, N'Khách Hàng A', N'0900000006', N'BK-0001', N'Completed', 3),
-(2, 7, N'Khách Hàng B', N'0900000007', N'BK-0002', N'Checked_in', 3),
-(3, 8, N'Khách Hàng C', N'0900000008', N'BK-0003', N'Confirmed', 3),
-(4, 9, N'Khách Hàng D', N'0900000009', N'BK-0004', N'Pending', 3),
-(5, 10, N'Khách Hàng E', N'0900000010', N'BK-0005', N'Cancelled', 4),
-(6, NULL, N'Khách Vãng Lai 1', N'0911111111', N'BK-0006', N'Completed', 4),
-(7, NULL, N'Khách Vãng Lai 2', N'0922222222', N'BK-0007', N'Checked_in', 4),
-(8, 6, N'Khách Hàng A', N'0900000006', N'BK-0008', N'Confirmed', 2),
-(9, 7, N'Khách Hàng B', N'0900000007', N'BK-0009', N'Completed', 2),
-(10, 8, N'Khách Hàng C', N'0900000008', N'BK-0010', N'Checked_in', 2),
-(11, 8, N'Khách Hàng C', N'0900000008', N'BK-0011', N'Completed', 2),
-(12, 9, N'Khách Hàng D', N'0900000009', N'BK-0012', N'Completed', 2),
-(13, 10, N'Khách Hàng E', N'0900000010', N'BK-0013', N'Completed', 3),
-(14, 6, N'Khách Hàng A', N'0900000006', N'BK-0014', N'Completed', 3),
-(15, 7, N'Khách Hàng B', N'0900000007', N'BK-0015', N'Completed', 4),
-(16, 8, N'Khách Hàng C', N'0900000008', N'BK-0016', N'Completed', 4),
-(17, 9, N'Khách Hàng D', N'0900000009', N'BK-0017', N'Completed', 2),
-(18, 10, N'Khách Hàng E', N'0900000010', N'BK-0018', N'Completed', 3);
+INSERT INTO [dbo].[Bookings] 
+([id], [user_id], [guest_name], [guest_phone], [booking_code], [status], [created_by]) 
+VALUES 
+
+-- ===== QUÁ KHỨ (ĐÃ HOÀN THÀNH) =====
+(1, 13, N'Viên Xuân Quý', N'0901000006', N'BK-0001', N'Completed', 3),
+(2, 14, N'Trương Thị Ánh', N'0901000007', N'BK-0002', N'Completed', 3),
+(3, 15, N'Nguyễn Thị Hồng Nhung', N'0901000008', N'BK-0003', N'Completed', 3),
+(4, 16, N'Nguyễn Thị Phương Thảo', N'0901000009', N'BK-0004', N'Completed', 3),
+(5, 17, N'Huỳnh Thị Trúc Ly', N'0901000010', N'BK-0005', N'Completed', 4),
+
+(6, 18, N'Trần Văn Nam', N'0902000001', N'BK-0006', N'Completed', 4),
+(7, 19, N'Phan Thị Mai', N'0902000002', N'BK-0007', N'Completed', 4),
+(8, 20, N'Lê Hoàng Long', N'0902000003', N'BK-0008', N'Completed', 2),
+(9, 21, N'Nguyễn Minh Anh', N'0902000004', N'BK-0009', N'Completed', 2),
+(10, 22, N'Đỗ Quỳnh Chi', N'0902000005', N'BK-0010', N'Completed', 2),
+
+-- ===== TƯƠNG LAI (THÁNG 6-7) =====
+(11, 13, N'Viên Xuân Quý', N'0901000006', N'BK-0011', N'Confirmed', 3),
+(12, 14, N'Trương Thị Ánh', N'0901000007', N'BK-0012', N'Pending', 3),
+(13, 15, N'Nguyễn Thị Hồng Nhung', N'0901000008', N'BK-0013', N'Confirmed', 3),
+(14, 16, N'Nguyễn Thị Phương Thảo', N'0901000009', N'BK-0014', N'Pending', 4),
+(15, 17, N'Huỳnh Thị Trúc Ly', N'0901000010', N'BK-0015', N'Confirmed', 4),
+(16, 18, N'Trần Văn Nam', N'0902000001', N'BK-0016', N'Pending', 2),
+(17, 19, N'Phan Thị Mai', N'0902000002', N'BK-0017', N'Confirmed', 2),
+(18, 20, N'Lê Hoàng Long', N'0902000003', N'BK-0018', N'Pending', 2);
+
 SET IDENTITY_INSERT [dbo].[Bookings] OFF;
 GO
 SET IDENTITY_INSERT [dbo].[Booking_Details] ON;
-INSERT INTO [dbo].[Booking_Details] ([id], [booking_id], [room_id], [room_type_id], [check_in_date], [check_out_date], [applied_price], [price_type]) VALUES
-(1, 1, 1, 1, '2026-03-01', '2026-03-03', 400000, 'NIGHTLY'), 
-(2, 2, 2, 2, '2026-03-05', '2026-03-10', 500000, 'NIGHTLY'),
-(3, 3, NULL, 3, '2026-07-10', '2026-07-12', 700000, 'NIGHTLY'), 
-(4, 4, NULL, 4, '2026-05-01', '2026-05-05', 900000, 'NIGHTLY'),
-(5, 5, NULL, 5, '2026-03-15', '2026-03-16', 1200000, 'NIGHTLY'), 
-(6, 6, 6, 6, '2026-02-10', '2026-02-12', 1500000, 'NIGHTLY'),
-(7, 7, 7, 7, '2026-03-07', '2026-03-09', 1800000, 'NIGHTLY'), 
-(8, 8, NULL, 8, '2026-06-01', '2026-06-05', 2500000, 'NIGHTLY'),
-(9, 9, 9, 9, '2026-01-20', '2026-01-25', 5000000, 'NIGHTLY'), 
-(10, 10, 10, 10, '2026-03-06', '2026-03-08', 8000000, 'NIGHTLY'),
-(11, 11, NULL, 3, '2026-02-01', '2026-02-03', 700000, 'NIGHTLY'),  
-(12, 12, NULL, 4, '2026-02-05', '2026-02-07', 900000, 'NIGHTLY'),  
-(13, 13, NULL, 5, '2026-02-10', '2026-02-12', 1200000, 'NIGHTLY'),
-(14, 14, 6, 6, '2026-01-15', '2026-01-18', 1500000, 'NIGHTLY'),    
-(15, 15, 7, 7, '2026-01-20', '2026-01-22', 1800000, 'NIGHTLY'),   
-(16, 16, NULL, 8, '2026-01-25', '2026-01-28', 2500000, 'NIGHTLY'), 
-(17, 17, 2, 2, '2025-12-10', '2025-12-12', 500000, 'NIGHTLY'),     
-(18, 18, 10, 10, '2025-12-20', '2025-12-25', 8000000, 'NIGHTLY');
+INSERT INTO [dbo].[Booking_Details] ([id], [booking_id], [room_id], [room_type_id], [check_in_date], [check_out_date], [applied_price], [price_type]) VALUES 
+-- ===== QUÁ KHỨ =====
+(1,1,1,1,'2026-02-01','2026-02-03',400000,'NIGHTLY'),
+(2,2,6,2,'2026-02-05','2026-02-07',500000,'NIGHTLY'),
+(3,3,11,3,'2026-02-10','2026-02-12',650000,'NIGHTLY'),
+(4,4,16,4,'2026-02-15','2026-02-18',850000,'NIGHTLY'),
+(5,5,21,5,'2026-02-20','2026-02-22',1000000,'NIGHTLY'),
+
+(6,6,26,6,'2026-03-01','2026-03-03',1400000,'NIGHTLY'),
+(7,7,31,7,'2026-03-05','2026-03-07',1700000,'NIGHTLY'),
+(8,8,36,8,'2026-03-10','2026-03-12',5000000,'NIGHTLY'),
+(9,9,2,1,'2026-03-15','2026-03-17',400000,'NIGHTLY'),
+(10,10,7,2,'2026-03-20','2026-03-22',500000,'NIGHTLY'),
+
+-- ===== TƯƠNG LAI =====
+(11,11,3,1,'2026-06-01','2026-06-03',400000,'NIGHTLY'),
+(12,12,8,2,'2026-06-05','2026-06-07',500000,'NIGHTLY'),
+(13,13,13,3,'2026-06-10','2026-06-12',650000,'NIGHTLY'),
+(14,14,18,4,'2026-06-15','2026-06-18',850000,'NIGHTLY'),
+(15,15,23,5,'2026-06-20','2026-06-22',1000000,'NIGHTLY'),
+(16,16,28,6,'2026-07-01','2026-07-03',1400000,'NIGHTLY'),
+(17,17,33,7,'2026-07-05','2026-07-07',1700000,'NIGHTLY'),
+(18,18,37,8,'2026-07-10','2026-07-12',5000000,'NIGHTLY');
+
 SET IDENTITY_INSERT [dbo].[Booking_Details] OFF;
 GO
 -- Reviews
 SET IDENTITY_INSERT [dbo].[Reviews] ON;
 INSERT INTO [dbo].[Reviews] ([id], [user_id], [booking_id], [room_type_id], [rating], [comment], [is_visible]) VALUES
-(1, 6, 1, 1, 5, N'Phòng sạch sẽ, rất đáng tiền!', 1),          
-(2, 7, 9, 9, 5, N'Trải nghiệm tuyệt vời nhất.', 1),           
-(3, 8, 11, 3, 3, N'Bình thường, rèm cửa hơi sáng.', 1),         
-(4, 9, 12, 4, 5, N'View biển nhìn thẳng ra đón bình minh.', 1),
-(5, 10, 13, 5, 4, N'Giường nằm êm, tiện nghi hiện đại.', 1),    
-(6, 6, 14, 6, 5, N'Rất thích hợp cho cả gia đình đông người.', 0),    
-(7, 7, 15, 7, 4, N'Sang trọng, nhưng phục vụ phòng hơi lâu.', 0),      
-(8, 8, 16, 8, 2, N'Chưa hài lòng với tốc độ dọn phòng lúc check-in.', 0), 
-(9, 9, 17, 2, 5, N'Nhân viên thân thiện nhiệt tình.', 0),           
-(10, 10, 18, 10, 5, N'Tiện ích Villa riêng tư, hoàn hảo mọi mặt.', 0);
+-- Review từ những Booking đã Completed (1-10) tương ứng với User (13-22)
+(1, 13, 1, 1, 5, N'Phòng sạch sẽ, rất đáng tiền!', 1),          
+(2, 14, 2, 2, 5, N'Trải nghiệm tuyệt vời nhất.', 1),            
+(3, 15, 3, 3, 3, N'Phòng Superior bình thường, rèm cửa hơi sáng.', 1),          
+(4, 16, 4, 4, 5, N'View thành phố về đêm nhìn từ ban công rất đẹp.', 1), 
+(5, 17, 5, 5, 4, N'View biển nhìn thẳng ra đón bình minh, giường nằm êm.', 1),    
+(6, 18, 6, 6, 5, N'Phòng Family cực kỳ rộng rãi, rất thích hợp cho gia đình đông người.', 0),    
+(7, 19, 7, 7, 4, N'Suite sang trọng, nội thất đẹp nhưng phục vụ phòng hơi lâu.', 0),      
+(8, 20, 8, 8, 2, N'Chưa hài lòng với tốc độ dọn phòng lúc check-in dù phòng tổng thống cực kỳ xịn xò.', 0), 
+(9, 21, 9, 1, 5, N'Nhân viên thân thiện nhiệt tình.', 0),            
+(10, 22, 10, 2, 5, N'Tiện nghi đầy đủ, hoàn hảo mọi mặt. Chắc chắn sẽ quay lại.', 0);
 SET IDENTITY_INSERT [dbo].[Reviews] OFF;
-GO
--- Đền bù thiệt hại 
-SET IDENTITY_INSERT [dbo].[Loss_And_Damages] ON;
-INSERT INTO [dbo].[Loss_And_Damages] ([id], [booking_detail_id], [room_inventory_id], [quantity], [penalty_amount], [description]) VALUES
-(1, 1, 2, 1, 300000, N'Làm mất điều khiển tivi'), 
-(2, 2, 4, 1, 50000, N'Làm vỡ cốc thủy tinh'),
-(3, 6, 3, 1, 400000, N'Làm hỏng bình đun siêu tốc'), 
-(4, 9, 6, 1, 350000, N'Mất máy sấy tóc'),
-(5, 10, 8, 2, 40000, N'Gãy móc treo quần áo'), 
-(6, 1, 10, 1, 100000, N'Làm bẩn thảm lau chân không giặt được'),
-(7, 2, 7, 1, 250000, N'Làm cháy gối nằm'), 
-(8, 6, 5, 1, 450000, N'Mất áo choàng tắm'),
-(9, 9, 4, 2, 100000, N'Vỡ 2 cốc thủy tinh'), 
-(10, 10, 2, 1, 300000, N'Làm rơi vỡ điều khiển tivi');
-SET IDENTITY_INSERT [dbo].[Loss_And_Damages] OFF;
 GO
 -- Dịch vụ
 SET IDENTITY_INSERT [dbo].[Service_Categories] ON;
-INSERT INTO [dbo].[Service_Categories] ([id], [name]) VALUES 
-(1, N'Nhà Hàng & Ẩm Thực'), 
-(2, N'Spa & Massage'), 
-(3, N'Di Chuyển & Đưa Đón'),
-(4, N'Giặt Ủi'), 
-(5, N'Tour Du Lịch'), 
-(6, N'Phòng Gym & Yoga'),
-(7, N'Hồ Bơi'), 
-(8, N'Tổ Chức Sự Kiện'), 
-(9, N'Khu Vui Chơi Trẻ Em'), 
-(10, N'Cửa Hàng Lưu Niệm');
+
+INSERT INTO [dbo].[Service_Categories] ([id], [name]) VALUES
+(1, N'Ẩm Thực & Nhà Hàng'),
+(2, N'Spa & Chăm Sóc Sức Khỏe'),
+(3, N'Di Chuyển & Thuê Xe'),
+(4, N'Giặt Ủi'),
+(5, N'Tour & Trải Nghiệm'),
+(6, N'Thể Thao & Giải Trí'),
+(7, N'Hồ Bơi & Biển'),
+(8, N'Sự Kiện & Hội Nghị'),
+(9, N'Dịch Vụ Gia Đình'),
+(10, N'Cửa Hàng & Lưu Niệm');
 SET IDENTITY_INSERT [dbo].[Service_Categories] OFF;
 GO
 SET IDENTITY_INSERT [dbo].[Services] ON;
-INSERT INTO [dbo].[Services] ([id], [category_id], [name], [price], [unit]) VALUES
-(1, 1, N'Set Ăn Sáng Buffet', 200000, N'Người'), 
-(2, 1, N'Mì Ý Hải Sản', 150000, N'Phần'),
-(3, 2, N'Massage Toàn Thân 60p', 500000, N'Lượt'), 
-(4, 2, N'Xông Hơi Thảo Dược', 300000, N'Lượt'),
-(5, 3, N'Đưa Đón Sân Bay 4 Chỗ', 350000, N'Chuyến'), 
-(6, 3, N'Thuê Xe Máy Nửa Ngày', 100000, N'Chiếc'),
-(7, 4, N'Giặt Khô Áo Vest', 120000, N'Cái'), 
-(8, 4, N'Giặt Sấy Tiêu Chuẩn', 40000, N'Kg'),
-(9, 5, N'Tour Đảo Nửa Ngày', 800000, N'Người'), 
-(10, 10, N'Móc Khóa Kỷ Niệm', 50000, N'Cái');
+
+INSERT INTO [dbo].[Services]
+([id], [category_id], [name], [price], [unit])
+VALUES
+
+-- ===== ẨM THỰC =====
+(1,1,N'Buffet sáng',200000,N'Người'),
+(2,1,N'Hải sản nướng BBQ',350000,N'Người'),
+(3,1,N'Combo ăn tối 2 người',500000,N'Phần'),
+
+-- ===== SPA =====
+(4,2,N'Massage toàn thân 60 phút',500000,N'Lượt'),
+(5,2,N'Chăm sóc da mặt',400000,N'Lượt'),
+
+-- ===== DI CHUYỂN =====
+(6,3,N'Đưa đón sân bay 4 chỗ',350000,N'Chuyến'),
+(7,3,N'Thuê xe máy 24h',150000,N'Chiếc'),
+(8,3,N'Thuê xe ô tô 7 chỗ',900000,N'Ngày'),
+
+-- ===== GIẶT ỦI =====
+(9,4,N'Giặt ủi quần áo',40000,N'Kg'),
+(10,4,N'Giặt khô vest',120000,N'Cái'),
+
+-- ===== TOUR =====
+(11,5,N'Tour Bà Nà Hills',1200000,N'Người'),
+(12,5,N'Tour Hội An 1 ngày',800000,N'Người'),
+
+-- ===== GIẢI TRÍ =====
+(13,6,N'Phòng Gym',0,N'Lượt'),
+(14,6,N'Lớp Yoga sáng',100000,N'Người'),
+
+-- ===== BIỂN & HỒ BƠI =====
+(15,7,N'Ghế nằm bãi biển',100000,N'Lượt'),
+(16,7,N'Khăn hồ bơi',0,N'Cái'),
+
+-- ===== SỰ KIỆN =====
+(17,8,N'Trang trí phòng họp',2000000,N'Gói'),
+(18,8,N'Trang trí hội trường',5000000,N'Gói'),
+(19,8,N'Âm thanh ánh sáng sự kiện',3000000,N'Gói'),
+(20,8,N'Teabreak (trà + bánh)',100000,N'Người'),
+
+-- ===== GIA ĐÌNH =====
+(21,9,N'Dịch vụ giữ trẻ',100000,N'Giờ'),
+
+-- ===== LƯU NIỆM =====
+(22,10,N'Móc khóa',50000,N'Cái'),
+(23,10,N'Áo thun du lịch Đà Nẵng',150000,N'Cái');
+
 SET IDENTITY_INSERT [dbo].[Services] OFF;
 GO
 SET IDENTITY_INSERT [dbo].[Order_Services] ON;
 INSERT INTO [dbo].[Order_Services] ([id], [booking_detail_id], [total_amount], [status]) VALUES
-(1, 1, 0, N'Cancelled'), (2, 2, 200000, N'Delivered'), 
-(3, 3, 0, N'Pending'),
-(4, 4, 500000, N'Delivered'), (5, 5, 0, N'Pending'), 
-(6, 6, 350000, N'Delivered'),
-(7, 7, 800000, N'Delivered'), (8, 8, 0, N'Pending'), 
-(9, 9, 1000000, N'Delivered'), (10, 10, 150000, N'Delivered');
+-- QUÁ KHỨ (Đã sử dụng)
+(1, 1, 400000, N'Delivered'),   
+(2, 2, 700000, N'Delivered'),   
+(3, 4, 350000, N'Delivered'),   
+(4, 6, 2400000, N'Delivered'),  
+(5, 7, 1000000, N'Delivered'),  
+(6, 8, 2000000, N'Delivered'),  
+(7, 10, 500000, N'Delivered'),
+
+-- TƯƠNG LAI (Đặt trước online)
+(8, 11, 200000, N'Confirmed'),  -- Booking 11 đặt Buffet sáng
+(9, 13, 350000, N'Confirmed'),  -- Booking 13 đặt xe Đưa đón
+(10, 15, 2400000, N'Confirmed'),-- Booking 15 đặt 2 vé Tour Bà Nà
+(11, 17, 1000000, N'Confirmed');-- Booking 17 đặt 2 lượt Massage
 SET IDENTITY_INSERT [dbo].[Order_Services] OFF;
 GO
 SET IDENTITY_INSERT [dbo].[Order_Service_Details] ON;
 INSERT INTO [dbo].[Order_Service_Details] ([id], [order_service_id], [service_id], [quantity], [unit_price]) VALUES
-(1, 2, 2, 1, 150000), 
-(2, 2, 10, 1, 50000), 
-(3, 4, 3, 1, 500000), 
-(4, 6, 5, 1, 350000),
-(5, 7, 9, 1, 800000), 
-(6, 9, 1, 5, 200000), 
-(7, 10, 2, 1, 150000), 
-(8, 4, 8, 2, 40000),
-(9, 6, 10, 2, 50000), 
-(10, 7, 6, 2, 100000);
+-- Chi tiết dịch vụ quá khứ
+(1, 1, 1, 2, 200000), (2, 2, 2, 2, 350000), (3, 3, 6, 1, 350000),
+(4, 4, 11, 2, 1200000), (5, 5, 4, 2, 500000), (6, 6, 17, 1, 2000000), (7, 7, 3, 1, 500000),
+-- Chi tiết dịch vụ đặt trước tương lai
+(8, 8, 1, 1, 200000),   -- 1 vé Buffet sáng
+(9, 9, 6, 1, 350000),   -- 1 xe đưa đón sân bay
+(10, 10, 11, 2, 1200000),-- 2 vé Tour Bà Nà
+(11, 11, 4, 2, 500000);  -- 2 lượt Massage
 SET IDENTITY_INSERT [dbo].[Order_Service_Details] OFF;
 GO
 -- Thanh toán
 SET IDENTITY_INSERT [dbo].[Invoices] ON;
-INSERT INTO [dbo].[Invoices] ([id], [booking_id], [total_room_amount], [total_service_amount], [discount_amount], [tax_amount], [final_total], [status], [created_by]) VALUES 
-(1, 1, 800000, 0, 0, 80000, 880000, N'Paid', 3), 
-(2, 2, 2500000, 200000, 250000, 245000, 2695000, N'Unpaid', 3),
-(3, 3, 1400000, 0, 0, 140000, 1540000, N'Unpaid', 3), 
-(4, 4, 3600000, 0, 100000, 350000, 3850000, N'Unpaid', 3),
-(5, 5, 1200000, 0, 0, 120000, 1320000, N'Refunded', 4), 
-(6, 6, 3000000, 500000, 0, 350000, 3850000, N'Paid', 4),
-(7, 7, 3600000, 0, 540000, 306000, 3366000, N'Unpaid', 4), 
-(8, 8, 10000000, 0, 0, 1000000, 11000000, N'Unpaid', 2),
-(9, 9, 25000000, 1000000, 0, 2600000, 28600000, N'Paid', 2), 
-(10, 10, 16000000, 0, 200000, 1580000, 17380000, N'Unpaid', 2),
-(11, 11, 1400000, 0, 0, 140000, 1540000, N'Paid', 2),   
-(12, 12, 1800000, 0, 0, 180000, 1980000, N'Paid', 2),
-(13, 13, 2400000, 0, 0, 240000, 2640000, N'Paid', 3),
-(14, 14, 4500000, 0, 0, 450000, 4950000, N'Paid', 3),
-(15, 15, 3600000, 0, 0, 360000, 3960000, N'Paid', 4),
-(16, 16, 7500000, 0, 0, 750000, 8250000, N'Paid', 4),
-(17, 17, 1000000, 0, 0, 100000, 1100000, N'Paid', 2),
-(18, 18, 40000000, 0, 0, 4000000, 44000000, N'Paid', 3);
+INSERT INTO [dbo].[Invoices] 
+([id], [booking_id], [total_room_amount], [total_service_amount], [discount_amount], [tax_amount], [final_total], [status], [created_by]) VALUES 
+
+-- QUÁ KHỨ (Đã Paid 100%)
+(1, 1, 800000, 400000, 0, 120000, 1470000, N'Paid', 3),
+(2, 2, 1000000, 700000, 0, 170000, 2220000, N'Paid', 3),
+(3, 3, 1300000, 0, 0, 130000, 1430000, N'Paid', 3),
+(4, 4, 2550000, 350000, 0, 290000, 3190000, N'Paid', 3),
+(5, 5, 2000000, 0, 0, 200000, 2350000, N'Paid', 4),
+(6, 6, 2800000, 2400000, 0, 520000, 6020000, N'Paid', 4),
+(7, 7, 3400000, 1000000, 0, 440000, 4840000, N'Paid', 4),
+(8, 8, 10000000, 2000000, 0, 1200000, 13200000, N'Paid', 2),
+(9, 9, 800000, 0, 0, 80000, 880000, N'Paid', 2),
+(10, 10, 1000000, 500000, 0, 150000, 1650000, N'Paid', 2),
+
+-- TƯƠNG LAI (Hóa đơn đã bao gồm tiền phòng + dịch vụ đặt trước)
+(11, 11, 800000, 200000, 0, 100000, 1100000, N'Unpaid', 3), -- Tổng: 1.1M
+(12, 12, 1000000, 0, 0, 100000, 1100000, N'Pending', 3),
+(13, 13, 1300000, 350000, 0, 165000, 1815000, N'Unpaid', 3), -- Tổng: 1.815M
+(14, 14, 2550000, 0, 0, 255000, 2805000, N'Pending', 4),
+(15, 15, 2000000, 2400000, 0, 440000, 4840000, N'Unpaid', 4), -- Tổng: 4.84M
+(16, 16, 2800000, 0, 0, 280000, 3080000, N'Pending', 2),
+(17, 17, 3400000, 1000000, 0, 440000, 4840000, N'Unpaid', 2), -- Tổng: 4.84M
+(18, 18, 10000000, 0, 0, 1000000, 11000000, N'Pending', 2);
 SET IDENTITY_INSERT [dbo].[Invoices] OFF;
 GO
-SET IDENTITY_INSERT [dbo].[Payments] ON;
-INSERT INTO [dbo].[Payments] ([id], [invoice_id], [payment_method], [amount_paid], [transaction_code]) VALUES
-(1, 1, N'Cash', 880000, N'CASH001'), 
-(2, 2, N'VNPay', 1000000, N'VNPAY123'),
-(3, 3, N'Credit Card', 500000, N'CC456'), 
-(4, 4, N'Momo', 3850000, N'MOMO789'),
-(5, 5, N'Bank Transfer', 1320000, N'BANK001'), 
-(6, 6, N'Cash', 3850000, N'CASH002'),
-(7, 7, N'VNPay', 3366000, N'VNPAY999'), 
-(8, 8, N'Credit Card', 11000000, N'CC888'),
-(9, 9, N'Bank Transfer', 28600000, N'BANK002'), 
-(10, 10, N'Momo', 5000000, N'MOMO111'),
-(11, 11, N'VNPay', 1540000, N'VNP11'),
-(12, 12, N'Cash', 1980000, N'CSH12'),
-(13, 13, N'Credit Card', 2640000, N'CC13'),
-(14, 14, N'Momo', 4950000, N'MM14'),
-(15, 15, N'Bank Transfer', 3960000, N'BT15'),
-(16, 16, N'VNPay', 8250000, N'VNP16'),
-(17, 17, N'Cash', 1100000, N'CSH17'),
-(18, 18, N'Credit Card', 44000000, N'CC18');
-SET IDENTITY_INSERT [dbo].[Payments] OFF;
+-- Đền bù thiệt hại 
+SET IDENTITY_INSERT [dbo].[Loss_And_Damages] ON;
+INSERT INTO [dbo].[Loss_And_Damages] 
+([id], [booking_detail_id], [room_inventory_id], [invoice_id], [reported_by], [quantity], [penalty_amount], [description], [status]) VALUES
+(1, 1, 10, 1, 8, 1, 150000, N'Làm bẩn khăn tắm không giặt được', 'Paid'),   -- Map với Hóa đơn 1, Phòng 101
+(2, 2, 18, 2, 8, 1, 350000, N'Làm hỏng ấm siêu tốc', 'Paid'),               -- Map với Hóa đơn 2, Phòng 201
+(3, 5, 69, 5, 8, 1, 150000, N'Mất khăn tắm', 'Paid'),                       -- Map với Hóa đơn 5, Phòng 501
+(4, 6, 84, 6, 8, 2, 300000, N'Rách 2 khăn tắm do dính hóa chất', 'Paid');   -- Map với Hóa đơn 6, Phòng 601
+SET IDENTITY_INSERT [dbo].[Loss_And_Damages] OFF;
 GO
--- Dữ liệu Nhật ký hệ thống (Audit_Logs)
-SET IDENTITY_INSERT [dbo].[Audit_Logs] ON;
-INSERT INTO [dbo].[Audit_Logs] ([id], [user_id], [action], [table_name], [record_id], [old_value], [new_value]) VALUES
-(1, 1, N'UPDATE', N'Rooms', 1, N'{"status":"Cleaning"}', N'{"status":"Available"}'),
-(2, 2, N'DELETE', N'Bookings', 5, N'{"id":5}', N'{}'),
-(3, 3, N'CREATE', N'Invoices', 1, N'{}', N'{"id":1}'),
-(4, 1, N'UPDATE', N'Users', 6, N'{"status":0}', N'{"status":1}'),
-(5, 2, N'CREATE', N'Services', 1, N'{}', N'{"price":200000}'),
-(6, 3, N'UPDATE', N'Bookings', 2, N'{"status":"Pending"}', N'{"status":"Checked_in"}'),
-(7, 1, N'UPDATE', N'Room_Types', 1, N'{"price":350000}', N'{"price":400000}'),
-(8, 2, N'DELETE', N'Reviews', 8, N'{"id":8}', N'{}'),
-(9, 3, N'CREATE', N'Order_Services', 1, N'{}', N'{"amount":300000}'),
-(10, 1, N'UPDATE', N'Vouchers', 1, N'{"limit":50}', N'{"limit":100}');
-SET IDENTITY_INSERT [dbo].[Audit_Logs] OFF;
+SET IDENTITY_INSERT [dbo].[Payments] ON;
+INSERT INTO [dbo].[Payments] 
+([id], [invoice_id], [payment_method], [amount_paid], [transaction_code]) 
+VALUES 
+-- Thanh toán đầy đủ cho quá khứ
+(1, 1, N'Cash', 1470000, N'CASH001'), (2, 2, N'VNPay', 2220000, N'VNP002'),
+(3, 3, N'Bank', 1430000, N'BANK003'), (4, 4, N'Momo', 3190000, N'MOMO004'),
+(5, 5, N'Cash', 2350000, N'CASH005'), (6, 6, N'VNPay', 6020000, N'VNP006'),
+(7, 7, N'Bank', 4840000, N'BANK007'), (8, 8, N'Credit Card', 13200000, N'CC008'),
+(9, 9, N'Cash', 880000, N'CASH009'), (10, 10, N'Momo', 1650000, N'MOMO010'),
+
+-- Thanh toán tiền cọc (Deposit) cho các đơn tương lai có đặt dịch vụ
+(11, 11, N'VNPay', 300000, N'DEP011'),
+(12, 13, N'VNPay', 500000, N'DEP013'),
+(13, 15, N'Momo', 1000000, N'DEP015'),
+(14, 17, N'Bank', 1000000, N'DEP017');
+SET IDENTITY_INSERT [dbo].[Payments] OFF;
 GO
 -- ==============================================================================
 -- PHẦN 3: THUẬT TOÁN STORED PROCEDURES 
@@ -1187,19 +1551,22 @@ END
 GO
 -- ==========================================
 -- 4. MODULE AUDIT LOG (Trường Tracking)
--- Chạy Dynamic SQL để tự động thêm updated_at, created_by... cho TẤT CẢ các bảng
+-- Chạy Dynamic SQL để tự động thêm updated_at, created_by... 
 -- ==========================================
 DECLARE @TableName NVARCHAR(128);
 DECLARE @Sql NVARCHAR(MAX);
+
+-- 🔥 ĐÃ THÊM ĐIỀU KIỆN LỌC BỎ BẢNG LOG VÀ BẢNG TRUNG GIAN
 DECLARE table_cursor CURSOR FOR
-SELECT table_name FROM information_schema.tables WHERE table_type = 'BASE TABLE' AND table_name != 'sysdiagrams';
+SELECT table_name FROM information_schema.tables 
+WHERE table_type = 'BASE TABLE' 
+  AND table_name NOT IN ('sysdiagrams', 'Audit_Logs', 'Role_Permissions', 'RoomType_Amenities');
 
 OPEN table_cursor; FETCH NEXT FROM table_cursor INTO @TableName;
 WHILE @@FETCH_STATUS = 0
 BEGIN
     SET @Sql = '';
     
-    -- Nếu bảng chưa có created_at thì thêm vào
     IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(@TableName) AND name = 'created_at')
         SET @Sql = @Sql + 'ALTER TABLE [' + @TableName + '] ADD created_at DATETIME DEFAULT GETDATE(); ';
         

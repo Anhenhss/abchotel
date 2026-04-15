@@ -1,19 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Drawer, Descriptions, Table, Tag, Button, Space, Typography, Divider, Spin, notification, Collapse, Modal, Form, Select, InputNumber } from 'antd';
-import { Printer, CreditCard, ShoppingCart, WarningCircle, CheckCircle, Calculator, Money, QrCode } from '@phosphor-icons/react';
+import { Card, Drawer, Descriptions, Table, Tag, Button, Space, Typography, Divider, Spin, notification, Collapse, Modal, Form, Select, InputNumber, Popconfirm } from 'antd';
+import { Printer, CreditCard, ShoppingCart, WarningCircle, CheckCircle, Calculator, Money, QrCode, XCircle } from '@phosphor-icons/react';
 import dayjs from 'dayjs';
 
 import { invoiceApi } from '../api/invoiceApi';
-import { COLORS } from '../constants/theme';
+import { lossDamageApi } from '../api/lossDamageApi'; 
 
 const { Title, Text } = Typography;
+
+const LUXURY_COLORS = {
+    DARKEST: '#020C1B', NAVY: '#0A192F', MUTED_BLUE: '#3A506B', 
+    LIGHT_BLUE: '#E6EBF1', LIGHTEST: '#F4F7FA', GOLD: '#D4AF37', 
+    ACCENT_RED: '#8B0000', SUCCESS: '#1B5E20'
+};
 
 export default function InvoiceDetailDrawer({ isOpen, onClose, invoiceId, onSuccess }) {
   const [api, contextHolder] = notification.useNotification();
   const [loading, setLoading] = useState(false);
   const [invoice, setInvoice] = useState(null);
+  
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [payForm] = Form.useForm();
+  
+  const paymentMethod = Form.useWatch('paymentMethod', payForm);
+  const amountPaid = Form.useWatch('amountPaid', payForm);
 
   useEffect(() => {
     if (isOpen && invoiceId) fetchInvoiceDetail();
@@ -22,6 +32,8 @@ export default function InvoiceDetailDrawer({ isOpen, onClose, invoiceId, onSucc
   const fetchInvoiceDetail = async () => {
     try {
       setLoading(true);
+      await invoiceApi.recalculate(invoiceId).catch(() => {});
+
       const res = await invoiceApi.getById(invoiceId);
       setInvoice(res);
     } catch (error) {
@@ -36,7 +48,8 @@ export default function InvoiceDetailDrawer({ isOpen, onClose, invoiceId, onSucc
       setLoading(true);
       await invoiceApi.recalculate(invoiceId);
       api.success({ message: 'Thành công', description: 'Đã cập nhật lại tổng tiền.' });
-      fetchInvoiceDetail(); // Load lại số liệu mới
+      fetchInvoiceDetail(); 
+      if (onSuccess) onSuccess(); 
     } catch (e) {
       api.error({ message: 'Lỗi', description: 'Không thể tính lại.' });
     } finally {
@@ -44,134 +57,202 @@ export default function InvoiceDetailDrawer({ isOpen, onClose, invoiceId, onSucc
     }
   };
 
+  const handleCancelDamage = async (damageId) => {
+    try {
+      setLoading(true);
+      await lossDamageApi.updateStatus(damageId, 'Cancelled');
+      api.success({ message: 'Thành công', description: 'Đã hủy khoản phạt này.' });
+      await handleRecalculate();
+    } catch (e) {
+      api.error({ message: 'Lỗi', description: 'Không thể hủy khoản đền bù này.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const openPayModal = () => {
     payForm.resetFields();
-    // Gợi ý số tiền nợ
-    payForm.setFieldsValue({ amountPaid: invoice.finalTotal - invoice.amountPaid, paymentMethod: 'Cash' });
+    payForm.setFieldsValue({ 
+        amountPaid: Math.max(0, invoice.finalTotal - invoice.amountPaid), 
+        paymentMethod: 'Cash' 
+    });
     setIsPayModalOpen(true);
   };
 
   const handlePayment = async (values) => {
     try {
       setLoading(true);
-      if (values.paymentMethod === 'VNPay' || values.paymentMethod === 'MoMo') {
-         // Chuyển hướng VNPay/MoMo
-         const res = values.paymentMethod === 'VNPay' 
-            ? await invoiceApi.createVnPayUrl(invoiceId)
-            : await axiosClient.post(`/Invoices/${invoiceId}/create-momo-url`); // API MoMo hôm trước
-         window.location.href = res.url; 
-      } else {
-         // Tiền mặt / Chuyển khoản tay
-         await invoiceApi.payCash({
-            invoiceId: invoiceId,
-            paymentMethod: values.paymentMethod,
-            amountPaid: values.amountPaid,
-            transactionCode: values.transactionCode || 'MANUAL'
-         });
-         api.success({ message: 'Thành công', description: 'Ghi nhận thanh toán hoàn tất.' });
-         setIsPayModalOpen(false);
-         fetchInvoiceDetail();
-         if (onSuccess) onSuccess(); // Báo cho bảng bên ngoài load lại
+      // 🔥 ÉP KIỂU ĐỂ FIX 400 BAD REQUEST
+      const safeAmount = Number(values.amountPaid); 
+
+      if (values.paymentMethod === 'VNPay') {
+          const res = await invoiceApi.createVnPayUrl(invoiceId);
+          window.location.href = res.url; 
+          return;
       }
-    } catch (e) {
-      api.error({ message: 'Lỗi', description: 'Lỗi thanh toán.' });
-    } finally {
-      setLoading(false);
-    }
+      if (values.paymentMethod === 'MoMo') {
+          const res = await invoiceApi.createMoMoUrl(invoiceId);
+          window.location.href = res.url; 
+          return;
+      }
+
+      await invoiceApi.payCash({
+         invoiceId: invoiceId,
+         paymentMethod: values.paymentMethod,
+         amountPaid: safeAmount,
+         transactionCode: values.paymentMethod === 'Bank Transfer' ? 'QR_TRANSFER' : 'CASH'
+      });
+      
+      api.success({ message: 'Thành công', description: 'Ghi nhận thanh toán hoàn tất.' });
+      setIsPayModalOpen(false);
+      
+      fetchInvoiceDetail();
+      if (onSuccess) onSuccess();
+    } catch (e) { 
+      const errorMsg = e.response?.data?.message || (e.response?.data?.errors && Object.values(e.response.data.errors)[0]?.[0]) || 'Lỗi thanh toán.';
+      api.error({ message: 'Lỗi', description: errorMsg }); 
+    } 
+    finally { setLoading(false); }
   };
 
-  // Cấu hình Bảng Dịch vụ
+  const handlePrint = () => window.print();
+
+  const renderPaymentMethodTag = (method) => {
+      if (!method) return null;
+      switch (method) {
+          case 'VNPay': return <Tag color="blue" style={{fontWeight:'bold', fontSize: 13}}>Thanh toán VNPay</Tag>;
+          case 'MoMo': return <Tag color="magenta" style={{fontWeight:'bold', fontSize: 13}}>Thanh toán MoMo</Tag>;
+          case 'Bank Transfer': return <Tag color="cyan" style={{fontWeight:'bold', fontSize: 13}}>Chuyển khoản QR</Tag>;
+          default: return <Tag color="green" style={{fontWeight:'bold', fontSize: 13}}>Tiền mặt</Tag>;
+      }
+  };
+
   const serviceColumns = [
     { title: 'Tên dịch vụ', dataIndex: 'serviceName', key: 'serviceName' },
+    { title: 'Thời gian gọi', dataIndex: 'date', key: 'date', render: (val) => dayjs(val).format('DD/MM HH:mm') },
     { title: 'SL', dataIndex: 'quantity', key: 'quantity', width: 50 },
-    { title: 'Thành tiền', dataIndex: 'totalAmount', key: 'totalAmount', align: 'right', render: (val) => `${new Intl.NumberFormat('vi-VN').format(val)}đ` }
+    { title: 'Thành tiền', dataIndex: 'totalAmount', key: 'totalAmount', align: 'right', render: (val) => <Text strong>{new Intl.NumberFormat('vi-VN').format(val)}đ</Text> }
   ];
+
+  const damageColumns = [
+    { title: 'Sự cố/Vật tư', dataIndex: 'itemName', key: 'itemName' },
+    { 
+        title: 'Phạt đền bù', dataIndex: 'penaltyAmount', key: 'penaltyAmount', align: 'right', 
+        render: (val) => <Text type="danger" strong>{new Intl.NumberFormat('vi-VN').format(val)}đ</Text> 
+    },
+    {
+        title: 'Thao tác', key: 'action', align: 'center', width: 100,
+        render: (_, record) => (
+            invoice.status !== 'Paid' && (
+                <Popconfirm 
+                    title="Hủy/Miễn trừ khoản này?" 
+                    onConfirm={() => handleCancelDamage(record.id)}
+                    okText="Đồng ý" cancelText="Đóng"
+                >
+                    <Button type="link" style={{color: LUXURY_COLORS.MUTED_BLUE}} icon={<XCircle />}>Miễn phạt</Button>
+                </Popconfirm>
+            )
+        )
+    }
+  ];
+
+  const collapseItems = invoice ? [
+    {
+      key: '1',
+      label: <Text strong style={{ color: LUXURY_COLORS.NAVY }}><ShoppingCart size={18}/> Phí Lưu Trú & Dịch Vụ</Text>,
+      children: (
+        <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text>Tổng Tiền Phòng:</Text>
+                <Text strong>{new Intl.NumberFormat('vi-VN').format(invoice.totalRoomAmount)}đ</Text>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Text>Tổng Dịch Vụ (Minibar, Giặt ủi...):</Text>
+                <Text strong>{new Intl.NumberFormat('vi-VN').format(invoice.totalServiceAmount)}đ</Text>
+            </div>
+            {invoice.services?.length > 0 && <Table rowKey={(r, i) => i} columns={serviceColumns} dataSource={invoice.services} size="small" pagination={false} style={{ marginTop: 8 }} />}
+        </>
+      )
+    }
+  ] : [];
+
+  if (invoice && invoice.damages?.length > 0) {
+      collapseItems.push({
+          key: '2',
+          label: <Text strong style={{ color: LUXURY_COLORS.ACCENT_RED }}><WarningCircle size={18}/> Phí Đền Bù / Trách nhiệm</Text>,
+          children: <Table rowKey={(r, i) => i} columns={damageColumns} dataSource={invoice.damages} size="small" pagination={false} />
+      });
+  }
 
   return (
     <>
       {contextHolder}
       <Drawer
-        title={<Space><Calculator size={24} color={COLORS.MIDNIGHT_BLUE}/> <Title level={4} style={{ margin: 0 }}>Hóa đơn #{invoiceId}</Title></Space>}
-        placement="right" size="large" onClose={onClose} open={isOpen}
+        title={
+            <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                <Space>
+                    <Calculator size={24} color={LUXURY_COLORS.NAVY}/> 
+                    <Title level={4} style={{ margin: 0, color: LUXURY_COLORS.DARKEST, fontWeight: 900 }}>Hóa đơn #{invoiceId}</Title>
+                </Space>
+                <Space>
+                    {invoice && invoice.status === 'Paid' && renderPaymentMethodTag(invoice.paymentMethod)}
+                    {invoice && (invoice.status === 'Paid' ? <Tag color="success" icon={<CheckCircle/>}>ĐÃ THANH TOÁN</Tag> : <Tag color="error" style={{background: LUXURY_COLORS.ACCENT_RED, color: '#fff'}} icon={<WarningCircle/>}>CHƯA THU ĐỦ</Tag>)}
+                </Space>
+            </div>
+        }
+        placement="right" size="large" onClose={onClose} open={isOpen} className="no-print"
       >
         {loading && !invoice ? <div style={{ textAlign: 'center', marginTop: 100 }}><Spin size="large" /></div> : invoice && (
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             
-            <div style={{ flex: 1, overflowY: 'auto' }}>
-              {/* STATUS & THÔNG TIN CƠ BẢN */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-                 <Space direction="vertical" size={2}>
-                   <Text type="secondary">Mã đặt phòng: <Text strong style={{ color: COLORS.MIDNIGHT_BLUE }}>{invoice.bookingCode}</Text></Text>
-                   <Text type="secondary">Khách hàng: <Text strong>{invoice.guestName}</Text></Text>
-                 </Space>
-                 {invoice.status === 'Paid' ? <Tag color="success" icon={<CheckCircle/>}>ĐÃ THANH TOÁN</Tag> : <Tag color="error" icon={<WarningCircle/>}>CHƯA THANH TOÁN</Tag>}
+            <div style={{ flex: 1, overflowY: 'auto', paddingRight: 8 }}>
+              <div style={{ backgroundColor: '#fff', padding: 16, borderRadius: 8, border: `2px solid ${LUXURY_COLORS.NAVY}`, marginBottom: 16 }}>
+                 <Descriptions column={2} size="small">
+                    <Descriptions.Item label="Mã Đặt Phòng"><Text strong style={{ color: LUXURY_COLORS.NAVY }}>{invoice.bookingCode}</Text></Descriptions.Item>
+                    <Descriptions.Item label="Khách hàng"><Text strong>{invoice.guestName || 'Khách vãng lai'}</Text></Descriptions.Item>
+                    <Descriptions.Item label="Ngày lập HĐ">{dayjs(invoice.createdAt).format('DD/MM/YYYY HH:mm')}</Descriptions.Item>
+                 </Descriptions>
               </div>
 
-              {/* KHỐI CỘNG TIỀN (PHÒNG + DỊCH VỤ + HƯ HỎNG) */}
-              <Collapse defaultActiveKey={['1']} style={{ marginBottom: 16, backgroundColor: '#fff' }}>
-                <Collapse.Panel header={<Text strong><ShoppingCart size={18}/> Tiền Phòng & Dịch vụ</Text>} key="1">
-                  <Descriptions column={1} size="small">
-                     <Descriptions.Item label="Tổng tiền phòng">{new Intl.NumberFormat('vi-VN').format(invoice.totalRoomAmount)}đ</Descriptions.Item>
-                     <Descriptions.Item label="Tổng Dịch vụ (Minibar, Giặt ủi...)">{new Intl.NumberFormat('vi-VN').format(invoice.totalServiceAmount)}đ</Descriptions.Item>
-                  </Descriptions>
-                  {/* Nếu Backend trả về chi tiết thì render bảng ở đây */}
-                  {invoice.services?.length > 0 && <Table columns={serviceColumns} dataSource={invoice.services} size="small" pagination={false} style={{ marginTop: 8 }} />}
-                  
-                  {invoice.status !== 'Paid' && (
-                     <Button type="dashed" block size="small" style={{ marginTop: 8 }} icon={<ShoppingCart/>}>+ Thêm dịch vụ nhanh</Button>
-                  )}
-                </Collapse.Panel>
+              <Collapse defaultActiveKey={['1', '2']} items={collapseItems} style={{ marginBottom: 16, backgroundColor: '#fff', border: `1px solid ${LUXURY_COLORS.LIGHT_BLUE}` }} />
 
-                <Collapse.Panel header={<Text strong style={{ color: COLORS.ACCENT_RED }}><WarningCircle size={18}/> Phạt Hư Hỏng / Mất mát</Text>} key="2">
-                   <Descriptions column={1} size="small">
-                     <Descriptions.Item label="Tổng phí đền bù">
-                       <Text type="danger" strong>{new Intl.NumberFormat('vi-VN').format(invoice.totalDamageAmount || 0)}đ</Text>
-                     </Descriptions.Item>
-                   </Descriptions>
-                   {invoice.status !== 'Paid' && (
-                     <Button type="dashed" danger block size="small" style={{ marginTop: 8 }}>+ Lập biên bản đền bù</Button>
-                   )}
-                </Collapse.Panel>
-              </Collapse>
-
-              {/* KHỐI TRỪ TIỀN (VOUCHER & HẠNG THÀNH VIÊN) */}
-              <Card size="small" style={{ backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', marginBottom: 16 }}>
-                 <Title level={5} style={{ color: '#166534', margin: 0, paddingBottom: 8 }}>Khuyến mãi & Trừ tiền</Title>
-                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                   <Text>Voucher / Hạng Thành Viên áp dụng:</Text>
-                   <Text strong style={{ color: '#166534' }}>- {new Intl.NumberFormat('vi-VN').format(invoice.discountAmount)}đ</Text>
-                 </div>
-                 {/* Khung này em có thể show chữ: "Hạng Vàng (-10%)" tùy thuộc data backend đẩy lên */}
-              </Card>
-
-              {/* KHỐI TỔNG KẾT */}
-              <Divider style={{ margin: '16px 0' }} />
+              <Divider style={{ margin: '16px 0', borderColor: LUXURY_COLORS.LIGHT_BLUE }} />
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                 <Text type="secondary">Khuyến mãi / Chiết khấu:</Text>
+                 <Text strong style={{ color: LUXURY_COLORS.SUCCESS }}>- {new Intl.NumberFormat('vi-VN').format(invoice.discountAmount)}đ</Text>
+              </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                  <Text type="secondary">Thuế VAT (10%)</Text>
                  <Text>{new Intl.NumberFormat('vi-VN').format(invoice.taxAmount)}đ</Text>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                 <Title level={4} style={{ margin: 0 }}>TỔNG THANH TOÁN</Title>
-                 <Title level={3} style={{ color: COLORS.ACCENT_RED, margin: 0 }}>{new Intl.NumberFormat('vi-VN').format(invoice.finalTotal)}đ</Title>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 16, padding: '12px 0', borderTop: `2px dashed ${LUXURY_COLORS.MUTED_BLUE}` }}>
+                 <Title level={5} style={{ margin: 0, color: LUXURY_COLORS.NAVY, fontWeight: 900 }}>TỔNG THANH TOÁN</Title>
+                 <Title level={3} style={{ color: LUXURY_COLORS.ACCENT_RED, margin: 0, fontWeight: 900 }}>{new Intl.NumberFormat('vi-VN').format(invoice.finalTotal)}đ</Title>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-                 <Text type="secondary">Đã khách đưa / cọc:</Text>
-                 <Text strong style={{ color: COLORS.SUCCESS }}>{new Intl.NumberFormat('vi-VN').format(invoice.amountPaid)}đ</Text>
+                 <Text type="secondary">Khách đã trả / Cọc:</Text>
+                 <Text strong style={{ color: LUXURY_COLORS.SUCCESS, fontSize: 16 }}>{new Intl.NumberFormat('vi-VN').format(invoice.amountPaid)}đ</Text>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, padding: '8px', backgroundColor: '#f8fafc', borderRadius: 6 }}>
-                 <Text strong>KHÁCH CÒN NỢ:</Text>
-                 <Text strong style={{ fontSize: 16 }}>{new Intl.NumberFormat('vi-VN').format(invoice.finalTotal - invoice.amountPaid)}đ</Text>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12, padding: '16px', backgroundColor: '#fff', borderRadius: 8, border: `2px solid ${invoice.finalTotal - invoice.amountPaid > 0 ? LUXURY_COLORS.ACCENT_RED : LUXURY_COLORS.SUCCESS}` }}>
+                 <Text strong style={{ fontSize: 16, color: LUXURY_COLORS.DARKEST }}>KHÁCH CÒN NỢ:</Text>
+                 <Text strong style={{ fontSize: 18, color: invoice.finalTotal - invoice.amountPaid > 0 ? LUXURY_COLORS.ACCENT_RED : LUXURY_COLORS.SUCCESS }}>
+                    {new Intl.NumberFormat('vi-VN').format(Math.max(0, invoice.finalTotal - invoice.amountPaid))}đ
+                 </Text>
               </div>
             </div>
 
-            {/* FOOTER NÚT BẤM */}
-            <div style={{ marginTop: 24, paddingTop: 16, borderTop: `1px solid ${COLORS.LIGHTEST}`, display: 'flex', justifyContent: 'space-between' }}>
-              <Button icon={<Calculator/>} onClick={handleRecalculate} disabled={invoice.status === 'Paid'}>Tính lại tiền</Button>
+            <div style={{ marginTop: 24, paddingTop: 16, borderTop: `1px solid ${LUXURY_COLORS.LIGHT_BLUE}`, display: 'flex', justifyContent: 'space-between' }}>
+              <Button icon={<Calculator/>} onClick={handleRecalculate} disabled={invoice.status === 'Paid'} style={{ color: LUXURY_COLORS.NAVY }}>Cập nhật lại</Button>
               <Space>
-                <Button icon={<Printer/>} onClick={() => window.print()} disabled={invoice.status !== 'Paid'}>In Hóa Đơn</Button>
+                <Button type="primary" size="large" icon={<Printer size={20} />} onClick={handlePrint} disabled={invoice.status !== 'Paid'} style={{ backgroundColor: LUXURY_COLORS.GOLD, color: LUXURY_COLORS.DARKEST, fontWeight: 'bold', border: 'none' }}>
+                  IN BIÊN LAI
+                </Button>
                 {invoice.status !== 'Paid' && (
-                  <Button type="primary" size="large" icon={<CreditCard />} onClick={openPayModal} style={{ backgroundColor: COLORS.MIDNIGHT_BLUE }}>
-                    THU TIỀN
+                  <Button type="primary" size="large" icon={<CreditCard size={20}/>} onClick={openPayModal} style={{ backgroundColor: LUXURY_COLORS.NAVY, padding: '0 24px', fontWeight: 'bold' }}>
+                    THU TIỀN NGAY
                   </Button>
                 )}
               </Space>
@@ -180,24 +261,116 @@ export default function InvoiceDetailDrawer({ isOpen, onClose, invoiceId, onSucc
         )}
       </Drawer>
 
-      {/* MODAL THU TIỀN */}
-      <Modal title="Xác nhận Thu tiền" open={isPayModalOpen} onCancel={() => setIsPayModalOpen(false)} footer={null} centered>
+      <Modal title={<span style={{ color: LUXURY_COLORS.NAVY, fontSize: 18, fontWeight: 900 }}>Xác nhận Thu tiền</span>} open={isPayModalOpen} onCancel={() => setIsPayModalOpen(false)} footer={null} centered width={450}>
         <Form form={payForm} layout="vertical" onFinish={handlePayment} style={{ marginTop: 24 }}>
-          <Form.Item name="paymentMethod" label="Phương thức thanh toán" rules={[{ required: true }]}>
+          <Form.Item name="paymentMethod" label={<span style={{fontWeight: 'bold', color: LUXURY_COLORS.NAVY}}>Phương thức thanh toán</span>} rules={[{ required: true }]}>
             <Select size="large">
-              <Select.Option value="Cash"><Space><Money color="green" /> Tiền mặt</Space></Select.Option>
-              <Select.Option value="Bank Transfer"><Space><QrCode color="blue" /> Chuyển khoản (Xác nhận tay)</Space></Select.Option>
-              <Select.Option value="VNPay"><Space><CreditCard color="red" /> Quẹt thẻ VNPay</Space></Select.Option>
+              <Select.Option value="Cash"><Space><Money color={LUXURY_COLORS.SUCCESS} /> Tiền mặt (Thu ngân nhận)</Space></Select.Option>
+              <Select.Option value="Bank Transfer"><Space><QrCode color={LUXURY_COLORS.NAVY} /> Quét mã QR Ngân Hàng</Space></Select.Option>
+              <Select.Option value="VNPay"><Space><CreditCard color="blue" /> Cổng thanh toán VNPay</Space></Select.Option>
+              <Select.Option value="MoMo"><Space><CreditCard color="magenta" /> Ví điện tử MoMo</Space></Select.Option>
             </Select>
           </Form.Item>
-          <Form.Item name="amountPaid" label="Số tiền thu (VNĐ)" rules={[{ required: true }]}>
-            <InputNumber size="large" style={{ width: '100%' }} formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} />
+          
+          <Form.Item name="amountPaid" label={<span style={{fontWeight: 'bold', color: LUXURY_COLORS.NAVY}}>Số tiền khách trả (VNĐ)</span>} rules={[{ required: true }]}>
+            <InputNumber 
+                size="large" 
+                style={{ width: '100%', fontSize: 18, color: LUXURY_COLORS.ACCENT_RED, fontWeight: 'bold' }} 
+                formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} 
+                parser={v => {
+                    const numStr = v ? v.toString().replace(/\D/g, '') : '';
+                    return numStr ? parseInt(numStr, 10) : '';
+                }} 
+            />
           </Form.Item>
+
+          {paymentMethod === 'Bank Transfer' && amountPaid > 0 && (
+             <div style={{ textAlign: 'center', backgroundColor: LUXURY_COLORS.LIGHTEST, padding: 16, borderRadius: 8, border: `2px dashed ${LUXURY_COLORS.NAVY}`, marginBottom: 16 }}>
+                 <Text strong style={{ color: LUXURY_COLORS.NAVY, display: 'block', marginBottom: 8 }}>Khách quét mã bên dưới để thanh toán:</Text>
+                 <img 
+                    src={`https://qr.sepay.vn/img?bank=VIB&acc=034537384&template=qronly&amount=${amountPaid}&des=Thanh+toan+hoa+don+${invoiceId}`} 
+                    alt="VietQR" 
+                    style={{ width: 220, borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} 
+                 />
+             </div>
+          )}
+
           <div style={{ textAlign: 'right', marginTop: 16 }}>
-            <Button size="large" type="primary" htmlType="submit" loading={loading} style={{ backgroundColor: COLORS.MIDNIGHT_BLUE }}>Xác nhận</Button>
+            <Button size="large" onClick={() => setIsPayModalOpen(false)} style={{ marginRight: 8, fontWeight: 600 }}>Hủy</Button>
+            <Button size="large" type="primary" htmlType="submit" loading={loading} style={{ backgroundColor: LUXURY_COLORS.ACCENT_RED, fontWeight: 'bold', border: 'none' }}>GHI NHẬN THANH TOÁN</Button>
           </div>
         </Form>
       </Modal>
+
+      {/* KHU VỰC IN (Giữ nguyên) */}
+      {invoice && (
+        <div className="print-only">
+          <div style={{ textAlign: 'center', marginBottom: 24, borderBottom: `2px solid ${LUXURY_COLORS.NAVY}`, paddingBottom: 16 }}>
+            <h1 style={{ margin: 0, color: LUXURY_COLORS.NAVY, letterSpacing: '2px' }}>ABC LUXURY HOTEL</h1>
+            <p style={{ margin: '4px 0' }}>123 Đường Tôn Đức Thắng, Phường Trấn Biên, Biên Hòa</p>
+            <p style={{ margin: 0 }}>SĐT: 0123.456.789 | Email: contact@abchotel.vn</p>
+            <h2 style={{ marginTop: 16, color: '#000' }}>BIÊN LAI THANH TOÁN (FOLIO)</h2>
+          </div>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 30 }}>
+            <div>
+              <p style={{ margin: '4px 0' }}><b>Khách hàng:</b> {invoice.guestName}</p>
+              <p style={{ margin: '4px 0' }}><b>Ngày lập hóa đơn:</b> {dayjs(invoice.createdAt).format('DD/MM/YYYY HH:mm')}</p>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ margin: '4px 0' }}><b>Hóa đơn số:</b> INV-{invoice.id}</p>
+              <p style={{ margin: '4px 0' }}><b>Mã Booking:</b> {invoice.bookingCode}</p>
+              <p style={{ margin: '4px 0' }}><b>Ngày in bill:</b> {dayjs().format('DD/MM/YYYY HH:mm')}</p>
+            </div>
+          </div>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 30 }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f0f0f0', borderBottom: '2px solid #000', borderTop: '2px solid #000' }}>
+                <th style={{ textAlign: 'left', padding: '12px 8px' }}>HẠNG MỤC PHÁT SINH</th>
+                <th style={{ textAlign: 'right', padding: '12px 8px' }}>THÀNH TIỀN (VNĐ)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td style={{ padding: '12px 8px', borderBottom: '1px dashed #ccc' }}>1. Phí thuê phòng</td><td style={{ textAlign: 'right', padding: '12px 8px', borderBottom: '1px dashed #ccc' }}>{new Intl.NumberFormat('vi-VN').format(invoice.totalRoomAmount)}</td></tr>
+              <tr><td style={{ padding: '12px 8px', borderBottom: '1px dashed #ccc' }}>2. Dịch vụ (Minibar, Nhà hàng, Giặt ủi...)</td><td style={{ textAlign: 'right', padding: '12px 8px', borderBottom: '1px dashed #ccc' }}>{new Intl.NumberFormat('vi-VN').format(invoice.totalServiceAmount)}</td></tr>
+              {invoice.totalDamageAmount > 0 && <tr><td style={{ padding: '12px 8px', borderBottom: '1px dashed #ccc' }}>3. Phí đền bù hư hỏng vật tư</td><td style={{ textAlign: 'right', padding: '12px 8px', borderBottom: '1px dashed #ccc' }}>{new Intl.NumberFormat('vi-VN').format(invoice.totalDamageAmount)}</td></tr>}
+              <tr><td style={{ padding: '12px 8px', borderBottom: '1px dashed #ccc' }}>Trừ: Khuyến mãi / Ưu đãi hạng thẻ</td><td style={{ textAlign: 'right', padding: '12px 8px', borderBottom: '1px dashed #ccc' }}>- {new Intl.NumberFormat('vi-VN').format(invoice.discountAmount)}</td></tr>
+              <tr><td style={{ padding: '12px 8px', borderBottom: '2px solid #000' }}>Thuế giá trị gia tăng (VAT 10%)</td><td style={{ textAlign: 'right', padding: '12px 8px', borderBottom: '2px solid #000' }}>{new Intl.NumberFormat('vi-VN').format(invoice.taxAmount)}</td></tr>
+            </tbody>
+          </table>
+
+          <div style={{ textAlign: 'right', fontSize: 18 }}>
+            <p style={{ margin: '8px 0' }}><b>TỔNG THANH TOÁN:</b> <span style={{ fontSize: 24, fontWeight: 'bold' }}>{new Intl.NumberFormat('vi-VN').format(invoice.finalTotal)}đ</span></p>
+            <p style={{ margin: '8px 0' }}><b>Đã thu của khách:</b> {new Intl.NumberFormat('vi-VN').format(invoice.amountPaid)}đ</p>
+            <p style={{ margin: '8px 0', fontStyle: 'italic', fontSize: 14 }}>Hóa đơn này đã được thanh toán đầy đủ qua hệ thống.</p>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 60 }}>
+            <div style={{ textAlign: 'center' }}>
+                <p><b>KHÁCH HÀNG</b></p>
+                <p style={{ fontStyle: 'italic', fontSize: 12 }}>(Ký và ghi rõ họ tên)</p>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+                <p><b>THU NGÂN / KẾ TOÁN</b></p>
+                <p style={{ fontStyle: 'italic', fontSize: 12 }}>(Ký và ghi rõ họ tên)</p>
+            </div>
+          </div>
+          
+          <div style={{ textAlign: 'center', marginTop: 100, borderTop: '1px solid #000', paddingTop: 16 }}>
+            <p><i>Cảm ơn quý khách đã tin tưởng và lựa chọn dịch vụ của ABC Hotel. Chúc quý khách một chuyến đi vui vẻ!</i></p>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        .print-only { display: none; }
+        @media print {
+          body * { visibility: hidden; }
+          .print-only, .print-only * { visibility: visible; }
+          .print-only { display: block; position: absolute; left: 0; top: 0; width: 100%; padding: 20px; font-family: 'Times New Roman', serif; color: #000; }
+        }
+      `}</style>
     </>
   );
 }

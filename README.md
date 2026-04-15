@@ -7,6 +7,8 @@ dotnet restore
 dotnet clean
 dotnet build
 npm install react-quill-new
+npm install framer-motion
+
 máy tính trường 
 dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org
 dotnet nuget locals all --clear
@@ -60,3 +62,12 @@ dotnet add package Google.Apis.Auth
 dotnet add package Swashbuckle.AspNetCore
 dotnet add package CloudinaryDotNet
 dotnet add package MailKit
+
+
+
+VNPay
+Ngân hàng	NCB
+Số thẻ	9704198526191432198
+Tên chủ thẻ	NGUYEN VAN A
+Ngày phát hành	07/15
+Mật khẩu OTP	123456

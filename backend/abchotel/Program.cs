@@ -63,6 +63,7 @@ builder.Services.AddScoped<IMoMoService, MoMoService>();
 // Đăng ký Background Workers (Chạy ngầm)
 builder.Services.AddHostedService<RoomHoldCleanupService>();
 builder.Services.AddHostedService<LoyaltyDowngradeWorker>();
+builder.Services.AddHostedService<BirthdayVoucherWorker>();
 
 builder.Services.AddSignalR();
 // ==========================================

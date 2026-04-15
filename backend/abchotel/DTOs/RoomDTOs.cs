@@ -19,6 +19,7 @@ namespace abchotel.DTOs
         public string ViewDirection { get; set; }
         public decimal BasePrice { get; set; }
         public decimal PricePerHour { get; set; }
+        public int? CurrentBookingDetailId { get; set; }
     }
 
     public class CreateRoomRequest

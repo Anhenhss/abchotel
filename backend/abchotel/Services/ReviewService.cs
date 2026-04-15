@@ -19,6 +19,7 @@ namespace abchotel.Services
         Task<bool> ApproveReviewAsync(int id);
         Task<bool> ReplyToReviewAsync(int id, string replyComment);
         Task<bool> ToggleSoftDeleteAsync(int id);
+        Task<List<ReviewResponse>> GetTopPublicReviewsAsync(int count);
     }
 
     public class ReviewService : IReviewService
@@ -105,10 +106,10 @@ namespace abchotel.Services
             // 3. Trong Booking này phải có đặt đúng cái RoomTypeId đó.
             var hasStayed = await _context.BookingDetails
                 .Include(bd => bd.Booking)
-                .AnyAsync(bd => bd.BookingId == request.BookingId 
-                             && bd.Booking.UserId == userId 
-                             && bd.RoomTypeId == request.RoomTypeId 
-                             && bd.Booking.Status == "Completed"); 
+                .AnyAsync(bd => bd.BookingId == request.BookingId
+                             && bd.Booking.UserId == userId
+                             && bd.RoomTypeId == request.RoomTypeId
+                             && bd.Booking.Status == "Completed");
 
             if (!hasStayed)
             {
@@ -120,8 +121,8 @@ namespace abchotel.Services
 
             var review = new Review
             {
-                UserId = userId, 
-                BookingId = request.BookingId, 
+                UserId = userId,
+                BookingId = request.BookingId,
                 RoomTypeId = request.RoomTypeId,
                 Rating = request.Rating,
                 Comment = request.Comment,
@@ -135,8 +136,8 @@ namespace abchotel.Services
 
             // 🔔 BẮN THÔNG BÁO CHO NHÓM CONTENT VÀO DUYỆT BÀI
             await _notificationService.SendToPermissionAsync(
-                "MANAGE_CONTENT", 
-                "Có đánh giá mới chờ duyệt", 
+                "MANAGE_CONTENT",
+                "Có đánh giá mới chờ duyệt",
                 $"[{guestName}] vừa đánh giá {request.Rating} sao cho loại phòng {roomType.Name}. Vui lòng kiểm duyệt."
             );
 
@@ -190,6 +191,26 @@ namespace abchotel.Services
             await _notificationService.SendToPermissionAsync("MANAGE_CONTENT", "Quản lý Đánh giá", $"[{userName}] vừa {action} một đánh giá rác ở {roomName}.");
 
             return true;
+        }
+        public async Task<List<ReviewResponse>> GetTopPublicReviewsAsync(int count)
+        {
+            // Chỉ lấy review Đã duyệt (IsVisible = true), Chưa bị xóa (IsActive = true) và từ 4 sao trở lên
+            return await _context.Reviews
+                .Include(r => r.User)
+                .Include(r => r.RoomType)
+                .Where(r => r.IsVisible && r.IsActive && r.Rating >= 4)
+                .OrderByDescending(r => r.Rating).ThenByDescending(r => r.CreatedAt)
+                .Take(count)
+                .Select(r => new ReviewResponse
+                {
+                    Id = r.Id,
+                    GuestName = r.User != null ? r.User.FullName : "Khách ẩn danh",
+                    RoomTypeName = r.RoomType != null ? r.RoomType.Name : "Khách sạn ABCHotel",
+                    Rating = r.Rating,
+                    Comment = r.Comment,
+                    ReplyComment = r.ReplyComment,
+                    CreatedAt = r.CreatedAt
+                }).ToListAsync();
         }
     }
 }

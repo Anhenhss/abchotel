@@ -178,24 +178,22 @@ namespace abchotel.Services
                     }
                 }
             }
-
+            response.TotalDamageAmount = response.Damages.Sum(d => d.PenaltyAmount);
             return response;
         }
 
         //  HÀM LẤY HÓA ĐƠN THEO MÃ BOOKING
         public async Task<InvoiceResponse> GetInvoiceByBookingCodeAsync(string bookingCode)
         {
-            var i = await _context.Invoices.Include(i => i.Booking).Include(i => i.Payments)
-                                 .FirstOrDefaultAsync(x => x.Booking != null && x.Booking.BookingCode == bookingCode);
-            if (i == null) return null;
+            // 1. Tìm ID của Hóa đơn dựa vào mã Booking
+            var invoice = await _context.Invoices
+                .Include(i => i.Booking)
+                .FirstOrDefaultAsync(x => x.Booking != null && x.Booking.BookingCode == bookingCode);
+                
+            if (invoice == null) return null;
 
-            return new InvoiceResponse
-            {
-                Id = i.Id, BookingId = i.BookingId, BookingCode = i.Booking?.BookingCode, GuestName = i.Booking?.GuestName,
-                TotalRoomAmount = i.TotalRoomAmount ?? 0, TotalServiceAmount = i.TotalServiceAmount ?? 0,
-                DiscountAmount = i.DiscountAmount ?? 0, TaxAmount = i.TaxAmount ?? 0, FinalTotal = i.FinalTotal ?? 0,
-                AmountPaid = i.Payments.Sum(p => p.AmountPaid), Status = i.Status, CreatedAt = i.CreatedAt
-            };
+            // 2. 🔥 Tái sử dụng ngay hàm GetInvoiceByIdAsync đã được viết Include rất đầy đủ bên trên!
+            return await GetInvoiceByIdAsync(invoice.Id);
         }
 
         public async Task<bool> RecalculateInvoiceAsync(int invoiceId)

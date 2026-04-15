@@ -32,7 +32,8 @@ export default function VouchersPage() {
       const res = await voucherApi.getAll();
       setVouchers(res || []);
     } catch (error) {
-      if (!isSilent) api.error({ message: 'Lỗi tải dữ liệu', description: 'Không thể lấy danh sách mã khuyến mãi.' });
+      // 🔥 FIX ANTD WARNING: Đổi 'message' thành 'title'
+      if (!isSilent) api.error({ title: 'Lỗi tải dữ liệu', description: 'Không thể lấy danh sách mã khuyến mãi.' });
     } finally {
       if (!isSilent) setLoading(false);
     }
@@ -80,15 +81,15 @@ export default function VouchersPage() {
 
       if (editingVoucher) {
         await voucherApi.update(editingVoucher.id, payload);
-        api.success({ message: 'Thành công', description: 'Đã cập nhật mã khuyến mãi.' });
+        api.success({ title: 'Thành công', description: 'Đã cập nhật mã khuyến mãi.' });
       } else {
         await voucherApi.create(payload);
-        api.success({ message: 'Thành công', description: 'Đã tạo mã khuyến mãi mới.' });
+        api.success({ title: 'Thành công', description: 'Đã tạo mã khuyến mãi mới.' });
       }
       setIsModalOpen(false);
       fetchVouchers();
     } catch (error) {
-      api.error({ message: 'Lỗi', description: error.response?.data?.message || 'Có lỗi xảy ra.' });
+      api.error({ title: 'Lỗi', description: error.response?.data?.message || 'Có lỗi xảy ra.' });
     } finally {
       setLoading(false);
     }
@@ -98,21 +99,20 @@ export default function VouchersPage() {
     try {
       setLoading(true);
       await voucherApi.toggleStatus(id);
-      api.success({ message: 'Thành công', description: 'Đã đổi trạng thái mã khuyến mãi.' });
+      api.success({ title: 'Thành công', description: 'Đã đổi trạng thái mã khuyến mãi.' });
       fetchVouchers();
     } catch (error) {
-      api.error({ message: 'Lỗi', description: 'Không thể đổi trạng thái lúc này.' });
+      api.error({ title: 'Lỗi', description: 'Không thể đổi trạng thái lúc này.' });
     } finally {
       setLoading(false);
     }
   };
 
-  // 🔥 1. THUẬT TOÁN TÍNH TOÁN TRẠNG THÁI ĐỘNG (DYNAMIC STATUS)
   const getVoucherStatus = (record) => {
     const isExpired = record.validTo && dayjs().isAfter(dayjs(record.validTo));
-    if (isExpired) return 'EXPIRED'; // Hết hạn
-    if (!record.isActive) return 'PAUSED'; // Tạm ngưng
-    return 'ACTIVE'; // Đang diễn ra
+    if (isExpired) return 'EXPIRED'; 
+    if (!record.isActive) return 'PAUSED'; 
+    return 'ACTIVE'; 
   };
 
   const renderStatusTag = (status) => {
@@ -124,7 +124,6 @@ export default function VouchersPage() {
     }
   };
 
-  // 🔥 2. LỌC VÀ SẮP XẾP: Đẩy thẻ Tạm Ngưng và Hết Hạn xuống dưới cùng
   const processedVouchers = vouchers
     .filter(v => {
       const matchSearch = v.code?.toLowerCase().includes(searchText.toLowerCase());
@@ -136,8 +135,8 @@ export default function VouchersPage() {
       const weightA = statusWeight[getVoucherStatus(a)];
       const weightB = statusWeight[getVoucherStatus(b)];
       
-      if (weightA !== weightB) return weightA - weightB; // Ưu tiên xếp theo Trạng thái trước
-      return dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf(); // Cùng trạng thái thì cái nào mới tạo nằm trên
+      if (weightA !== weightB) return weightA - weightB; 
+      return dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf(); 
     });
 
   const columns = [
@@ -206,7 +205,6 @@ export default function VouchersPage() {
 
         return (
           <Space size="small">
-            {/* 🔥 KHÓA NÚT SỬA NẾU ĐÃ HẾT HẠN HOẶC ĐANG TẠM NGƯNG */}
             <Tooltip title={isExpired ? "Không thể sửa mã đã hết hạn" : isPaused ? "Hãy kích hoạt lại mã trước khi sửa" : "Chỉnh sửa"}>
               <Button 
                 type="text" 
@@ -216,7 +214,6 @@ export default function VouchersPage() {
               />
             </Tooltip>
             
-            {/* 🔥 KHÓA NÚT KÍCH HOẠT NẾU ĐÃ HẾT HẠN */}
             <Tooltip title={isExpired ? "Mã đã hết hạn, không thể kích hoạt" : (record.isActive ? "Tạm ngưng" : "Kích hoạt")}>
               <Popconfirm 
                 title={`Bạn có chắc muốn ${record.isActive ? "tạm ngưng" : "kích hoạt"} mã này?`} 
@@ -325,8 +322,8 @@ export default function VouchersPage() {
         <Form form={form} layout="vertical" onFinish={handleSubmit} style={{ marginTop: 24 }}>
           <Row gutter={16}>
             <Col xs={24} md={12}>
-              <Form.Item name="code" label={<Text strong>Mã Code</Text>} rules={[{ required: true, message: 'Nhập mã code' }]}>
-                <Input size="large" placeholder="VD: SUMMER2026" style={{ textTransform: 'uppercase' }} disabled={!!editingVoucher} />
+              <Form.Item name="code" label={<Text strong>Mã Code</Text>}>
+                <Input size="large" placeholder="Bỏ trống để hệ thống tự sinh mã" style={{ textTransform: 'uppercase' }} disabled={!!editingVoucher} />
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
@@ -355,14 +352,12 @@ export default function VouchersPage() {
 
             <Col xs={24}>
               <Form.Item name="dateRange" label={<Text strong>Thời gian áp dụng</Text>}>
-                {/* 🔥 RÀNG BUỘC KHÔNG CHO CHỌN NGÀY QUÁ KHỨ */}
                 <RangePicker 
                   size="large" 
                   style={{ width: '100%' }} 
                   format="DD/MM/YYYY HH:mm" 
                   showTime 
                   disabledDate={(current) => {
-                    // Không cho chọn các ngày trước ngày hôm nay
                     return current && current < dayjs().startOf('day');
                   }}
                 />
