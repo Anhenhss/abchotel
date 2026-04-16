@@ -42,9 +42,11 @@ import ServicesPage from '../pages/ServicesPage';
 import BookingsPage from '../pages/BookingsPage';
 import CreateBookingPage from "../pages/CreateBookingPage";
 import InvoicesPage from "../pages/InvoicesPage";
+
 // ================= CLIENT PAGES =================
 import AboutPage from '../pages/Client/AboutPage';
 import ContactPage from '../pages/Client/ContactPage';
+import ArticlePage from '../pages/Client/ArticlePage';
 
 
 // COMPONENT TẠM THỜI ĐỂ XEM TEST GIAO DIỆN CLIENT
@@ -81,7 +83,10 @@ export default function AppRoutes() {
         <Route path="/rooms" element={<PlaceholderClientPage title="Phòng & Suites" />} />
         <Route path="/services" element={<PlaceholderClientPage title="Dịch vụ Khách sạn" />} />
         <Route path="/offers" element={<PlaceholderClientPage title="Khuyến mãi & Ưu đãi" />} />
-        <Route path="/blog" element={<PlaceholderClientPage title="Cẩm nang du lịch" />} />
+        
+        {/* ĐÃ CẬP NHẬT: Thay thế Placeholder bằng ArticlePage thực tế */}
+        <Route path="/blog" element={<ArticlePage />} />
+        
         <Route path="/about" element={<AboutPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/privacy-policy" element={<PlaceholderClientPage title="Chính sách & Điều khoản" />} />
