@@ -4,7 +4,7 @@ import { Routes, Route } from 'react-router-dom';
 
 // ================= LAYOUTS =================
 import AdminLayout from '../layouts/AdminLayout';
-import ClientLayout from '../layouts/ClientLayout'; // 🔥 LAYOUT KHÁCH HÀNG
+import ClientLayout from '../layouts/ClientLayout'; 
 
 // ================= PAGES =================
 import AuthPage from '../pages/AuthPage';
@@ -42,9 +42,11 @@ import ServicesPage from '../pages/ServicesPage';
 import BookingsPage from '../pages/BookingsPage';
 import CreateBookingPage from "../pages/CreateBookingPage";
 import InvoicesPage from "../pages/InvoicesPage";
+
 // ================= CLIENT PAGES =================
 import AboutPage from '../pages/Client/AboutPage';
 import ContactPage from '../pages/Client/ContactPage';
+import Profile from '../pages/Profile'; // 🔥 FILE PROFILE LY MỚI LÀM ĐÃ ĐƯỢC THÊM VÀO ĐÂY
 
 
 // COMPONENT TẠM THỜI ĐỂ XEM TEST GIAO DIỆN CLIENT
@@ -57,12 +59,10 @@ const PlaceholderClientPage = ({ title }) => (
 export default function AppRoutes() {
   const { checkAuth, isInitialized } = useAuthStore();
 
-  // Chạy 1 lần duy nhất khi load web để khôi phục phiên
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
 
-  // Nếu chưa check xong Token thì hiện màn hình loading, chặn không cho nhảy trang
   if (!isInitialized) {
     return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Đang tải dữ liệu hệ thống...</div>;
   }
@@ -74,10 +74,8 @@ export default function AppRoutes() {
       {/* 1. ROUTES CHO KHÁCH HÀNG (DÙNG CLIENT LAYOUT)            */}
       {/* ======================================================== */}
       <Route element={<ClientLayout />}>
-        {/* Nếu em đã có HomePage cũ thì dùng, nếu không nó sẽ rỗng */}
         <Route path="/" element={<HomePage />} /> 
         
-        {/* Các trang hiển thị cho khách */}
         <Route path="/rooms" element={<PlaceholderClientPage title="Phòng & Suites" />} />
         <Route path="/services" element={<PlaceholderClientPage title="Dịch vụ Khách sạn" />} />
         <Route path="/offers" element={<PlaceholderClientPage title="Khuyến mãi & Ưu đãi" />} />
@@ -86,19 +84,19 @@ export default function AppRoutes() {
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/privacy-policy" element={<PlaceholderClientPage title="Chính sách & Điều khoản" />} />
         
-        {/* Route cho Khách hàng đăng nhập vào xem thông tin cá nhân */}
+        {/* Route cho Khách hàng xem thông tin cá nhân */}
         <Route path="/profile" element={
           <ProtectedRoute>
-            <PlaceholderClientPage title="Hồ sơ cá nhân của Khách" />
+            <Profile /> {/* 🔥 ĐÃ THAY THẾ PLACEHOLDER BẰNG TRANG PROFILE THẬT */}
           </ProtectedRoute>
         } />
+
         <Route path="/my-bookings" element={
           <ProtectedRoute>
             <PlaceholderClientPage title="Lịch sử đặt phòng của Khách" />
           </ProtectedRoute>
         } />
 
-        {/* Khách gõ bậy đường dẫn -> Trả về 404 NẰM TRONG Layout Client */}
         <Route path="*" element={<Error404 />} />
       </Route>
 
@@ -260,7 +258,6 @@ export default function AppRoutes() {
           </RequirePermission>
         } />
 
-        {/* Quản trị viên gõ bậy đường dẫn -> Trả về 404 NẰM TRONG Layout Admin */}
         <Route path="*" element={<Error404 />} />
       </Route>
 

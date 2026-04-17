@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================
+   ABCHOTEL GLOBAL THEME
+   Dark + Blue + Dark Red
+========================= */
+
+:root {
+  --primary: #1e88e5;   /* xanh dương */
+  --dark: #0f172a;      /* nền chính */
+  --dark-2: #111827;    /* card */
+  --accent: #7f1d1d;    /* đỏ sẫm */
+  --text: #e5e7eb;
+}
+
+/* GLOBAL STYLE */
+body {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  background-color: var(--dark);
+  color: var(--text);
+}
+
+/* SCROLLBAR (cho đẹp hơn) */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0b1220;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #1565c0;
+}
+
+/* INPUT CHUNG (dùng trong Profile, form) */
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--dark);
+  border: 1px solid #1e3a8a;
+  outline: none;
+  color: white;
+  transition: 0.2s;
+}
+
+.input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(30, 136, 229, 0.2);
+}
+
+/* BUTTON CHUNG */
+.btn-primary {
+  background: var(--primary);
+  padding: 10px 16px;
+  border-radius: 12px;
+  color: white;
+  transition: 0.2s;
+  font-weight: 500;
+}
+
+.btn-primary:hover {
+  background: #1565c0;
+}
+
+/* CARD STYLE */
+.card {
+  background: var(--dark-2);
+  border: 1px solid #1e3a8a;
+  border-radius: 16px;
+  padding: 16px;
+}
+
+/* TEXT STYLE */
+.text-accent {
+  color: var(--primary);
+}
+
+.text-danger {
+  color: var(--accent);
+}
+
+/* MOBILE OPTIMIZE */
+@media (max-width: 768px) {
+  .hide-mobile {
+    display: none;
+  }
+}

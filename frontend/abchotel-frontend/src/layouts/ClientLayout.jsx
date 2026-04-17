@@ -10,7 +10,7 @@ const ClientLayout = () => {
   useEffect(() => {
     // Cấu hình SignalR Realtime
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl("https://localhost:xxxx/notificationHub") // Thay port backend của bạn vào đây
+      .withUrl("http://localhost:5000/notificationHub") // ✅ ĐÃ FIX (thay port backend của bạn vào đây)
       .withAutomaticReconnect()
       .build();
 
@@ -33,14 +33,16 @@ const ClientLayout = () => {
         <div className="p-6 border-b border-white/10 text-center font-bold text-xl tracking-widest text-[#8b0000]">
           ABC HOTEL
         </div>
-        
+
         <nav className="flex-1 p-4 space-y-2">
           <Link to="/" className={`flex items-center gap-3 p-3 rounded-lg transition ${location.pathname === '/' ? 'bg-[#8b0000]' : 'hover:bg-white/10'}`}>
             <Home size={20} /> Trang chủ
           </Link>
+
           <Link to="/profile" className={`flex items-center gap-3 p-3 rounded-lg transition ${location.pathname === '/profile' ? 'bg-[#8b0000]' : 'hover:bg-white/10'}`}>
             <User size={20} /> Hồ sơ cá nhân
           </Link>
+
           <Link to="/booking" className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition">
             <Calendar size={20} /> Đặt phòng
           </Link>
@@ -58,18 +60,22 @@ const ClientLayout = () => {
         {/* Header - Mobile Responsive */}
         <header className="h-16 bg-white border-b flex items-center justify-between px-6 shadow-sm">
           <div className="md:hidden font-bold text-[#001f3f]">ABC HOTEL</div>
+
           <div className="ml-auto flex items-center gap-4">
             <button className="relative p-2 text-gray-500 hover:text-[#8b0000]">
               <Bell size={22} />
               <span className="absolute top-1 right-1 w-2 h-2 bg-[#8b0000] rounded-full"></span>
             </button>
+
             <div className="flex items-center gap-2 border-l pl-4">
-              <span className="text-sm font-medium text-[#001f3f]">Ly Huỳnh</span>
+              <span className="text-sm font-medium text-[#001f3f]">
+                Ly Huỳnh
+              </span>
             </div>
           </div>
         </header>
 
-        {/* Nơi hiển thị các trang con (Profile, Home,...) */}
+        {/* Nơi hiển thị các trang con */}
         <main className="p-4 md:p-8 flex-1 overflow-y-auto">
           <motion.div
             key={location.pathname}
