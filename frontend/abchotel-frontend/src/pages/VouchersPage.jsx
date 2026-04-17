@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Button, Space, Typography, Tag, Modal, Form, Input, InputNumber, Select, DatePicker, notification, Tooltip, Popconfirm, Row, Col, Grid, Divider, Empty } from 'antd';
+import { Card, Table, Button, Space, Typography, Tag, Modal, Form, Input, InputNumber, Select, DatePicker, notification, Tooltip, Popconfirm, Row, Col, Grid, Divider, Empty, Switch} from 'antd';
 import { Plus, PencilSimple, Ticket, MagnifyingGlass, PlayCircle, PauseCircle, LockKey } from '@phosphor-icons/react';
 import dayjs from 'dayjs';
 
@@ -372,6 +372,11 @@ export default function VouchersPage() {
             <Col xs={24} md={12}>
               <Form.Item name="maxUsesPerUser" label={<Text strong>Lượt dùng mỗi khách hàng</Text>} rules={[{ required: true }]}>
                 <InputNumber size="large" style={{ width: '100%' }} min={1} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item name="isForNewCustomer" label={<Text strong>Chỉ dành cho Khách mới</Text>} valuePropName="checked">
+                <Switch checkedChildren="Bật" unCheckedChildren="Tắt" />
               </Form.Item>
             </Col>
           </Row>

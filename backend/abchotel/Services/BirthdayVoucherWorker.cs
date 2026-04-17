@@ -68,6 +68,7 @@ namespace abchotel.Services
                                     ValidTo = DateTime.Now.Date.AddDays(7), // Hạn dùng 7 ngày
                                     UsageLimit = 1, // Chỉ được xài 1 lần duy nhất
                                     MaxUsesPerUser = 1,
+                                    IsForNewCustomer = false,
                                     IsActive = true,
                                     CreatedAt = DateTime.Now
                                 };
@@ -99,8 +100,14 @@ namespace abchotel.Services
                     _logger.LogError(ex, "Lỗi khi chạy Job phát mã Voucher Sinh nhật.");
                 }
 
-                // Chạy quét 24 tiếng 1 lần
-                await Task.Delay(TimeSpan.FromHours(24), stoppingToken);
+                // Tính toán thời gian ngủ cho đến đúng 1:00 SÁNG ngày hôm sau
+                DateTime now = DateTime.Now;
+                DateTime nextRunTime = now.Date.AddDays(1).AddHours(1); // 1h sáng ngày mai
+                TimeSpan delaySpan = nextRunTime - now;
+
+                _logger.LogInformation($"Job Sinh nhật đã quét xong. Ngủ đông chờ đến đợt quét tiếp theo lúc {nextRunTime:dd/MM/yyyy HH:mm:ss}");
+
+                await Task.Delay(delaySpan, stoppingToken);
             }
         }
     }

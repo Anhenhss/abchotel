@@ -19,14 +19,14 @@ namespace abchotel.Controllers
         }
 
         [HttpGet]
-        [Authorize(Policy = "MANAGE_VOUCHERS")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetAll()
         {
             return Ok(await _voucherService.GetAllVouchersAsync());
         }
 
         [HttpGet("{id}")]
-        [Authorize(Policy = "MANAGE_VOUCHERS")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetById(int id)
         {
             var voucher = await _voucherService.GetVoucherByIdAsync(id);

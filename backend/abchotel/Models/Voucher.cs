@@ -56,6 +56,9 @@ public partial class Voucher
 
     [Column("max_uses_per_user")]
     public int MaxUsesPerUser { get; set; }
+    
+    [Column("is_for_new_customer")]
+    public bool IsForNewCustomer { get; set; }
 
     [Column("is_active")]
     public bool IsActive { get; set; }

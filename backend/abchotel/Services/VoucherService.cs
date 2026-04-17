@@ -180,7 +180,7 @@ namespace abchotel.Services
         {
             var voucher = await _context.Vouchers.Include(v => v.Bookings).FirstOrDefaultAsync(v => v.Code.ToUpper() == request.Code.ToUpper());
 
-            if (voucher == null || !voucher.IsActive) 
+            if (voucher == null || !voucher.IsActive)
                 return new ValidateVoucherResponse { IsValid = false, Message = "Mã khuyến mãi không tồn tại hoặc đã hết hạn." };
 
             if (voucher.ValidFrom.HasValue && DateTime.Now < voucher.ValidFrom.Value)
@@ -205,6 +205,22 @@ namespace abchotel.Services
             int usedByUser = voucher.Bookings.Count(b => b.UserId == userId && b.Status != "Cancelled");
             if (usedByUser >= voucher.MaxUsesPerUser)
                 return new ValidateVoucherResponse { IsValid = false, Message = "Bạn đã dùng hết số lượt cho phép của mã này." };
+
+            if (voucher.IsForNewCustomer)
+            {
+                // Đếm xem ông khách này đã từng đặt phòng nào chưa (loại trừ các đơn bị Hủy)
+                int totalPastBookings = await _context.Bookings
+                    .CountAsync(b => b.UserId == userId && b.Status != "Cancelled");
+
+                if (totalPastBookings > 0)
+                {
+                    return new ValidateVoucherResponse 
+                    { 
+                        IsValid = false, 
+                        Message = "Rất tiếc! Mã giảm giá này chỉ dành riêng cho khách hàng đặt phòng lần đầu." 
+                    };
+                }
+            }
 
             // Tính toán số tiền được giảm
             decimal discountAmount = 0;

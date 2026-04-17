@@ -1,5 +1,6 @@
 import { ConfigProvider } from 'antd';
 import { BrowserRouter } from 'react-router-dom';
+import ScrollToTop from './components/ScrollToTop';
 import AppRoutes from './routes/AppRoutes';
 
 function App() {
@@ -30,6 +31,7 @@ function App() {
       }}
     >
       <BrowserRouter>
+        <ScrollToTop />
         <AppRoutes />
       </BrowserRouter>
     </ConfigProvider>

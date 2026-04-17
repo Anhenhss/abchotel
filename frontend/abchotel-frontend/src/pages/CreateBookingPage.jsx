@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
-import { Card, Steps, Button, Form, DatePicker, InputNumber, Row, Col, Typography, Space, notification, Tag, Divider, Result, Radio, Input } from 'antd';
-import { MagnifyingGlass, User, CreditCard, IdentificationCard, Door, Clock, Bed } from '@phosphor-icons/react';
+import { 
+  Card, Steps, Button, Form, DatePicker, InputNumber, Row, Col, 
+  Typography, Space, notification, Tag, Divider, Result, Radio, Input, TimePicker, Badge 
+} from 'antd';
+import { 
+  MagnifyingGlass, User, CreditCard, IdentificationCard, Door, 
+  Clock, Bed, ShoppingCart, Plus, Trash
+} from '@phosphor-icons/react';
 import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 
@@ -9,9 +15,9 @@ import { bookingApi } from '../api/bookingApi';
 const { Title, Text } = Typography;
 
 const LUXURY_COLORS = {
-    DARKEST: '#0D1821', NAVY: '#344966', MUTED_BLUE: '#7D92AD', 
-    LIGHT_BLUE: '#B4CDED', LIGHTEST: '#E9F0F8', WHITE: '#FFFFFF', 
-    GOLD: '#D4AF37', ACCENT_RED: '#8A1538', SUCCESS: '#52c41a'
+  DARKEST: '#0D1821', NAVY: '#344966', MUTED_BLUE: '#7D92AD', 
+  LIGHT_BLUE: '#B4CDED', LIGHTEST: '#E9F0F8', WHITE: '#FFFFFF', 
+  GOLD: '#D4AF37', ACCENT_RED: '#8A1538', SUCCESS: '#52c41a'
 };
 
 export default function CreateBookingPage() {
@@ -24,245 +30,325 @@ export default function CreateBookingPage() {
   const [guestForm] = Form.useForm();
   
   const [availableRooms, setAvailableRooms] = useState([]);
-  const [selectedRooms, setSelectedRooms] = useState([]); 
+  
+  const [cart, setCart] = useState([]); 
+  const [currentSearchQuery, setCurrentSearchQuery] = useState(null);
+  
+  const [specificRoomsMap, setSpecificRoomsMap] = useState([]); 
   const [bookingSuccessData, setBookingSuccessData] = useState(null);
-  const [specificRoomsList, setSpecificRoomsList] = useState([]);
 
-  // 1. KHÓA GIỜ TRÊN GIAO DIỆN (UI)
-  const disabledTime = (current) => {
-    if (current && current.isSame(dayjs(), 'day')) {
-      return {
-        disabledHours: () => Array.from({ length: dayjs().hour() }, (_, i) => i),
-        disabledMinutes: (selectedHour) => {
-          if (selectedHour === dayjs().hour()) {
-            return Array.from({ length: dayjs().minute() }, (_, i) => i);
-          }
-          return [];
-        },
-      };
-    }
-    return {};
+  const [bookingMode, setBookingMode] = useState('NIGHTLY'); 
+
+  const addToCart = (roomType) => {
+    if (cart.length >= 5) return api.warning({ message: 'Chỉ được đặt tối đa 5 phòng cùng lúc.' });
+
+    const newItem = {
+      cartId: Date.now() + Math.random(), 
+      roomTypeId: roomType.roomTypeId,
+      roomTypeName: roomType.roomTypeName,
+      checkInDate: currentSearchQuery.checkIn,
+      checkOutDate: currentSearchQuery.checkOut,
+      priceType: currentSearchQuery.priceType,
+      price: roomType.subTotal,
+      adults: currentSearchQuery.adults,
+      children: currentSearchQuery.children
+    };
+
+    setCart([...cart, newItem]);
+    api.success({ message: `Đã thêm 1 phòng ${roomType.roomTypeName} vào đơn.` });
+  };
+
+  const removeFromCart = (cartId) => {
+    setCart(cart.filter(item => item.cartId !== cartId));
   };
 
   const handleSearch = async (values) => {
-    const checkInDate = values.dates[0];
-    const checkOutDate = values.dates[1];
-    
-    // Ràng buộc nghiệp vụ: Thuê theo giờ không quá 24h
-    const hoursDiff = checkOutDate.diff(checkInDate, 'hour');
-    if (values.priceType === 'HOURLY' && hoursDiff > 24) {
-        return api.warning({ 
-            message: 'Sai nghiệp vụ Khách sạn', 
-            description: 'Khách Thuê Theo Giờ chỉ được chọn tối đa 24 tiếng. Nếu khách ở lâu hơn, vui lòng chọn Thuê Theo Đêm.' 
-        });
+    let checkInDate, checkOutDate;
+
+    if (bookingMode === 'NIGHTLY') {
+      if (!values.dates || values.dates.length < 2) return api.warning({ message: 'Chọn ngày giờ Nhận - Trả phòng!' });
+      checkInDate = values.dates[0]; checkOutDate = values.dates[1];
+    } else {
+      if (!values.date) return api.warning({ message: 'Chọn ngày diễn ra sự kiện!' });
+      if (!values.timeRange || values.timeRange.length < 2) return api.warning({ message: 'Chọn khung giờ cụ thể!' });
+      checkInDate = values.date.clone().hour(values.timeRange[0].hour()).minute(values.timeRange[0].minute());
+      checkOutDate = values.date.clone().hour(values.timeRange[1].hour()).minute(values.timeRange[1].minute());
     }
+
+    if (checkInDate.isBefore(dayjs(), 'minute')) return api.warning({ message: 'Giờ nhận phòng không được nằm trong quá khứ!' });
+    if (checkOutDate.isBefore(checkInDate) || checkOutDate.isSame(checkInDate)) {
+      return api.warning({ 
+        message: 'Sai thời gian', 
+        description: 'Giờ Trả phòng bắt buộc phải LỚN HƠN Giờ Nhận phòng!' 
+      });
+    }
+    if (bookingMode === 'HOURLY' && checkOutDate.diff(checkInDate, 'hour') > 24) 
+      return api.warning({ message: 'Thuê Theo Giờ chỉ được tối đa 24 tiếng.' });
 
     try {
       setLoading(true);
       const request = {
         checkIn: checkInDate.format('YYYY-MM-DDTHH:mm:ss'),
         checkOut: checkOutDate.format('YYYY-MM-DDTHH:mm:ss'),
-        adults: values.adults,
-        children: values.children,
-        requestedRooms: 1,
-        priceType: values.priceType 
+        adults: values.adults || 1,
+        children: values.children || 0,
+        requestedRooms: 1, 
+        priceType: bookingMode 
       };
+
+      setCurrentSearchQuery(request);
       const res = await bookingApi.searchRooms(request);
       setAvailableRooms(res || []);
-      if (res.length === 0) api.warning({ message: 'Hết phòng', description: 'Không có phòng nào trống trong giai đoạn này.' });
-    } catch (error) { api.error({ message: 'Lỗi', description: 'Lỗi tìm phòng.' }); } 
+      if (res.length === 0) api.info({ message: 'Không có phòng trống theo điều kiện này.' });
+    } catch (error) { api.error({ message: 'Lỗi tìm phòng.' }); } 
     finally { setLoading(false); }
   };
 
-  const handleSelectRoom = async (roomType) => {
-    const checkIn = searchForm.getFieldValue('dates')[0].format('YYYY-MM-DDTHH:mm:ss');
-    const checkOut = searchForm.getFieldValue('dates')[1].format('YYYY-MM-DDTHH:mm:ss');
-    const currentPriceType = searchForm.getFieldValue('priceType'); 
+  const handleProceedToCheckout = async () => {
+    if (cart.length === 0) return api.warning({ message: 'Giỏ hàng đang trống.' });
     
     try {
-        setLoading(true);
-        const specificRooms = await bookingApi.getSpecificRooms(roomType.roomTypeId, checkIn, checkOut);
-        
-        const roomsWithFloor = specificRooms.map(r => ({
-            ...r, floor: r.roomNumber.replace(/\D/g, '').charAt(0) 
-        }));
-        
-        setSpecificRoomsList(roomsWithFloor);
+      setLoading(true);
+      const roomsDataPromises = cart.map(item => 
+        bookingApi.getSpecificRooms(item.roomTypeId, item.checkInDate, item.checkOutDate)
+      );
+      
+      const results = await Promise.all(roomsDataPromises);
+      
+      const mappedResults = results.map(roomsList => {
+        const grouped = roomsList.reduce((acc, room) => {
+          const floor = `Tầng ${room.roomNumber.replace(/\D/g, '').charAt(0) || '?'}`;
+          if (!acc[floor]) acc[floor] = [];
+          acc[floor].push(room); return acc;
+        }, {});
+        return grouped;
+      });
 
-        setSelectedRooms([{
-            roomTypeId: roomType.roomTypeId, roomTypeName: roomType.roomTypeName,
-            roomId: null, quantity: 1, price: roomType.subTotal,
-            checkInDate: checkIn, checkOutDate: checkOut,
-            priceType: currentPriceType, pricePerUnit: roomType.pricePerUnit
-        }]);
-        
-        guestForm.setFieldsValue({ selectedRoomId: null });
-        setCurrentStep(1); 
-    } catch (error) { api.error({ message: 'Lỗi', description: 'Không tải được danh sách phòng vật lý.' }); } 
-    finally { setLoading(false); }
+      setSpecificRoomsMap(mappedResults);
+      setCurrentStep(1);
+    } catch (error) {
+      api.error({ message: 'Lỗi tải danh sách phòng vật lý.' });
+    } finally { setLoading(false); }
   };
 
   const handleCreateBooking = async (values) => {
+    const selectedKeys = Object.keys(values.selectedRooms);
+    const selectedRoomIds = selectedKeys.map(k => values.selectedRooms[k]);
+    const uniqueRoomIds = new Set(selectedRoomIds);
+    if (uniqueRoomIds.size !== selectedRoomIds.length) {
+      return api.error({ message: 'Lỗi Xếp Phòng', description: 'Bạn đang chọn 1 phòng cho 2 khách khác nhau. Vui lòng kiểm tra lại sơ đồ chọn phòng.' });
+    }
+
     try {
       setLoading(true);
-      const finalRooms = [...selectedRooms];
-      finalRooms[0].roomId = values.selectedRoomId; 
+      const roomsPayload = cart.map((item, index) => ({
+        roomTypeId: item.roomTypeId,
+        roomId: values.selectedRooms[index], 
+        quantity: 1,
+        checkInDate: item.checkInDate,
+        checkOutDate: item.checkOutDate,
+        priceType: item.priceType
+      }));
 
       const request = {
         guestName: values.guestName, guestPhone: values.guestPhone.trim(),
         guestEmail: values.guestEmail ? values.guestEmail.trim() : null,
         identityNumber: values.identityNumber ? values.identityNumber.trim() : null,
-        specialRequests: values.specialRequests || "", rooms: finalRooms 
+        specialRequests: values.specialRequests || "", 
+        rooms: roomsPayload 
       };
       
       const res = await bookingApi.createBooking(request);
       setBookingSuccessData(res);
       setCurrentStep(2); 
     } catch (error) {
-        const data = error.response?.data;
-        let errorMsg = 'Lỗi khi tạo đơn. Vui lòng thử lại.';
-        if (data?.errors) errorMsg = Object.values(data.errors)[0][0];
-        else if (data?.message) errorMsg = data.message;
-        api.error({ message: 'Lỗi Dữ liệu', description: errorMsg });
+      const errorMsg = error.response?.data?.message || 'Lỗi khi tạo đơn. Vui lòng thử lại.';
+      api.error({ message: 'Lỗi Hệ thống', description: errorMsg });
     } finally { setLoading(false); }
   };
 
-  const totalAmount = selectedRooms.reduce((sum, r) => sum + r.price, 0);
-
-  const groupedRooms = specificRoomsList.reduce((acc, room) => {
-      const floorStr = `Tầng ${room.floor || 'Chưa rõ'}`;
-      if (!acc[floorStr]) acc[floorStr] = [];
-      acc[floorStr].push(room); return acc;
-  }, {});
+  const totalCartAmount = cart.reduce((sum, item) => sum + item.price, 0);
 
   return (
-    <div style={{ animation: 'fadeIn 0.3s ease-out', maxWidth: 1000, margin: '0 auto' }}>
+    <div style={{ animation: 'fadeIn 0.3s ease-out', maxWidth: 1200, margin: '0 auto' }}>
       {contextHolder}
-      <Title level={3} style={{ color: LUXURY_COLORS.DARKEST, marginBottom: 24, fontWeight: 700 }}>Lễ tân: Đặt phòng trực tiếp</Title>
+      <Title level={3} style={{ color: LUXURY_COLORS.DARKEST, marginBottom: 24, fontWeight: 700 }}>Lễ tân: Đặt phòng linh hoạt</Title>
 
-      <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(13,24,33,0.05)', marginBottom: 24, backgroundColor: LUXURY_COLORS.WHITE }}>
+      <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(13,24,33,0.05)', marginBottom: 24 }}>
         <Steps current={currentStep} items={[
-          { title: 'Tìm phòng', icon: <MagnifyingGlass size={24} /> },
-          { title: 'Khách & Xếp phòng', icon: <User size={24} /> },
-          { title: 'Nhận chìa khóa', icon: <CreditCard size={24} /> },
+          { title: 'Tìm & Thêm vào đơn', icon: <MagnifyingGlass size={24} /> },
+          { title: 'Xếp phòng & Khách', icon: <User size={24} /> },
+          { title: 'Hoàn tất', icon: <CreditCard size={24} /> },
         ]} />
       </Card>
 
       {currentStep === 0 && (
-        <Card variant="borderless" style={{ borderRadius: 12, backgroundColor: LUXURY_COLORS.WHITE, boxShadow: '0 4px 12px rgba(13,24,33,0.05)' }}>
-          <Form form={searchForm} layout="vertical" onFinish={handleSearch} initialValues={{ adults: 2, children: 0, priceType: 'NIGHTLY' }}>
-            <Row gutter={16}>
-              <Col span={24} style={{ marginBottom: 16 }}>
-                 <Form.Item name="priceType" noStyle>
-                    <Radio.Group optionType="button" buttonStyle="solid" size="large" className="luxury-radio-group">
-                      <Radio.Button value="NIGHTLY"><Door size={18} style={{ verticalAlign: 'middle', marginRight: 8 }}/>Thuê Theo Đêm</Radio.Button>
-                      <Radio.Button value="HOURLY"><Clock size={18} style={{ verticalAlign: 'middle', marginRight: 8 }}/>Thuê Theo Giờ</Radio.Button>
-                    </Radio.Group>
-                 </Form.Item>
-              </Col>
-
-              <Col xs={24} md={12}>
-                {/* 2. KHÓA BẰNG VALIDATOR (RÀO CHẮN CUỐI CÙNG Ở FORM) */}
-                <Form.Item 
-                    name="dates" 
-                    label={<Text strong style={{ color: LUXURY_COLORS.DARKEST }}>Ngày (và Giờ) Nhận - Trả phòng</Text>} 
-                    rules={[
-                        { required: true, message: 'Vui lòng chọn thời gian' },
-                        {
-                            validator: (_, value) => {
-                                if (value && value[0] && value[0].isBefore(dayjs(), 'minute')) {
-                                    return Promise.reject(new Error('Giờ nhận phòng không được nằm trong quá khứ!'));
-                                }
-                                return Promise.resolve();
-                            }
-                        }
-                    ]}
+        <Row gutter={[24, 24]}>
+          <Col xs={24} lg={16}>
+            <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(13,24,33,0.05)', height: '100%' }}>
+              
+              {/* 🔥 FIX RESPONSIVE MOBILE Ở ĐÂY: Thêm flexWrap: 'wrap' */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 20, borderBottom: `1px solid ${LUXURY_COLORS.LIGHTEST}`, paddingBottom: 16 }}>
+                <Button 
+                  type={bookingMode === 'NIGHTLY' ? 'primary' : 'default'} 
+                  style={{ 
+                    backgroundColor: bookingMode === 'NIGHTLY' ? LUXURY_COLORS.NAVY : undefined,
+                    flex: '1 1 auto' // Tự động giãn nút trên Mobile
+                  }} 
+                  onClick={() => setBookingMode('NIGHTLY')} 
+                  icon={<Door size={18} />} 
+                  size="large"
                 >
-                  <DatePicker.RangePicker 
-                    size="large" 
-                    style={{ width: '100%', borderColor: LUXURY_COLORS.LIGHT_BLUE }} 
-                    format="DD/MM/YYYY HH:mm" 
-                    showTime={{ format: 'HH:mm', defaultValue: [dayjs('14:00', 'HH:mm'), dayjs('12:00', 'HH:mm')] }} 
-                    disabledDate={(current) => current && current < dayjs().startOf('day')} 
-                    disabledTime={disabledTime} 
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={12} md={6}>
-                <Form.Item name="adults" label={<Text strong style={{ color: LUXURY_COLORS.DARKEST }}>Người lớn</Text>}><InputNumber size="large" min={1} style={{ width: '100%', borderColor: LUXURY_COLORS.LIGHT_BLUE }} /></Form.Item>
-              </Col>
-              <Col xs={12} md={6}>
-                <Form.Item name="children" label={<Text strong style={{ color: LUXURY_COLORS.DARKEST }}>Trẻ em</Text>}><InputNumber size="large" min={0} style={{ width: '100%', borderColor: LUXURY_COLORS.LIGHT_BLUE }} /></Form.Item>
-              </Col>
-            </Row>
-            <Button type="primary" htmlType="submit" size="large" icon={<MagnifyingGlass/>} loading={loading} style={{ backgroundColor: LUXURY_COLORS.NAVY, width: '100%', marginTop: 8 }}>TÌM PHÒNG TRỐNG</Button>
-          </Form>
+                  Thuê Theo Đêm
+                </Button>
+                <Button 
+                  type={bookingMode === 'HOURLY' ? 'primary' : 'default'} 
+                  style={{ 
+                    backgroundColor: bookingMode === 'HOURLY' ? LUXURY_COLORS.NAVY : undefined,
+                    flex: '1 1 auto' // Tự động giãn nút trên Mobile
+                  }} 
+                  onClick={() => setBookingMode('HOURLY')} 
+                  icon={<Clock size={18} />} 
+                  size="large"
+                >
+                  Thuê Theo Giờ
+                </Button>
+              </div>
 
-          {availableRooms.length > 0 && (
-            <div style={{ marginTop: 24 }}>
-              <Divider style={{ borderColor: LUXURY_COLORS.LIGHT_BLUE }}>KẾT QUẢ TÌM KIẾM</Divider>
-              <Row gutter={[16, 16]}>
-                {availableRooms.map((item, index) => (
-                  <Col xs={24} sm={12} md={12} lg={8} key={index}>
-                    <Card size="small" hoverable style={{ border: `1px solid ${LUXURY_COLORS.LIGHT_BLUE}`, backgroundColor: LUXURY_COLORS.LIGHTEST }}>
-                      <Title level={5} style={{ color: LUXURY_COLORS.DARKEST, marginTop: 4 }}>{item.roomTypeName}</Title>
-                      <Space direction="vertical" size={2} style={{ width: '100%' }}>
-                        <Text>Trống: <Tag color="cyan" style={{ color: LUXURY_COLORS.NAVY, borderColor: LUXURY_COLORS.LIGHT_BLUE, backgroundColor: LUXURY_COLORS.WHITE }}>{item.remainingRooms} phòng</Tag></Text>
-                        <Text style={{ color: LUXURY_COLORS.MUTED_BLUE }}>
-                            Giá {searchForm.getFieldValue('priceType') === 'HOURLY' ? 'mỗi giờ' : 'mỗi đêm'}: <Text strong style={{ color: LUXURY_COLORS.DARKEST }}>{new Intl.NumberFormat('vi-VN').format(item.pricePerUnit)}đ</Text>
-                        </Text>
-                        <Text strong style={{ color: LUXURY_COLORS.ACCENT_RED, fontSize: 18, display: 'block', marginTop: 8 }}>
-                          Tổng: {new Intl.NumberFormat('vi-VN').format(item.subTotal)}đ
-                        </Text>
-                        <Button type="primary" block onClick={() => handleSelectRoom(item)} style={{ marginTop: 8, backgroundColor: LUXURY_COLORS.NAVY }}>
-                          Chọn hạng phòng này
-                        </Button>
-                      </Space>
-                    </Card>
+              <Form form={searchForm} layout="vertical" onFinish={handleSearch} initialValues={{ adults: 2, children: 0 }}>
+                <Row gutter={16}>
+                  <Col xs={24} md={bookingMode === 'NIGHTLY' ? 12 : 8}>
+                    <Form.Item name={bookingMode === 'NIGHTLY' ? "dates" : "date"} label={<Text strong>Thời gian nhận - trả</Text>} rules={[{ required: true, message: 'Bắt buộc' }]}>
+                      {bookingMode === 'NIGHTLY' 
+                        ? <DatePicker.RangePicker style={{ width: '100%' }} size="large" format="DD/MM/YYYY HH:mm" showTime disabledDate={c => c && c < dayjs().startOf('day')} />
+                        : <DatePicker style={{ width: '100%' }} size="large" format="DD/MM/YYYY" disabledDate={c => c && c < dayjs().startOf('day')} />
+                      }
+                    </Form.Item>
                   </Col>
-                ))}
-              </Row>
-            </div>
-          )}
-        </Card>
+                  
+                  {bookingMode === 'HOURLY' && (
+                    <Col xs={24} md={8}>
+                      <Form.Item name="timeRange" label={<Text strong>Khung giờ</Text>} rules={[{ required: true, message: 'Bắt buộc' }]}>
+                        <TimePicker.RangePicker style={{ width: '100%' }} size="large" format="HH:mm" />
+                      </Form.Item>
+                    </Col>
+                  )}
+
+                  <Col xs={12} md={bookingMode === 'NIGHTLY' ? 6 : 4}>
+                    <Form.Item name="adults" label={<Text strong>Người lớn</Text>}><InputNumber size="large" min={1} max={50} style={{ width: '100%' }} /></Form.Item>
+                  </Col>
+                  <Col xs={12} md={bookingMode === 'NIGHTLY' ? 6 : 4}>
+                    <Form.Item name="children" label={<Text strong>Trẻ em</Text>}><InputNumber size="large" min={0} max={50} style={{ width: '100%' }} /></Form.Item>
+                  </Col>
+                </Row>
+                <Button type="primary" htmlType="submit" size="large" icon={<MagnifyingGlass/>} loading={loading} style={{ backgroundColor: LUXURY_COLORS.ACCENT_RED, width: '100%' }}>
+                  TÌM PHÒNG TRỐNG
+                </Button>
+              </Form>
+
+              {availableRooms.length > 0 && (
+                <div style={{ marginTop: 24 }}>
+                  <Divider />
+                  <Row gutter={[16, 16]}>
+                    {availableRooms.map((item, index) => (
+                      <Col xs={24} sm={12} lg={12} key={index}>
+                        <Card size="small" hoverable style={{ border: `1px solid ${LUXURY_COLORS.LIGHT_BLUE}`, backgroundColor: LUXURY_COLORS.LIGHTEST }}>
+                          <Title level={5} style={{ marginTop: 0 }}>{item.roomTypeName}</Title>
+                          <Space direction="vertical" size={0} style={{ width: '100%' }}>
+                            <Text>Trống: <Tag color="cyan">{item.remainingRooms} phòng</Tag></Text>
+                            <Text strong style={{ color: LUXURY_COLORS.ACCENT_RED, fontSize: 16, display: 'block', marginTop: 8 }}>
+                              {new Intl.NumberFormat('vi-VN').format(item.subTotal)}đ
+                            </Text>
+                            <Button type="dashed" block onClick={() => addToCart(item)} style={{ marginTop: 8, borderColor: LUXURY_COLORS.NAVY, color: LUXURY_COLORS.NAVY }}>
+                              <Plus /> Thêm vào đơn
+                            </Button>
+                          </Space>
+                        </Card>
+                      </Col>
+                    ))}
+                  </Row>
+                </div>
+              )}
+            </Card>
+          </Col>
+
+          <Col xs={24} lg={8}>
+            <Card title={<Space><ShoppingCart size={24} color={LUXURY_COLORS.NAVY} /> <span style={{ color: LUXURY_COLORS.NAVY }}>Đơn đang tạo ({cart.length})</span></Space>} variant="borderless" style={{ borderRadius: 12, border: `2px solid ${LUXURY_COLORS.NAVY}`, backgroundColor: '#fff' }}>
+              {cart.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 0', color: LUXURY_COLORS.MUTED_BLUE }}>
+                  Chưa có phòng nào được chọn.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {cart.map((item, idx) => (
+                    <div key={item.cartId} style={{ padding: 12, backgroundColor: LUXURY_COLORS.LIGHTEST, borderRadius: 8, position: 'relative' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Text strong>{idx + 1}. {item.roomTypeName}</Text>
+                        <Trash size={18} color={LUXURY_COLORS.ACCENT_RED} style={{ cursor: 'pointer' }} onClick={() => removeFromCart(item.cartId)} />
+                      </div>
+                      <Tag color={item.priceType === 'HOURLY' ? 'purple' : 'blue'} style={{ marginTop: 4 }}>{item.priceType === 'HOURLY' ? 'Theo giờ' : 'Theo đêm'}</Tag>
+                      <Text style={{ display: 'block', fontSize: 12, marginTop: 4 }}>Khách: {item.adults} Lớn, {item.children} Bé</Text>
+                      <Text style={{ display: 'block', fontSize: 12, color: LUXURY_COLORS.MUTED_BLUE }}>
+                        {dayjs(item.checkInDate).format('DD/MM HH:mm')} - {dayjs(item.checkOutDate).format('DD/MM HH:mm')}
+                      </Text>
+                      <Text strong style={{ display: 'block', color: LUXURY_COLORS.ACCENT_RED, marginTop: 4 }}>{new Intl.NumberFormat('vi-VN').format(item.price)}đ</Text>
+                    </div>
+                  ))}
+                  <Divider style={{ margin: '12px 0' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <Text strong>Tổng cộng:</Text>
+                    <Text strong style={{ fontSize: 20, color: LUXURY_COLORS.ACCENT_RED }}>{new Intl.NumberFormat('vi-VN').format(totalCartAmount)}đ</Text>
+                  </div>
+                  <Button type="primary" size="large" block onClick={handleProceedToCheckout} style={{ backgroundColor: LUXURY_COLORS.NAVY }}>
+                    Tiếp Tục Xếp Phòng ⟶
+                  </Button>
+                </div>
+              )}
+            </Card>
+          </Col>
+        </Row>
       )}
 
       {currentStep === 1 && (
-        <Row gutter={24}>
-          <Col xs={24} md={16}>
-            <Card title={<span style={{ color: LUXURY_COLORS.DARKEST, fontSize: 18 }}>Thông tin Khách & Gán phòng cụ thể</span>} variant="borderless" style={{ borderRadius: 12, backgroundColor: LUXURY_COLORS.WHITE, boxShadow: '0 4px 12px rgba(13,24,33,0.05)' }}>
-              <Form form={guestForm} layout="vertical" onFinish={handleCreateBooking}>
-                
-                <div style={{ padding: '20px', backgroundColor: LUXURY_COLORS.LIGHTEST, border: `1px solid ${LUXURY_COLORS.LIGHT_BLUE}`, borderRadius: 8, marginBottom: 24 }}>
-                    <Title level={5} style={{ color: LUXURY_COLORS.NAVY, marginTop: 0, marginBottom: 16 }}>
-                        <Door size={20} style={{ verticalAlign: 'middle', marginRight: 8 }}/> Chọn Chìa Khóa Phòng Bàn Giao
+        <Form form={guestForm} layout="vertical" onFinish={handleCreateBooking}>
+          <Row gutter={24}>
+            <Col xs={24} md={16}>
+              <Card title={<span style={{ color: LUXURY_COLORS.DARKEST, fontSize: 18 }}>1. Chỉ định phòng vật lý</span>} variant="borderless" style={{ borderRadius: 12, backgroundColor: LUXURY_COLORS.WHITE, marginBottom: 24, boxShadow: '0 4px 12px rgba(13,24,33,0.05)' }}>
+                {cart.map((cartItem, index) => (
+                  <div key={cartItem.cartId} style={{ padding: '20px', backgroundColor: LUXURY_COLORS.LIGHTEST, border: `1px solid ${LUXURY_COLORS.LIGHT_BLUE}`, borderRadius: 8, marginBottom: 24 }}>
+                    <Title level={5} style={{ color: LUXURY_COLORS.NAVY, marginTop: 0, marginBottom: 8 }}>
+                      <Door size={20} style={{ verticalAlign: 'middle', marginRight: 8 }}/> Phòng {index + 1}: {cartItem.roomTypeName}
                     </Title>
+                    <Text type="secondary" style={{display: 'block', marginBottom: 16}}>Thời gian: {dayjs(cartItem.checkInDate).format('DD/MM/YYYY HH:mm')} - {dayjs(cartItem.checkOutDate).format('DD/MM/YYYY HH:mm')}</Text>
                     
-                    <Form.Item name="selectedRoomId" rules={[{ required: true, message: 'Vui lòng chọn 1 phòng trên sơ đồ' }]} style={{ marginBottom: 0 }}>
-                        <Radio.Group style={{ width: '100%' }}>
-                            {Object.entries(groupedRooms).map(([floor, rooms]) => (
-                                <div key={floor} style={{ marginBottom: 16 }}>
-                                    <Text strong style={{ display: 'block', marginBottom: 8, color: LUXURY_COLORS.MUTED_BLUE, borderBottom: `1px dashed ${LUXURY_COLORS.LIGHT_BLUE}`, paddingBottom: 4 }}>{floor}</Text>
-                                    <Row gutter={[12, 12]}>
-                                        {rooms.map((room) => (
-                                            <Col span={8} sm={6} md={6} lg={4} key={room.roomId}>
-                                                <Radio.Button 
-                                                    value={room.roomId} 
-                                                    style={{ width: '100%', height: 'auto', padding: '12px 0', textAlign: 'center', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: `1px solid ${LUXURY_COLORS.LIGHT_BLUE}`, boxShadow: '0 2px 4px rgba(13,24,33,0.02)' }}
-                                                    className="luxury-room-card"
-                                                >
-                                                    <Bed size={26} weight="regular" className="bed-icon" />
-                                                    <Text strong style={{ fontSize: 16, display: 'block', marginTop: 4 }} className="room-number-text">{room.roomNumber}</Text>
-                                                </Radio.Button>
-                                            </Col>
-                                        ))}
-                                    </Row>
-                                </div>
-                            ))}
-                        </Radio.Group>
+                    <Form.Item name={['selectedRooms', index]} rules={[{ required: true, message: 'Bắt buộc chọn 1 phòng' }]} style={{ marginBottom: 0 }}>
+                      <Radio.Group style={{ width: '100%' }}>
+                        {specificRoomsMap[index] && Object.entries(specificRoomsMap[index]).map(([floor, rooms]) => (
+                          <div key={floor} style={{ marginBottom: 16 }}>
+                            <Text strong style={{ display: 'block', marginBottom: 8, color: LUXURY_COLORS.MUTED_BLUE, borderBottom: `1px dashed ${LUXURY_COLORS.LIGHT_BLUE}`, paddingBottom: 4 }}>{floor}</Text>
+                            <Row gutter={[12, 12]}>
+                              {rooms.map((room) => (
+                                <Col span={8} sm={6} md={6} lg={4} key={room.roomId}>
+                                  <Radio.Button 
+                                    value={room.roomId} 
+                                    style={{ width: '100%', height: 'auto', padding: '12px 0', textAlign: 'center', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: `1px solid ${LUXURY_COLORS.LIGHT_BLUE}`, boxShadow: '0 2px 4px rgba(13,24,33,0.02)' }}
+                                    className="luxury-room-card"
+                                  >
+                                    <Bed size={26} weight="regular" className="bed-icon" />
+                                    <Text strong style={{ fontSize: 16, display: 'block', marginTop: 4 }} className="room-number-text">{room.roomNumber}</Text>
+                                  </Radio.Button>
+                                </Col>
+                              ))}
+                            </Row>
+                          </div>
+                        ))}
+                      </Radio.Group>
                     </Form.Item>
-                </div>
+                  </div>
+                ))}
+              </Card>
 
+              <Card title={<span style={{ color: LUXURY_COLORS.DARKEST, fontSize: 18 }}>2. Thông tin Người đại diện</span>} variant="borderless" style={{ borderRadius: 12, backgroundColor: LUXURY_COLORS.WHITE, boxShadow: '0 4px 12px rgba(13,24,33,0.05)' }}>
                 <Row gutter={16}>
                   <Col xs={24} md={12}><Form.Item name="guestName" label={<Text strong style={{color: LUXURY_COLORS.DARKEST}}>Họ và Tên</Text>} rules={[{ required: true }]}><Input size="large" placeholder="VD: Nguyễn Văn A" /></Form.Item></Col>
                   <Col xs={24} md={12}><Form.Item name="guestPhone" label={<Text strong style={{color: LUXURY_COLORS.DARKEST}}>Số điện thoại</Text>} rules={[{ required: true }]}><Input size="large" placeholder="09xxxx" /></Form.Item></Col>
@@ -272,35 +358,30 @@ export default function CreateBookingPage() {
                 </Row>
                 
                 <Space style={{ marginTop: 16 }}>
-                  <Button size="large" onClick={() => setCurrentStep(0)} style={{ borderColor: LUXURY_COLORS.MUTED_BLUE, color: LUXURY_COLORS.DARKEST }}>Quay lại</Button>
-                  <Button size="large" type="primary" htmlType="submit" loading={loading} style={{ backgroundColor: LUXURY_COLORS.NAVY }}>Xác nhận Tạo Đơn & Bàn Giao Phòng</Button>
+                  <Button size="large" onClick={() => setCurrentStep(0)} style={{ borderColor: LUXURY_COLORS.MUTED_BLUE, color: LUXURY_COLORS.DARKEST }}>Quay lại giỏ hàng</Button>
+                  <Button size="large" type="primary" htmlType="submit" loading={loading} style={{ backgroundColor: LUXURY_COLORS.NAVY }}>Xác nhận Tạo Đơn & Khóa Phòng</Button>
                 </Space>
-              </Form>
-            </Card>
-          </Col>
-          
-          <Col xs={24} md={8}>
-            <Card title={<span style={{ color: LUXURY_COLORS.DARKEST, fontSize: 18 }}>Tóm tắt đơn</span>} variant="borderless" style={{ borderRadius: 12, backgroundColor: LUXURY_COLORS.LIGHTEST, border: `1px solid ${LUXURY_COLORS.LIGHT_BLUE}` }}>
-               {selectedRooms.map((r, idx) => (
-                 <div key={idx} style={{ marginBottom: 16 }}>
-                   <Text strong style={{ color: LUXURY_COLORS.NAVY, fontSize: 16 }}>{r.roomTypeName}</Text><br/>
-                   <Tag color={r.priceType === 'HOURLY' ? 'purple' : 'blue'} style={{ marginTop: 6, border: `1px solid ${LUXURY_COLORS.LIGHT_BLUE}` }}>
-                       {r.priceType === 'HOURLY' ? 'Thuê Theo Giờ' : 'Thuê Theo Đêm'}
-                   </Tag>
-                   <div style={{ marginTop: 12 }}>
-                     <Text style={{ color: LUXURY_COLORS.MUTED_BLUE, display: 'block' }}>Vào: <Text strong style={{ color: LUXURY_COLORS.DARKEST }}>{dayjs(r.checkInDate).format('DD/MM/YYYY HH:mm')}</Text></Text>
-                     <Text style={{ color: LUXURY_COLORS.MUTED_BLUE, display: 'block' }}>Ra: &nbsp;&nbsp;<Text strong style={{ color: LUXURY_COLORS.DARKEST }}>{dayjs(r.checkOutDate).format('DD/MM/YYYY HH:mm')}</Text></Text>
+              </Card>
+            </Col>
+            
+            <Col xs={24} md={8}>
+              <Card title={<span style={{ color: LUXURY_COLORS.DARKEST, fontSize: 18 }}>Tóm tắt đơn ({cart.length} Phòng)</span>} variant="borderless" style={{ borderRadius: 12, backgroundColor: LUXURY_COLORS.LIGHTEST, border: `1px solid ${LUXURY_COLORS.LIGHT_BLUE}` }}>
+                 {cart.map((r, idx) => (
+                   <div key={idx} style={{ marginBottom: 16, borderBottom: `1px dashed ${LUXURY_COLORS.LIGHT_BLUE}`, paddingBottom: 12 }}>
+                     <Text strong style={{ color: LUXURY_COLORS.NAVY, fontSize: 15 }}>{idx+1}. {r.roomTypeName}</Text><br/>
+                     <Text style={{ color: LUXURY_COLORS.MUTED_BLUE, fontSize: 12, display: 'block' }}>Vào: {dayjs(r.checkInDate).format('DD/MM/YYYY HH:mm')}</Text>
+                     <Text style={{ color: LUXURY_COLORS.MUTED_BLUE, fontSize: 12, display: 'block' }}>Ra: &nbsp;&nbsp;{dayjs(r.checkOutDate).format('DD/MM/YYYY HH:mm')}</Text>
+                     <Text strong style={{ color: LUXURY_COLORS.ACCENT_RED, display: 'block', marginTop: 4 }}>{new Intl.NumberFormat('vi-VN').format(r.price)}đ</Text>
                    </div>
+                 ))}
+                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
+                   <Text strong style={{ color: LUXURY_COLORS.MUTED_BLUE }}>Tổng thanh toán:</Text>
+                   <Text strong style={{ color: LUXURY_COLORS.ACCENT_RED, fontSize: 22 }}>{new Intl.NumberFormat('vi-VN').format(totalCartAmount)}đ</Text>
                  </div>
-               ))}
-               <Divider style={{ borderColor: LUXURY_COLORS.LIGHT_BLUE }}/>
-               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                 <Text strong style={{ color: LUXURY_COLORS.MUTED_BLUE }}>Tổng thanh toán:</Text>
-                 <Text strong style={{ color: LUXURY_COLORS.ACCENT_RED, fontSize: 22 }}>{new Intl.NumberFormat('vi-VN').format(totalAmount)}đ</Text>
-               </div>
-            </Card>
-          </Col>
-        </Row>
+              </Card>
+            </Col>
+          </Row>
+        </Form>
       )}
 
       {currentStep === 2 && (
@@ -308,12 +389,17 @@ export default function CreateBookingPage() {
           <Result
             status="success"
             title={<span style={{ color: LUXURY_COLORS.NAVY }}>Nhận Phòng Thành Công!</span>}
-            subTitle={`Đơn ${bookingSuccessData?.bookingCode} đã được hệ thống tự động Check-in. Lễ tân vui lòng giao chìa khóa cho khách.`}
+            subTitle={`Mã đơn: ${bookingSuccessData?.bookingCode}. Hệ thống đã tự động khóa phòng vật lý. Lễ tân vui lòng giao chìa khóa cho khách.`}
             extra={[
               <Button type="primary" key="console" size="large" onClick={() => navigate('/admin/rooms')} style={{ backgroundColor: LUXURY_COLORS.NAVY }}>
                 Tới trang Sơ Đồ Phòng
               </Button>,
-              <Button key="buy" size="large" onClick={() => { setCurrentStep(0); searchForm.resetFields(); guestForm.resetFields(); setAvailableRooms([]); setSpecificRoomsList([]); }} style={{ borderColor: LUXURY_COLORS.MUTED_BLUE, color: LUXURY_COLORS.DARKEST }}>
+              <Button key="buy" size="large" onClick={() => { 
+                setCurrentStep(0); 
+                setCart([]); 
+                guestForm.resetFields(); 
+                setAvailableRooms([]); 
+              }} style={{ borderColor: LUXURY_COLORS.MUTED_BLUE, color: LUXURY_COLORS.DARKEST }}>
                 Tạo Đơn Khác
               </Button>
             ]}
@@ -322,7 +408,6 @@ export default function CreateBookingPage() {
       )}
 
       <style>{`
-        .luxury-radio-group .ant-radio-button-wrapper-checked { background-color: ${LUXURY_COLORS.NAVY} !important; border-color: ${LUXURY_COLORS.NAVY} !important; color: #fff !important; }
         .luxury-room-card { transition: all 0.2s ease; background-color: ${LUXURY_COLORS.WHITE} !important; }
         .luxury-room-card:hover { border-color: ${LUXURY_COLORS.NAVY} !important; box-shadow: 0 4px 8px rgba(52, 73, 102, 0.15) !important; }
         .luxury-room-card .bed-icon { fill: ${LUXURY_COLORS.MUTED_BLUE} !important; }

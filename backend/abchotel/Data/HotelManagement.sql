@@ -234,6 +234,7 @@ CREATE TABLE [dbo].[Vouchers] (
     [valid_to] DATETIME NULL,
     [usage_limit] INT NULL,
     [max_uses_per_user] INT NOT NULL DEFAULT 1,
+	[is_for_new_customer] BIT NOT NULL DEFAULT 0,
     [is_active] BIT NOT NULL DEFAULT 1,
     [created_at] DATETIME DEFAULT GETDATE(),
     [created_by] INT NULL,

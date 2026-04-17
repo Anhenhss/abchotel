@@ -18,6 +18,7 @@ namespace abchotel.DTOs
         public int? UsageLimit { get; set; }
         public int UsedCount { get; set; } // Số lần đã sử dụng (Tính từ bảng Bookings)
         public int MaxUsesPerUser { get; set; }
+        public bool IsForNewCustomer { get; set; }
         public bool IsActive { get; set; }
     }
 
@@ -35,6 +36,7 @@ namespace abchotel.DTOs
         public DateTime? ValidTo { get; set; }
         public int? UsageLimit { get; set; }
         public int MaxUsesPerUser { get; set; } = 1;
+        public bool IsForNewCustomer { get; set; } = false;
     }
 
     public class UpdateVoucherRequest : CreateVoucherRequest { }
