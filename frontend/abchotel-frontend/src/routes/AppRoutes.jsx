@@ -4,7 +4,7 @@ import { Routes, Route } from 'react-router-dom';
 
 // ================= LAYOUTS =================
 import AdminLayout from '../layouts/AdminLayout';
-import ClientLayout from '../layouts/ClientLayout'; // 🔥 LAYOUT KHÁCH HÀNG
+import ClientLayout from '../layouts/ClientLayout'; 
 
 // ================= PAGES =================
 import AuthPage from '../pages/AuthPage';
@@ -38,7 +38,7 @@ import ArticleManagementPage from '../pages/Article/ArticleManagementPage';
 import ArticleEditorPage from '../pages/Article/ArticleEditorPage';
 import VouchersPage from '../pages/VouchersPage';
 import MembershipsPage from '../pages/MembershipsPage';
-import ServicesPage from '../pages/ServicesPage';
+import ServicesPage from '../pages/ServicesPage'; // Đây là trang Admin
 import BookingsPage from '../pages/BookingsPage';
 import CreateBookingPage from "../pages/CreateBookingPage";
 import InvoicesPage from "../pages/InvoicesPage";
@@ -47,6 +47,8 @@ import InvoicesPage from "../pages/InvoicesPage";
 import AboutPage from '../pages/Client/AboutPage';
 import ContactPage from '../pages/Client/ContactPage';
 import ArticlePage from '../pages/Client/ArticlePage';
+import ArticleDetailPage from '../pages/Client/ArticleDetailPage';
+import ServicesPageClient from '../pages/Client/ServicesPage'; // 🔥 THÊM MỚI TRANG DỊCH VỤ CLIENT
 
 
 // COMPONENT TẠM THỜI ĐỂ XEM TEST GIAO DIỆN CLIENT
@@ -59,12 +61,10 @@ const PlaceholderClientPage = ({ title }) => (
 export default function AppRoutes() {
   const { checkAuth, isInitialized } = useAuthStore();
 
-  // Chạy 1 lần duy nhất khi load web để khôi phục phiên
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
 
-  // Nếu chưa check xong Token thì hiện màn hình loading, chặn không cho nhảy trang
   if (!isInitialized) {
     return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Đang tải dữ liệu hệ thống...</div>;
   }
@@ -76,22 +76,20 @@ export default function AppRoutes() {
       {/* 1. ROUTES CHO KHÁCH HÀNG (DÙNG CLIENT LAYOUT)            */}
       {/* ======================================================== */}
       <Route element={<ClientLayout />}>
-        {/* Nếu em đã có HomePage cũ thì dùng, nếu không nó sẽ rỗng */}
         <Route path="/" element={<HomePage />} /> 
         
-        {/* Các trang hiển thị cho khách */}
         <Route path="/rooms" element={<PlaceholderClientPage title="Phòng & Suites" />} />
-        <Route path="/services" element={<PlaceholderClientPage title="Dịch vụ Khách sạn" />} />
+        
+        {/* 🔥 ĐÃ CẬP NHẬT: Dùng trang ServicesPageClient thay cho Placeholder */}
+        <Route path="/services" element={<ServicesPageClient />} />
+        
         <Route path="/offers" element={<PlaceholderClientPage title="Khuyến mãi & Ưu đãi" />} />
-        
-        {/* ĐÃ CẬP NHẬT: Thay thế Placeholder bằng ArticlePage thực tế */}
         <Route path="/blog" element={<ArticlePage />} />
-        
+        <Route path="/article/:slug" element={<ArticleDetailPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/privacy-policy" element={<PlaceholderClientPage title="Chính sách & Điều khoản" />} />
         
-        {/* Route cho Khách hàng đăng nhập vào xem thông tin cá nhân */}
         <Route path="/profile" element={
           <ProtectedRoute>
             <PlaceholderClientPage title="Hồ sơ cá nhân của Khách" />
@@ -103,7 +101,6 @@ export default function AppRoutes() {
           </ProtectedRoute>
         } />
 
-        {/* Khách gõ bậy đường dẫn -> Trả về 404 NẰM TRONG Layout Client */}
         <Route path="*" element={<Error404 />} />
       </Route>
 
@@ -265,7 +262,6 @@ export default function AppRoutes() {
           </RequirePermission>
         } />
 
-        {/* Quản trị viên gõ bậy đường dẫn -> Trả về 404 NẰM TRONG Layout Admin */}
         <Route path="*" element={<Error404 />} />
       </Route>
 
