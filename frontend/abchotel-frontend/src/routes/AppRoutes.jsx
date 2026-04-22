@@ -45,6 +45,8 @@ import InvoicesPage from "../pages/InvoicesPage";
 // ================= CLIENT PAGES =================
 import AboutPage from '../pages/Client/AboutPage';
 import ContactPage from '../pages/Client/ContactPage';
+import ClientVoucherPage from '../pages/ClientVoucherPage';
+import TermsPolicyPage from "../pages/Client/TermsPolicyPage";
 
 
 // COMPONENT TẠM THỜI ĐỂ XEM TEST GIAO DIỆN CLIENT
@@ -80,11 +82,12 @@ export default function AppRoutes() {
         {/* Các trang hiển thị cho khách */}
         <Route path="/rooms" element={<PlaceholderClientPage title="Phòng & Suites" />} />
         <Route path="/services" element={<PlaceholderClientPage title="Dịch vụ Khách sạn" />} />
-        <Route path="/offers" element={<PlaceholderClientPage title="Khuyến mãi & Ưu đãi" />} />
+        <Route path="/offers" element={<ClientVoucherPage />} />
         <Route path="/blog" element={<PlaceholderClientPage title="Cẩm nang du lịch" />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/contact" element={<ContactPage />} />
-        <Route path="/privacy-policy" element={<PlaceholderClientPage title="Chính sách & Điều khoản" />} />
+        <Route path="privacy-policy" element={<TermsPolicyPage />} />
+        
         
         {/* Route cho Khách hàng đăng nhập vào xem thông tin cá nhân */}
         <Route path="/profile" element={
@@ -259,6 +262,7 @@ export default function AppRoutes() {
             <InvoicesPage />
           </RequirePermission>
         } />
+          
 
         {/* Quản trị viên gõ bậy đường dẫn -> Trả về 404 NẰM TRONG Layout Admin */}
         <Route path="*" element={<Error404 />} />

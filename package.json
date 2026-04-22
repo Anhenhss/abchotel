@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "framer-motion": "^12.38.0",
+    "react-quill-new": "^3.8.3"
+  }
+}
