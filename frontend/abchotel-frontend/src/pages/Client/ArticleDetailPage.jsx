@@ -1,36 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Typography, Skeleton, Tag, Breadcrumb, Divider, Button, Result, Space } from 'antd';
-import { Clock, User, ArrowLeft, CalendarBlank, Tag as TagIcon } from '@phosphor-icons/react';
+import { Typography, Skeleton, Tag, Breadcrumb, Divider, Button, Result, Space, Row, Col, Anchor, Card } from 'antd';
+import { User, ArrowLeft, CalendarBlank, ListBullets, CaretDown, CaretUp } from '@phosphor-icons/react';
 import { articleApi } from '../../api/articleApi';
 import dayjs from 'dayjs';
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Text } = Typography;
 
-// Theme đồng bộ với trang danh sách của bạn
 const LUXURY_THEME = {
     PRIMARY: '#8A1538',
     NAVY: '#0D1821',
-    GOLD: '#D4AF37',
-    BG: '#F8FAFC'
+    GOLD: '#D4AF37'
 };
 
 export default function ArticleDetailPage() {
     const { slug } = useParams(); 
     const navigate = useNavigate();
-    
     const [article, setArticle] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [toc, setToc] = useState([]);
+    const [isExpended, setIsExpended] = useState(true);
 
     useEffect(() => {
         const fetchDetail = async () => {
             try {
                 setLoading(true);
-                // Gọi API lấy chi tiết bằng slug từ file articleApi.js bạn đã gửi
                 const res = await articleApi.getArticleBySlug(slug);
-                setArticle(res);
+                if (res) {
+                    setArticle(res);
+                    if (res.content) {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(res.content, 'text/html');
+                        const headings = Array.from(doc.querySelectorAll('h2, h3'));
+                        const tocData = headings.map((h, index) => ({
+                            key: `heading-${index}`,
+                            href: `#heading-${index}`,
+                            title: h.innerText,
+                        }));
+                        setToc(tocData);
+                    }
+                }
             } catch (err) {
-                console.error("Lỗi lấy chi tiết bài viết:", err);
+                console.error("Lỗi:", err);
             } finally {
                 setLoading(false);
             }
@@ -38,110 +49,62 @@ export default function ArticleDetailPage() {
         if (slug) fetchDetail();
     }, [slug]);
 
-    if (loading) {
-        return (
-            <div style={{ maxWidth: 900, margin: '100px auto', padding: '0 20px' }}>
-                <Skeleton active title paragraph={{ rows: 12 }} />
-            </div>
-        );
-    }
+    if (loading) return <div style={{ maxWidth: 900, margin: '100px auto', padding: '0 20px' }}><Skeleton active paragraph={{ rows: 15 }} /></div>;
+    if (!article) return <Result status="404" title="Không tìm thấy bài viết" extra={<Button onClick={() => navigate('/articles')}>Quay lại</Button>} />;
 
-    if (!article) {
-        return (
-            <Result
-                status="404"
-                title="Không tìm thấy bài viết"
-                subTitle="Nội dung này có thể đã bị ẩn hoặc không tồn tại."
-                extra={<Button type="primary" onClick={() => navigate('/articles')}>Quay lại danh sách</Button>}
-            />
-        );
-    }
+    // 🔥 XỬ LÝ LỖI KÝ TỰ LỘN XỘN (HTML TAGS)
+    const rawDesc = article.summary || article.description || article.shortDescription || "";
+    const cleanShortDesc = rawDesc
+        .replace(/<[^>]*>/g, '') // Xóa thẻ HTML
+        .replace(/&nbsp;/g, ' ') // Xóa ký tự trắng đặc biệt
+        .trim();
 
     return (
         <div style={{ backgroundColor: '#fff', minHeight: '100vh', padding: '40px 0' }}>
-            <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 20px' }}>
-                
-                {/* Điều hướng */}
-                <Breadcrumb style={{ marginBottom: 24 }}>
-                    <Breadcrumb.Item onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>Trang chủ</Breadcrumb.Item>
-                    <Breadcrumb.Item onClick={() => navigate('/articles')} style={{ cursor: 'pointer' }}>Cẩm nang</Breadcrumb.Item>
-                    <Breadcrumb.Item>{article.title}</Breadcrumb.Item>
-                </Breadcrumb>
+            <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 20px' }}>
+                <Button type="link" icon={<ArrowLeft />} onClick={() => navigate(-1)} style={{ color: LUXURY_THEME.PRIMARY, padding: 0, marginBottom: 20 }}>Quay lại</Button>
 
-                <Button 
-                    type="link" 
-                    icon={<ArrowLeft />} 
-                    onClick={() => navigate(-1)} 
-                    style={{ color: LUXURY_THEME.PRIMARY, padding: 0, marginBottom: 20 }}
-                >
-                    Quay lại
-                </Button>
+                <Row gutter={40}>
+                    <Col xs={24} lg={17}>
+                        <Title level={1} style={{ fontFamily: "'Playfair Display', serif", color: LUXURY_THEME.NAVY }}>{article.title}</Title>
 
-                {/* Tiêu đề bài viết */}
-                <Title level={1} style={{ 
-                    fontFamily: "'Playfair Display', serif", 
-                    fontSize: '40px', 
-                    color: LUXURY_THEME.NAVY,
-                    marginBottom: 20 
-                }}>
-                    {article.title}
-                </Title>
+                        {/* HIỂN THỊ MÔ TẢ ĐÃ LÀM SẠCH */}
+                        {cleanShortDesc && (
+                            <div style={{ padding: '20px', borderLeft: `4px solid ${LUXURY_THEME.GOLD}`, background: '#f8f9fa', marginBottom: 30, borderRadius: '0 8px 8px 0' }}>
+                                <Text style={{ fontSize: '18px', color: '#475569', fontStyle: 'italic', fontFamily: "'Playfair Display', serif" }}>
+                                    {cleanShortDesc}
+                                </Text>
+                            </div>
+                        )}
 
-                {/* Thông tin metadata */}
-                <Space size="large" style={{ marginBottom: 30, color: '#64748B', flexWrap: 'wrap' }}>
-                    <Space><User size={18} /> <Text strong>{article.authorName || 'Quản trị viên'}</Text></Space>
-                    <Space><CalendarBlank size={18} /> {dayjs(article.publishedAt).format('DD/MM/YYYY')}</Space>
-                    <Tag color="volcano" style={{ borderRadius: 4 }}>{article.categoryName}</Tag>
-                </Space>
+                        <Space size="large" style={{ marginBottom: 30, color: '#64748B' }}>
+                            <Space><User size={18} /> <Text strong>{article.authorName || 'Quản trị viên'}</Text></Space>
+                            <Space><CalendarBlank size={18} /> {article.publishedAt ? dayjs(article.publishedAt).format('DD/MM/YYYY') : 'N/A'}</Space>
+                            <Tag color="volcano">{article.categoryName}</Tag>
+                        </Space>
 
-                {/* Ảnh bìa */}
-                {article.thumbnailUrl && (
-                    <div style={{ marginBottom: 40, borderRadius: 16, overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}>
-                        <img 
-                            src={article.thumbnailUrl} 
-                            alt={article.title} 
-                            style={{ width: '100%', display: 'block', maxHeight: '500px', objectFit: 'cover' }} 
+                        {article.thumbnailUrl && (
+                            <div style={{ marginBottom: 40, borderRadius: 16, overflow: 'hidden' }}>
+                                <img src={article.thumbnailUrl} style={{ width: '100%' }} alt={article.title} />
+                            </div>
+                        )}
+
+                        <div 
+                            className="article-content"
+                            dangerouslySetInnerHTML={{ __html: article.content }} 
+                            style={{ fontSize: '17px', lineHeight: '1.8' }}
                         />
-                    </div>
-                )}
+                    </Col>
 
-                {/* Nội dung bài viết (Render từ HTML của Quill) */}
-                <div 
-                    className="article-detail-content"
-                    style={{ 
-                        fontSize: '18px', 
-                        lineHeight: '1.8', 
-                        color: '#334155',
-                        textAlign: 'justify'
-                    }}
-                    dangerouslySetInnerHTML={{ __html: article.content }}
-                />
-
-                <Divider style={{ margin: '60px 0' }} />
-
-                {/* Footer bài viết */}
-                <div style={{ textAlign: 'center', paddingBottom: '40px' }}>
-                    <Text type="secondary">--- Hết bài viết ---</Text>
-                </div>
+                    <Col xs={0} lg={7}>
+                        <div style={{ position: 'sticky', top: '100px' }}>
+                            <Card title="MỤC LỤC" size="small">
+                                {toc.length > 0 ? <Anchor affix={false} items={toc} /> : "Không có mục lục"}
+                            </Card>
+                        </div>
+                    </Col>
+                </Row>
             </div>
-
-            {/* CSS bổ sung để nội dung HTML đẹp hơn */}
-            <style>{`
-                .article-detail-content img {
-                    max-width: 100%;
-                    height: auto;
-                    border-radius: 8px;
-                    margin: 20px 0;
-                }
-                .article-detail-content p {
-                    margin-bottom: 20px;
-                }
-                .article-detail-content h2, .article-detail-content h3 {
-                    color: ${LUXURY_THEME.NAVY};
-                    margin-top: 40px;
-                    font-family: 'Playfair Display', serif;
-                }
-            `}</style>
         </div>
     );
 }
