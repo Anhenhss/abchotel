@@ -15,7 +15,6 @@ const LUXURY_COLORS = {
     ACCENT_RED: '#8B0000', SUCCESS: '#1B5E20'
 };
 
-// 🔥 Đã bổ sung biến onSuccess vào đây để báo hiệu cho BookingsPage tải lại data
 export default function BookingDetailDrawer({ isOpen, onClose, bookingCode, onSuccess }) {
   const [api, contextHolder] = notification.useNotification({ placement: 'bottomRight' });
   const [loading, setLoading] = useState(false);
@@ -23,6 +22,10 @@ export default function BookingDetailDrawer({ isOpen, onClose, bookingCode, onSu
   const [invoiceData, setInvoiceData] = useState(null);
   
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  
+  // 🔥 1. THÊM STATE ĐỂ QUẢN LÝ VÒNG QUAY CHỜ THANH TOÁN TỪ TAB KHÁC
+  const [isWaitingPayment, setIsWaitingPayment] = useState(false);
+
   const [payForm] = Form.useForm();
   
   const paymentMethod = Form.useWatch('paymentMethod', payForm);
@@ -33,6 +36,27 @@ export default function BookingDetailDrawer({ isOpen, onClose, bookingCode, onSu
       fetchDetail();
     }
   }, [isOpen, bookingCode]);
+
+  // 🔥 2. THUẬT TOÁN POLLING: CỨ MỖI 3 GIÂY SẼ HỎI BACKEND 1 LẦN
+  useEffect(() => {
+    let interval;
+    if (isWaitingPayment && invoiceData?.id) {
+        interval = setInterval(async () => {
+            try {
+                // Gọi API kiểm tra hóa đơn xem đã đổi trạng thái thành Paid chưa
+                const res = await invoiceApi.getByBookingCode(bookingCode);
+                if (res && res.status === 'Paid') {
+                    setIsWaitingPayment(false); // Tắt vòng quay
+                    setIsPayModalOpen(false);   // Đóng Modal
+                    api.success({ message: 'Tuyệt vời!', description: 'Hệ thống đã nhận được tiền từ VNPay/MoMo.' });
+                    setInvoiceData(res);        // Cập nhật giao diện ngay lập tức
+                    if (onSuccess) onSuccess(); 
+                }
+            } catch (e) { console.log(e) }
+        }, 3000);
+    }
+    return () => clearInterval(interval); // Dọn dẹp bộ nhớ khi tắt drawer
+  }, [isWaitingPayment, invoiceData?.id, bookingCode]);
 
   const fetchDetail = async () => {
     try {
@@ -64,7 +88,7 @@ export default function BookingDetailDrawer({ isOpen, onClose, bookingCode, onSu
       await bookingApi.updateStatus(bookingData.id, 'Cancelled', 'Hủy bởi Lễ tân (No-Show)');
       api.success({ message: 'Thành công', description: 'Đã hủy đơn đặt phòng.' });
       fetchDetail(); 
-      if (onSuccess) onSuccess(); // Báo trang ngoài load lại
+      if (onSuccess) onSuccess(); 
     } catch (e) { api.error({ message: 'Lỗi', description: 'Không thể hủy đơn này.' }); } 
     finally { setLoading(false); }
   };
@@ -76,7 +100,7 @@ export default function BookingDetailDrawer({ isOpen, onClose, bookingCode, onSu
       await invoiceApi.recalculate(invoiceData.id);
       api.success({ message: 'Thành công', description: 'Đã cập nhật các khoản phát sinh.' });
       fetchDetail(); 
-      if (onSuccess) onSuccess(); // Báo trang ngoài load lại
+      if (onSuccess) onSuccess(); 
     } catch (e) { api.error({ message: 'Lỗi', description: 'Không thể tính lại.' }); } 
     finally { setLoading(false); }
   };
@@ -101,22 +125,25 @@ export default function BookingDetailDrawer({ isOpen, onClose, bookingCode, onSu
         paymentMethod: 'Cash' 
     });
     setIsPayModalOpen(true);
+    setIsWaitingPayment(false); // Reset lại trạng thái chờ mỗi khi mở
   };
 
   const handlePayment = async (values) => {
     try {
       setLoading(true);
-      // 🔥 ÉP KIỂU TUYỆT ĐỐI ĐỂ FIX LỖI 400 BAD REQUEST
       const safeAmount = Number(values.amountPaid); 
 
+      // 🔥 3. MỞ TAB MỚI VÀ BẬT VÒNG QUAY CHỜ ĐỢI
       if (values.paymentMethod === 'VNPay') {
           const res = await invoiceApi.createVnPayUrl(invoiceData.id);
-          window.location.href = res.url; 
-          return;
+          window.open(res.url, '_blank'); // MỞ TAB MỚI
+          setIsWaitingPayment(true);      // BẬT CHẾ ĐỘ CHỜ (POLLING)
+          return; 
       }
       if (values.paymentMethod === 'MoMo') {
           const res = await invoiceApi.createMoMoUrl(invoiceData.id);
-          window.location.href = res.url; 
+          window.open(res.url, '_blank'); // MỞ TAB MỚI
+          setIsWaitingPayment(true);      // BẬT CHẾ ĐỘ CHỜ (POLLING)
           return;
       }
 
@@ -131,7 +158,7 @@ export default function BookingDetailDrawer({ isOpen, onClose, bookingCode, onSu
       setIsPayModalOpen(false);
       
       fetchDetail();
-      if (onSuccess) onSuccess(); // 🔥 Bắt buộc có dòng này để BookingsPage cập nhật
+      if (onSuccess) onSuccess(); 
 
     } catch (e) { 
       const errorMsg = e.response?.data?.message || (e.response?.data?.errors && Object.values(e.response.data.errors)[0]?.[0]) || 'Lỗi hệ thống khi thanh toán.';
@@ -213,7 +240,6 @@ export default function BookingDetailDrawer({ isOpen, onClose, bookingCode, onSu
     }
   ];
 
-  // 🔥 XÓA CẢNH BÁO WARNING COLLAPSE: Sử dụng Items thay cho Panel
   const collapseItems = invoiceData ? [
     {
       key: '1',
@@ -294,7 +320,6 @@ export default function BookingDetailDrawer({ isOpen, onClose, bookingCode, onSu
                                     </Space>
                                 </div>
 
-                                {/* THỰC THI CHUẨN COLLAPSE V5 */}
                                 <Collapse defaultActiveKey={['1', '2']} items={collapseItems} style={{ marginBottom: 16, backgroundColor: '#fff', border: `1px solid ${LUXURY_COLORS.LIGHT_BLUE}` }} />
 
                                 <Divider style={{ borderColor: LUXURY_COLORS.MUTED_BLUE }} />
@@ -346,46 +371,60 @@ export default function BookingDetailDrawer({ isOpen, onClose, bookingCode, onSu
         )}
       </Drawer>
 
-      <Modal title={<span style={{ color: LUXURY_COLORS.NAVY, fontSize: 18, fontWeight: 900 }}>Thu tiền Khách hàng</span>} open={isPayModalOpen} onCancel={() => setIsPayModalOpen(false)} footer={null} centered width={450}>
-        <Form form={payForm} layout="vertical" onFinish={handlePayment} style={{ marginTop: 24 }}>
-          <Form.Item name="paymentMethod" label={<span style={{fontWeight: 'bold', color: LUXURY_COLORS.NAVY}}>Phương thức thanh toán</span>} rules={[{ required: true }]}>
-            <Select size="large">
-              <Select.Option value="Cash"><Space><Money color={LUXURY_COLORS.SUCCESS} /> Tiền mặt (Lễ tân thu)</Space></Select.Option>
-              <Select.Option value="Bank Transfer"><Space><QrCode color={LUXURY_COLORS.NAVY} /> Quét mã QR Ngân Hàng</Space></Select.Option>
-              <Select.Option value="VNPay"><Space><CreditCard color="blue" /> Cổng thanh toán VNPay</Space></Select.Option>
-              <Select.Option value="MoMo"><Space><CreditCard color="magenta" /> Ví điện tử MoMo</Space></Select.Option>
-            </Select>
-          </Form.Item>
-          
-          <Form.Item name="amountPaid" label={<span style={{fontWeight: 'bold', color: LUXURY_COLORS.NAVY}}>Số tiền khách trả (VNĐ)</span>} rules={[{ required: true }]}>
-            {/* 🔥 FIX 400 BAD REQUEST: CHỈ LẤY SỐ, ÉP KIỂU AN TOÀN */}
-            <InputNumber 
-                size="large" 
-                style={{ width: '100%', fontSize: 18, color: LUXURY_COLORS.ACCENT_RED, fontWeight: 'bold' }} 
-                formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} 
-                parser={v => {
-                    const numStr = v ? v.toString().replace(/\D/g, '') : '';
-                    return numStr ? parseInt(numStr, 10) : '';
-                }} 
-            />
-          </Form.Item>
+      <Modal title={<span style={{ color: LUXURY_COLORS.NAVY, fontSize: 18, fontWeight: 900 }}>Thu tiền Khách hàng</span>} open={isPayModalOpen} onCancel={() => { setIsPayModalOpen(false); setIsWaitingPayment(false); }} footer={null} centered width={450}>
+        {/* 🔥 4. ĐỔI GIAO DIỆN MODAL KHI ĐANG CHỜ VNPay/MoMo */}
+        {isWaitingPayment ? (
+            <div style={{ textAlign: 'center', padding: '30px 10px' }}>
+                <Spin size="large" />
+                <Title level={4} style={{ marginTop: 24, color: LUXURY_COLORS.NAVY }}>Đang chờ thanh toán...</Title>
+                <Text type="secondary" style={{ fontSize: 15, display: 'block' }}>Vui lòng yêu cầu khách hàng hoàn tất thanh toán trên Tab VNPAY/MOMO vừa được mở ra.</Text>
+                <div style={{ marginTop: 32 }}>
+                    <Button danger onClick={() => setIsWaitingPayment(false)} style={{ width: '100%' }}>Hủy chờ / Chọn cách thanh toán khác</Button>
+                </div>
+            </div>
+        ) : (
+            <Form form={payForm} layout="vertical" onFinish={handlePayment} style={{ marginTop: 24 }}>
+                <Form.Item name="paymentMethod" label={<span style={{fontWeight: 'bold', color: LUXURY_COLORS.NAVY}}>Phương thức thanh toán</span>} rules={[{ required: true }]}>
+                    <Select size="large">
+                        <Select.Option value="Cash"><Space><Money color={LUXURY_COLORS.SUCCESS} /> Tiền mặt (Lễ tân thu)</Space></Select.Option>
+                        <Select.Option value="Bank Transfer"><Space><QrCode color={LUXURY_COLORS.NAVY} /> Quét mã QR Ngân Hàng</Space></Select.Option>
+                        <Select.Option value="VNPay"><Space><CreditCard color="blue" /> Cổng thanh toán VNPay</Space></Select.Option>
+                        <Select.Option value="MoMo"><Space><CreditCard color="magenta" /> Ví điện tử MoMo</Space></Select.Option>
+                    </Select>
+                </Form.Item>
+                
+                <Form.Item name="amountPaid" label={<span style={{fontWeight: 'bold', color: LUXURY_COLORS.NAVY}}>Số tiền khách trả (VNĐ)</span>} rules={[{ required: true }]}>
+                    <InputNumber 
+                        size="large" 
+                        style={{ width: '100%', fontSize: 18, color: LUXURY_COLORS.ACCENT_RED, fontWeight: 'bold' }} 
+                        formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} 
+                        parser={v => {
+                            const numStr = v ? v.toString().replace(/\D/g, '') : '';
+                            return numStr ? parseInt(numStr, 10) : '';
+                        }} 
+                    />
+                </Form.Item>
 
-          {paymentMethod === 'Bank Transfer' && amountPaid > 0 && invoiceData && (
-             <div style={{ textAlign: 'center', backgroundColor: LUXURY_COLORS.LIGHTEST, padding: 16, borderRadius: 8, border: `2px dashed ${LUXURY_COLORS.NAVY}`, marginBottom: 16 }}>
-                 <Text strong style={{ color: LUXURY_COLORS.NAVY, display: 'block', marginBottom: 8 }}>Khách quét mã bên dưới để thanh toán đúng số tiền:</Text>
-                 <img 
-                    src={`https://qr.sepay.vn/img?bank=VIB&acc=034537384&template=qronly&amount=${amountPaid}&des=Thanh+toan+don+${bookingCode}`} 
-                    alt="VietQR" 
-                    style={{ width: 220, borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} 
-                 />
-             </div>
-          )}
+                {paymentMethod === 'Bank Transfer' && amountPaid > 0 && invoiceData && (
+                <div style={{ textAlign: 'center', backgroundColor: LUXURY_COLORS.LIGHTEST, padding: 16, borderRadius: 8, border: `2px dashed ${LUXURY_COLORS.NAVY}`, marginBottom: 16 }}>
+                    <Text strong style={{ color: LUXURY_COLORS.NAVY, display: 'block', marginBottom: 8 }}>Khách quét mã bên dưới để thanh toán đúng số tiền:</Text>
+                    <img 
+                        src={`https://qr.sepay.vn/img?bank=VIB&acc=034537384&template=qronly&amount=${amountPaid}&des=Thanh+toan+don+${bookingCode}`} 
+                        alt="VietQR" 
+                        style={{ width: 220, borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} 
+                    />
+                </div>
+                )}
 
-          <div style={{ textAlign: 'right', marginTop: 16 }}>
-            <Button size="large" onClick={() => setIsPayModalOpen(false)} style={{ marginRight: 8, fontWeight: 600 }}>Hủy</Button>
-            <Button size="large" type="primary" htmlType="submit" loading={loading} style={{ backgroundColor: LUXURY_COLORS.ACCENT_RED, fontWeight: 'bold', border: 'none' }}>XÁC NHẬN / TIẾN HÀNH</Button>
-          </div>
-        </Form>
+                <div style={{ textAlign: 'right', marginTop: 16 }}>
+                    <Button size="large" onClick={() => setIsPayModalOpen(false)} style={{ marginRight: 8, fontWeight: 600 }}>Hủy</Button>
+                    {/* 🔥 5. TỰ ĐỘNG ĐỔI CHỮ TRÊN NÚT BẤM */}
+                    <Button size="large" type="primary" htmlType="submit" loading={loading} style={{ backgroundColor: LUXURY_COLORS.ACCENT_RED, fontWeight: 'bold', border: 'none' }}>
+                        {paymentMethod === 'VNPay' || paymentMethod === 'MoMo' ? 'MỞ TRANG THANH TOÁN' : 'GHI NHẬN THANH TOÁN'}
+                    </Button>
+                </div>
+            </Form>
+        )}
       </Modal>
 
       {/* KHU VỰC IN (Giữ nguyên) */}

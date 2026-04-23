@@ -1,8 +1,8 @@
 import React from 'react';
 import { Typography, Row, Col, Card, Divider, Grid } from 'antd';
 import { 
-  Crown, ShieldCheck, Sparkle, Quotes,
-  Fingerprint, Scales, FileText, WarningCircle, ShieldPlus
+  Crown, Sparkle, Quotes,
+  Fingerprint, Scales, WarningCircle, ShieldPlus
 } from '@phosphor-icons/react';
 import { motion } from 'framer-motion';
 
@@ -24,10 +24,9 @@ export default function TermsPolicyPage() {
   return (
     <div style={{ backgroundColor: '#fff', minHeight: '100vh', overflowX: 'hidden' }}>
       
-      {/* SECTION 1: HERO - ĐỔI ẢNH NỀN SANG TRỌNG HƠN */}
+      {/* SECTION 1: HERO - Đã xóa bỏ các ký tự xung đột Git */}
       <div style={{ 
         height: '65vh', minHeight: 450,
-        // Sử dụng ảnh nội thất khách sạn hạng sang tông tối
         backgroundImage: 'url("https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1920&q=80")',
         backgroundSize: 'cover', 
         backgroundPosition: 'center', 
@@ -37,7 +36,6 @@ export default function TermsPolicyPage() {
         justifyContent: 'center', 
         position: 'relative'
       }}>
-        {/* Lớp phủ Overlay tối hơn để tăng độ Luxury */}
         <div style={{ 
           position: 'absolute', 
           inset: 0, 
@@ -64,11 +62,11 @@ export default function TermsPolicyPage() {
             fontFamily: '"Source Serif 4", serif',
             textShadow: '0 10px 20px rgba(0,0,0,0.5)'
           }}>
-            LEGAL & PRIVACY
+            CHÍNH SÁCH & ĐIỀU KHOẢN
           </Title>
           <div style={{ width: 100, height: 2, background: THEME.GRADIENT_VIP, margin: '20px auto' }}></div>
           <Text style={{ color: THEME.GOLD, fontSize: 18, letterSpacing: 5, textTransform: 'uppercase', fontWeight: 300 }}>
-            Tiêu chuẩn pháp lý thượng lưu
+            Tiêu chuẩn pháp lý thượng lưu tại ABC Hotel
           </Text>
         </motion.div>
       </div>
@@ -76,7 +74,7 @@ export default function TermsPolicyPage() {
       {/* SECTION 2: CHÍNH SÁCH (Hạt background lung linh) */}
       <div style={{ backgroundColor: THEME.NAVY_DARK, padding: isMobile ? '80px 24px' : '120px 24px', position: 'relative', overflow: 'hidden' }}>
         
-        {/* Hạt background trôi lơ lửng - Giống About 100% */}
+        {/* Background Blobs */}
         {[...Array(6)].map((_, i) => (
           <motion.div
             key={`policy-blob-${i}`}
@@ -151,7 +149,7 @@ export default function TermsPolicyPage() {
         </div>
       </div>
 
-      {/* SECTION 3: NỘI DUNG VĂN BẢN (Nền trắng tinh tế) */}
+      {/* SECTION 3: NỘI DUNG VĂN BẢN */}
       <div style={{ padding: '100px 24px', maxWidth: 900, margin: '0 auto' }}>
         <motion.div 
           initial={{ opacity: 0 }} 
@@ -173,7 +171,9 @@ export default function TermsPolicyPage() {
             borderRadius: 20, 
             boxShadow: '0 20px 40px rgba(0,0,0,0.2)' 
           }}>
-            <Title level={4} style={{ color: THEME.GOLD }}><WarningCircle size={28} weight="fill" /> Lưu ý quan trọng</Title>
+            <Title level={4} style={{ color: THEME.GOLD, display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <WarningCircle size={28} weight="fill" /> Lưu ý quan trọng
+            </Title>
             <Text style={{ color: '#fff', fontSize: 16, opacity: 0.8 }}>
               Yêu cầu hoàn tiền hoặc thay đổi lịch trình phải được gửi qua hệ thống chính thức trước 48 giờ. Mọi tranh chấp phát sinh sẽ được ưu tiên giải quyết trên tinh thần thương lượng và tôn trọng khách hàng.
             </Text>
@@ -181,7 +181,7 @@ export default function TermsPolicyPage() {
         </motion.div>
       </div>
 
-      {/* SECTION 4: FOOTER QUOTE (Phong cách sang trọng) */}
+      {/* SECTION 4: FOOTER QUOTE */}
       <div style={{ 
         backgroundColor: THEME.NAVY_DARK, 
         padding: '100px 24px', 

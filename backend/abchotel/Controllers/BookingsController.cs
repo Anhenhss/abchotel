@@ -74,5 +74,15 @@ namespace abchotel.Controllers
             var rooms = await _bookingService.GetAvailableSpecificRoomsAsync(roomTypeId, checkIn, checkOut);
             return Ok(rooms);
         }
+        [HttpGet("my-bookings")]
+        [Authorize] // Khách hàng đăng nhập là gọi được
+        public async Task<IActionResult> GetMyBookings()
+        {
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(userIdStr, out int userId)) return Unauthorized();
+
+            var bookings = await _bookingService.GetMyBookingsAsync(userId);
+            return Ok(bookings);
+        }
     }
 }

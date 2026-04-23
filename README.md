@@ -8,6 +8,7 @@ dotnet clean
 dotnet build
 npm install react-quill-new
 npm install framer-motion
+npm install recharts xlsx
 
 máy tính trường 
 dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org

@@ -3,7 +3,7 @@ import axiosClient from './axiosClient';
 export const bookingApi = {
   // Lấy danh sách có hỗ trợ lọc theo trạng thái
   getAll: (status = '') => axiosClient.get('/Bookings', { params: { status } }),
-  
+  getMyBookings: () => axiosClient.get('/Bookings/my-bookings'),
   // Lấy chi tiết 1 đơn (Dùng cho Drawer sau này)
   getByCode: (code) => axiosClient.get(`/Bookings/${code}`),
   
@@ -15,4 +15,5 @@ export const bookingApi = {
   // Lấy danh sách số phòng cụ thể (Phòng vật lý)
   getSpecificRooms: (roomTypeId, checkIn, checkOut) => 
       axiosClient.get('/Bookings/specific-rooms', { params: { roomTypeId, checkIn, checkOut } }),
+  
 };

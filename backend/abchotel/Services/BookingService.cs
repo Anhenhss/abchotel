@@ -19,6 +19,7 @@ namespace abchotel.Services
         Task<List<BookingListResponse>> GetAllBookingsAsync(string status = null);
         Task<bool> UpdateBookingStatusAsync(int id, string status, string reason);
         Task<List<object>> GetAvailableSpecificRoomsAsync(int roomTypeId, DateTime checkIn, DateTime checkOut);
+        Task<List<BookingListResponse>> GetMyBookingsAsync(int userId);
     }
 
     public class BookingService : IBookingService
@@ -72,7 +73,14 @@ namespace abchotel.Services
                             ImageUrl = reader.IsDBNull(reader.GetOrdinal("ImageUrl")) ? null : reader.GetString(reader.GetOrdinal("ImageUrl")),
                             RemainingRooms = reader.GetInt32(reader.GetOrdinal("RemainingRooms")),
                             SubTotal = reader.GetDecimal(reader.GetOrdinal("SubTotal")),
-                            IsUrgent = reader.GetBoolean(reader.GetOrdinal("IsUrgent"))
+                            IsUrgent = reader.GetBoolean(reader.GetOrdinal("IsUrgent")),
+                            CapacityAdults = reader.GetInt32(reader.GetOrdinal("CapacityAdults")),
+                            CapacityChildren = reader.GetInt32(reader.GetOrdinal("CapacityChildren")),
+                            SizeSqm = reader.IsDBNull(reader.GetOrdinal("SizeSqm")) ? 0 : reader.GetDouble(reader.GetOrdinal("SizeSqm")),
+                            BedType = reader.IsDBNull(reader.GetOrdinal("BedType")) ? "Tiêu chuẩn" : reader.GetString(reader.GetOrdinal("BedType")),
+                            ViewDirection = reader.IsDBNull(reader.GetOrdinal("ViewDirection")) ? "Đang cập nhật" : reader.GetString(reader.GetOrdinal("ViewDirection")),
+                            AllImages = reader.IsDBNull(reader.GetOrdinal("AllImages")) ? null : reader.GetString(reader.GetOrdinal("AllImages")),
+                            AmenitiesSummary = reader.IsDBNull(reader.GetOrdinal("AmenitiesSummary")) ? "Chưa có tiện ích" : reader.GetString(reader.GetOrdinal("AmenitiesSummary"))
                         });
                     }
                 }
@@ -100,7 +108,7 @@ namespace abchotel.Services
             // 3. Tạo Header cho bảng Bookings
             var booking = new Booking
             {
-                UserId = currentUserId, 
+                UserId = currentUserId,
                 GuestName = request.GuestName,
                 GuestPhone = request.GuestPhone,
                 GuestEmail = request.GuestEmail,
@@ -109,7 +117,7 @@ namespace abchotel.Services
                 VoucherId = appliedVoucher?.Id,
                 SpecialRequests = request.SpecialRequests,
                 // Mặc định là Pending, tí nữa xuống dưới nếu là khách vãng lai sẽ tự đổi thành Checked_in
-                Status = "Pending", 
+                Status = "Pending",
                 CreatedAt = DateTime.Now
             };
 
@@ -129,22 +137,23 @@ namespace abchotel.Services
                     if (item.RoomId.HasValue && item.RoomId.Value > 0)
                     {
                         isWalkIn = true;
-                        
+
                         // 4.1. Lấy giá phòng hiện tại
                         decimal currentPrice = 0;
                         var roomType = await _context.RoomTypes.FindAsync(item.RoomTypeId);
-                        if (roomType != null) {
+                        if (roomType != null)
+                        {
                             currentPrice = item.PriceType == "HOURLY" ? roomType.PricePerHour : roomType.BasePrice;
                         }
 
                         // 4.2. Khóa bảo vệ: Kiểm tra xem phòng có bị ai chiếm mất trong tích tắc không?
-                        bool isRoomBusy = await _context.BookingDetails.AnyAsync(bd => 
+                        bool isRoomBusy = await _context.BookingDetails.AnyAsync(bd =>
                             bd.RoomId == item.RoomId &&
                             bd.Booking.Status != "Cancelled" &&
                             !(bd.CheckOutDate <= item.CheckInDate || bd.CheckInDate >= item.CheckOutDate)
                         );
 
-                        if (isRoomBusy) 
+                        if (isRoomBusy)
                         {
                             // Nếu phòng bị chiếm, Hủy luôn cái đơn vừa tạo và báo lỗi
                             _context.Bookings.Remove(booking);
@@ -169,10 +178,10 @@ namespace abchotel.Services
                         var physicalRoom = await _context.Rooms.FindAsync(item.RoomId.Value);
                         if (physicalRoom != null)
                         {
-                            physicalRoom.Status = "Occupied"; 
+                            physicalRoom.Status = "Occupied";
                         }
                     }
-                    else 
+                    else
                     {
                         // NẾU KHÔNG CÓ ROOM ID -> ĐÂY LÀ KHÁCH ĐẶT TRÊN WEB -> DÙNG SQL CŨ ĐỂ MÁY TỰ BỐC PHÒNG
                         await _context.Database.ExecuteSqlInterpolatedAsync($"EXEC sp_BookAndLockRooms {booking.Id}, {item.RoomTypeId}, {item.CheckInDate}, {item.CheckOutDate}, {item.Quantity}, {item.PriceType}");
@@ -297,8 +306,8 @@ namespace abchotel.Services
         // ==========================================================
         public async Task<List<BookingListResponse>> GetAllBookingsAsync(string status = null)
         {
-            var query = _context.Bookings.AsQueryable();
-            
+            var query = _context.Bookings.Include(b => b.BookingDetails).AsQueryable();
+
             // Nếu có truyền status (Pending, Confirmed...) thì lọc, không thì lấy hết
             if (!string.IsNullOrEmpty(status))
             {
@@ -314,7 +323,9 @@ namespace abchotel.Services
                 Status = b.Status,
                 ActualCheckIn = b.ActualCheckIn,
                 ActualCheckOut = b.ActualCheckOut,
-                CreatedAt = b.CreatedAt
+                CreatedAt = b.CreatedAt,
+                ExpectedCheckIn = b.BookingDetails.OrderBy(d => d.CheckInDate).Select(d => d.CheckInDate).FirstOrDefault(),
+                ExpectedCheckOut = b.BookingDetails.OrderByDescending(d => d.CheckOutDate).Select(d => d.CheckOutDate).FirstOrDefault()
             }).ToListAsync();
         }
 
@@ -327,18 +338,18 @@ namespace abchotel.Services
             if (booking == null) return false;
 
             booking.Status = status;
-            
+
             // Lưu lại lý do hủy nếu có
             if (!string.IsNullOrEmpty(reason))
             {
                 booking.CancellationReason = reason;
             }
-            
+
             booking.UpdatedAt = DateTime.Now;
             await _context.SaveChangesAsync();
 
             // Nếu muốn, có thể gọi _notificationService ở đây để báo cho Quản lý biết có đơn vừa bị hủy
-            
+
             return true;
         }
         // ==========================================================
@@ -346,20 +357,46 @@ namespace abchotel.Services
         // ==========================================================
         public async Task<List<object>> GetAvailableSpecificRoomsAsync(int roomTypeId, DateTime checkIn, DateTime checkOut)
         {
-             // 1. Tìm tất cả các phòng đã bị đặt trong khoảng thời gian này
-             var bookedRoomIds = await _context.BookingDetails
-                .Where(bd => bd.RoomId != null && bd.Booking.Status != "Cancelled" &&
-                             !(bd.CheckOutDate <= checkIn || bd.CheckInDate >= checkOut))
-                .Select(bd => bd.RoomId)
+            // 1. Tìm tất cả các phòng đã bị đặt trong khoảng thời gian này
+            var bookedRoomIds = await _context.BookingDetails
+               .Where(bd => bd.RoomId != null && bd.Booking.Status != "Cancelled" &&
+                            !(bd.CheckOutDate <= checkIn || bd.CheckInDate >= checkOut))
+               .Select(bd => bd.RoomId)
+               .ToListAsync();
+
+            // 2. Lọc ra các phòng trống (Thuộc hạng phòng đó, trạng thái Available, và chưa bị đặt)
+            var availableRooms = await _context.Rooms
+               .Where(r => r.RoomTypeId == roomTypeId && r.Status == "Available" && !bookedRoomIds.Contains(r.Id))
+               .Select(r => new { RoomId = r.Id, RoomNumber = r.RoomNumber })
+               .ToListAsync();
+
+            return availableRooms.Cast<object>().ToList();
+        }
+        // ==========================================================
+        // 7. Lịch sử đặt phòng
+        // ==========================================================
+        public async Task<List<BookingListResponse>> GetMyBookingsAsync(int userId)
+        {
+            var bookings = await _context.Bookings
+                .Where(b => b.UserId == userId)
+                .OrderByDescending(b => b.CreatedAt)
+                .Select(b => new BookingListResponse
+                {
+                    Id = b.Id,
+                    BookingCode = b.BookingCode,
+                    GuestName = b.GuestName,
+                    GuestPhone = b.GuestPhone,
+                    Status = b.Status,
+                    ActualCheckIn = b.ActualCheckIn,
+                    ActualCheckOut = b.ActualCheckOut,
+                    CreatedAt = b.CreatedAt,
+                    // Lấy CheckIn sớm nhất và CheckOut trễ nhất từ danh sách chi tiết phòng
+                    ExpectedCheckIn = b.BookingDetails.Any() ? b.BookingDetails.Min(d => d.CheckInDate) : (DateTime?)null,
+                    ExpectedCheckOut = b.BookingDetails.Any() ? b.BookingDetails.Max(d => d.CheckOutDate) : (DateTime?)null
+                })
                 .ToListAsync();
 
-             // 2. Lọc ra các phòng trống (Thuộc hạng phòng đó, trạng thái Available, và chưa bị đặt)
-             var availableRooms = await _context.Rooms
-                .Where(r => r.RoomTypeId == roomTypeId && r.Status == "Available" && !bookedRoomIds.Contains(r.Id))
-                .Select(r => new { RoomId = r.Id, RoomNumber = r.RoomNumber })
-                .ToListAsync();
-
-             return availableRooms.Cast<object>().ToList();
+            return bookings;
         }
     }
 }

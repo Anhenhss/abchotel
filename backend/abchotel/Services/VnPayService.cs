@@ -1,4 +1,5 @@
 using System;
+using System.Linq; // Bổ sung thư viện này để dùng FirstOrDefault
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using abchotel.Helpers;
@@ -23,7 +24,9 @@ namespace abchotel.Services
 
         public string CreatePaymentUrl(HttpContext context, int invoiceId, decimal amount, string orderInfo)
         {
-            var tick = DateTime.Now.Ticks.ToString();
+            // 🔥 ÉP CỨNG LẤY GIỜ VIỆT NAM (UTC + 7) ĐỂ KHÔNG BỊ LỖI TIMEOUT VNPAY
+            DateTime vietnamTime = DateTime.UtcNow.AddHours(7);
+            var tick = vietnamTime.Ticks.ToString();
             var vnpay = new VnPayLibrary();
 
             vnpay.AddRequestData("vnp_Version", "2.1.0");
@@ -33,7 +36,10 @@ namespace abchotel.Services
             // VNPay tính tiền bằng VND nhưng nhân 100 (VD: 100.000đ thì gửi lên 10.000.000)
             vnpay.AddRequestData("vnp_Amount", ((long)(amount * 100)).ToString()); 
             
-            vnpay.AddRequestData("vnp_CreateDate", DateTime.Now.ToString("yyyyMMddHHmmss"));
+            // 🔥 GỬI THỜI GIAN TẠO VÀ THỜI GIAN HẾT HẠN (15 PHÚT) THEO CHUẨN GIỜ VN
+            vnpay.AddRequestData("vnp_CreateDate", vietnamTime.ToString("yyyyMMddHHmmss"));
+            vnpay.AddRequestData("vnp_ExpireDate", vietnamTime.AddMinutes(15).ToString("yyyyMMddHHmmss"));
+            
             vnpay.AddRequestData("vnp_CurrCode", "VND");
             vnpay.AddRequestData("vnp_IpAddr", Utils.GetIpAddress(context));
             vnpay.AddRequestData("vnp_Locale", "vn");

@@ -19,7 +19,7 @@ namespace abchotel.Services
     public class MoMoService : IMoMoService
     {
         private readonly IConfiguration _config;
-        private readonly HttpClient _httpClient; // Dùng để gọi API lên máy chủ MoMo
+        private readonly HttpClient _httpClient; 
 
         public MoMoService(IConfiguration config, HttpClient httpClient)
         {
@@ -34,10 +34,12 @@ namespace abchotel.Services
             string secretKey = _config["MoMo:SecretKey"];
             string endpoint = _config["MoMo:Endpoint"];
             string returnUrl = _config["MoMo:ReturnUrl"];
-            // IPN Url thường dùng khi public web thật, ở local ta tạm dùng returnUrl
             string ipnUrl = _config["MoMo:ReturnUrl"]; 
 
-            string orderId = $"{invoiceId}_{DateTime.Now.Ticks}"; // Mã đơn hàng duy nhất
+            // 🔥 ĐỒNG BỘ MÚI GIỜ VIỆT NAM (UTC+7) NHƯ VNPAY
+            DateTime vietnamTime = DateTime.UtcNow.AddHours(7);
+            
+            string orderId = $"{invoiceId}_{vietnamTime.Ticks}"; // Mã đơn hàng duy nhất
             string requestId = Guid.NewGuid().ToString();
             string extraData = "";
             string amountStr = ((long)amount).ToString(); // MoMo nhận tiền nguyên dương
@@ -90,13 +92,11 @@ namespace abchotel.Services
 
         public (bool IsSuccess, int InvoiceId, string TransactionId, string Message) PaymentExecute(IQueryCollection collections)
         {
-            // Lấy thông tin MoMo ném về URL
             string orderId = collections["orderId"];
             string message = collections["message"];
             string resultCode = collections["resultCode"];
             string transId = collections["transId"];
             
-            // Lấy InvoiceId ra từ chuỗi orderId (VD: "15_63782912389" -> 15)
             int invoiceId = 0;
             if (!string.IsNullOrEmpty(orderId))
             {
@@ -104,7 +104,6 @@ namespace abchotel.Services
                 if (splitStr.Length > 0) int.TryParse(splitStr[0], out invoiceId);
             }
 
-            // resultCode == "0" nghĩa là giao dịch thành công (Quy định của MoMo)
             if (resultCode == "0")
             {
                 return (true, invoiceId, transId, "Thanh toán MoMo thành công.");

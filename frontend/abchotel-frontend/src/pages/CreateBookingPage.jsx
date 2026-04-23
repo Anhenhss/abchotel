@@ -5,7 +5,7 @@ import {
 } from 'antd';
 import { 
   MagnifyingGlass, User, CreditCard, IdentificationCard, Door, 
-  Clock, Bed, ShoppingCart, Plus, Trash
+  Clock, Bed, ShoppingCart, Plus, Trash, Users, ArrowsOut, Eye // 🔥 THÊM ICON Ở ĐÂY
 } from '@phosphor-icons/react';
 import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
@@ -187,13 +187,12 @@ export default function CreateBookingPage() {
           <Col xs={24} lg={16}>
             <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(13,24,33,0.05)', height: '100%' }}>
               
-              {/* 🔥 FIX RESPONSIVE MOBILE Ở ĐÂY: Thêm flexWrap: 'wrap' */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 20, borderBottom: `1px solid ${LUXURY_COLORS.LIGHTEST}`, paddingBottom: 16 }}>
                 <Button 
                   type={bookingMode === 'NIGHTLY' ? 'primary' : 'default'} 
                   style={{ 
                     backgroundColor: bookingMode === 'NIGHTLY' ? LUXURY_COLORS.NAVY : undefined,
-                    flex: '1 1 auto' // Tự động giãn nút trên Mobile
+                    flex: '1 1 auto' 
                   }} 
                   onClick={() => setBookingMode('NIGHTLY')} 
                   icon={<Door size={18} />} 
@@ -205,7 +204,7 @@ export default function CreateBookingPage() {
                   type={bookingMode === 'HOURLY' ? 'primary' : 'default'} 
                   style={{ 
                     backgroundColor: bookingMode === 'HOURLY' ? LUXURY_COLORS.NAVY : undefined,
-                    flex: '1 1 auto' // Tự động giãn nút trên Mobile
+                    flex: '1 1 auto' 
                   }} 
                   onClick={() => setBookingMode('HOURLY')} 
                   icon={<Clock size={18} />} 
@@ -251,18 +250,41 @@ export default function CreateBookingPage() {
                   <Divider />
                   <Row gutter={[16, 16]}>
                     {availableRooms.map((item, index) => (
-                      <Col xs={24} sm={12} lg={12} key={index}>
-                        <Card size="small" hoverable style={{ border: `1px solid ${LUXURY_COLORS.LIGHT_BLUE}`, backgroundColor: LUXURY_COLORS.LIGHTEST }}>
-                          <Title level={5} style={{ marginTop: 0 }}>{item.roomTypeName}</Title>
-                          <Space direction="vertical" size={0} style={{ width: '100%' }}>
-                            <Text>Trống: <Tag color="cyan">{item.remainingRooms} phòng</Tag></Text>
-                            <Text strong style={{ color: LUXURY_COLORS.ACCENT_RED, fontSize: 16, display: 'block', marginTop: 8 }}>
-                              {new Intl.NumberFormat('vi-VN').format(item.subTotal)}đ
-                            </Text>
-                            <Button type="dashed" block onClick={() => addToCart(item)} style={{ marginTop: 8, borderColor: LUXURY_COLORS.NAVY, color: LUXURY_COLORS.NAVY }}>
-                              <Plus /> Thêm vào đơn
+                      <Col xs={24} sm={24} lg={12} key={index}>
+                        {/* 🔥 GIAO DIỆN CARD MỚI HIỂN THỊ ĐẦY ĐỦ THÔNG SỐ 🔥 */}
+                        <Card size="small" hoverable style={{ border: `1px solid ${LUXURY_COLORS.LIGHT_BLUE}`, backgroundColor: LUXURY_COLORS.LIGHTEST, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                          
+                          <Title level={5} style={{ marginTop: 0, marginBottom: 12, color: LUXURY_COLORS.NAVY }}>{item.roomTypeName}</Title>
+                          
+                          {/* Lưới thông số phòng */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: 16 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: LUXURY_COLORS.MUTED_BLUE, fontSize: 13 }}>
+                              <Users size={16} /> <span>{item.capacityAdults || '?'} Lớn, {item.capacityChildren || 0} Bé</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: LUXURY_COLORS.MUTED_BLUE, fontSize: 13 }}>
+                              <ArrowsOut size={16} /> <span>{item.sizeSqm || '?'} m²</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: LUXURY_COLORS.MUTED_BLUE, fontSize: 13 }}>
+                              <Bed size={16} /> <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.bedType || 'Tiêu chuẩn'}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: LUXURY_COLORS.MUTED_BLUE, fontSize: 13 }}>
+                              <Eye size={16} /> <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.viewDirection || 'Đang cập nhật'}</span>
+                            </div>
+                          </div>
+
+                          <div style={{ marginTop: 'auto' }}>
+                            <Divider style={{ margin: '0 0 12px 0', borderColor: LUXURY_COLORS.LIGHT_BLUE }} />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                              <Text>Trống: <Tag color="cyan" style={{ margin: 0 }}>{item.remainingRooms} phòng</Tag></Text>
+                              <Text strong style={{ color: LUXURY_COLORS.ACCENT_RED, fontSize: 18 }}>
+                                {new Intl.NumberFormat('vi-VN').format(item.subTotal)}đ
+                              </Text>
+                            </div>
+                            <Button type="dashed" block onClick={() => addToCart(item)} style={{ borderColor: LUXURY_COLORS.NAVY, color: LUXURY_COLORS.NAVY, fontWeight: 600 }}>
+                              <Plus weight="bold" /> Thêm vào đơn
                             </Button>
-                          </Space>
+                          </div>
+                          
                         </Card>
                       </Col>
                     ))}

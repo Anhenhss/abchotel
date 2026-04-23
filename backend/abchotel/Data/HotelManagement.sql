@@ -1353,14 +1353,14 @@ CREATE PROCEDURE [dbo].[sp_SearchAvailableRooms]
     @Adults INT = 1,
     @Children INT = 0,
     @RequestedRooms INT = 1,
-    @PriceType VARCHAR(20) = 'NIGHTLY', -- 🔥 THÊM THAM SỐ LOẠI GIÁ (NIGHTLY/HOURLY)
+    @PriceType VARCHAR(20) = 'NIGHTLY', 
     @MinPrice DECIMAL(18,2) = NULL,
     @MaxPrice DECIMAL(18,2) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- BƯỚC 1: VALIDATE
+    -- BƯỚC 1: VALIDATE DỮ LIỆU
     IF @CheckIn < CAST(GETDATE() AS DATE)
     BEGIN
         RAISERROR('Ngày Check-in phải từ hôm nay trở đi.', 16, 1);
@@ -1377,25 +1377,47 @@ BEGIN
     DECLARE @Duration INT;
     IF @PriceType = 'HOURLY'
     BEGIN
-        -- Tính theo giờ (Làm tròn lên, vd: 1 tiếng 15 phút -> tính 2 tiếng)
+        -- Tính theo giờ (Làm tròn lên, vd 1h15p -> 2h)
         SET @Duration = CEILING(CAST(DATEDIFF(MINUTE, @CheckIn, @CheckOut) AS FLOAT) / 60.0);
     END
     ELSE
     BEGIN
         -- Tính theo đêm
         SET @Duration = DATEDIFF(DAY, @CheckIn, @CheckOut);
-        IF @Duration = 0 SET @Duration = 1; -- Ít nhất 1 đêm
+        IF @Duration = 0 SET @Duration = 1; 
     END
 
-    -- BƯỚC 3: THỰC THI THUẬT TOÁN
+    -- BƯỚC 3: THỰC THI THUẬT TOÁN & GOM NHÓM DỮ LIỆU
     SELECT 
         rt.id AS RoomTypeId,
         rt.name AS RoomTypeName,
-        -- Lấy đúng loại giá dựa trên PriceType
         CASE WHEN @PriceType = 'HOURLY' THEN rt.price_per_hour ELSE rt.base_price END AS PricePerUnit,
+        
+        -- 1. Lấy ảnh đại diện (Primary)
         (SELECT TOP 1 image_url FROM [dbo].[Room_Images] ri WHERE ri.room_type_id = rt.id AND ri.is_primary = 1) AS ImageUrl,
         
-        -- ĐẾM SỐ PHÒNG VẬT LÝ TRỐNG (Áp dụng De Morgan)
+        -- 2. 🔥 LẤY TẤT CẢ ẢNH (Cách nhau bằng dấu phẩy)
+        (
+            SELECT STRING_AGG(ri.image_url, ',') 
+            FROM [dbo].[Room_Images] ri 
+            WHERE ri.room_type_id = rt.id AND ri.is_active = 1
+        ) AS AllImages,
+
+        rt.capacity_adults AS CapacityAdults,
+        rt.capacity_children AS CapacityChildren,
+        rt.size_sqm AS SizeSqm,
+        rt.bed_type AS BedType,
+        rt.view_direction AS ViewDirection,
+
+        -- 3. 🔥 LẤY TẤT CẢ TIỆN ÍCH CỦA PHÒNG (Cách nhau bằng dấu phẩy)
+        (
+            SELECT STRING_AGG(a.name, ', ')
+            FROM [dbo].[RoomType_Amenities] rta
+            JOIN [dbo].[Amenities] a ON rta.amenity_id = a.id
+            WHERE rta.room_type_id = rt.id AND a.is_active = 1
+        ) AS AmenitiesSummary,
+
+        -- 4. ĐẾM SỐ PHÒNG VẬT LÝ TRỐNG (Trừ đi phòng đang bận)
         (
             SELECT COUNT(r.id)
             FROM [dbo].[Rooms] r
@@ -1411,7 +1433,7 @@ BEGIN
               )
         ) AS RemainingRooms,
         
-        -- Tính tổng tiền = Thời gian * Giá trị 1 đơn vị * Số phòng
+        -- Tính tổng tiền
         (@Duration * CASE WHEN @PriceType = 'HOURLY' THEN rt.price_per_hour ELSE rt.base_price END * @RequestedRooms) AS SubTotal
         
     INTO #TempResult
@@ -1419,16 +1441,24 @@ BEGIN
     WHERE rt.capacity_adults >= @Adults
       AND rt.capacity_children >= @Children
       AND (@MinPrice IS NULL OR (CASE WHEN @PriceType = 'HOURLY' THEN rt.price_per_hour ELSE rt.base_price END) >= @MinPrice)
-      AND (@MaxPrice IS NULL OR (CASE WHEN @PriceType = 'HOURLY' THEN rt.price_per_hour ELSE rt.base_price END) <= @MaxPrice);
+      AND (@MaxPrice IS NULL OR (CASE WHEN @PriceType = 'HOURLY' THEN rt.price_per_hour ELSE rt.base_price END) <= @MaxPrice)
+      AND rt.is_active = 1;
 
-    -- BƯỚC 4: HIỂN THỊ KẾT QUẢ
+    -- BƯỚC 4: HIỂN THỊ KẾT QUẢ ĐẦY ĐỦ TRẢ VỀ CHO BACKEND
     SELECT 
         RoomTypeId,
         RoomTypeName,
         PricePerUnit,
         ImageUrl,
+        AllImages,           -- 🔥 Trả về mảng ảnh
         RemainingRooms,
         SubTotal,
+        CapacityAdults,
+        CapacityChildren,
+        SizeSqm,
+        BedType,
+        ViewDirection,
+        AmenitiesSummary,    -- 🔥 Trả về chuỗi tiện ích
         CAST(CASE WHEN RemainingRooms <= 3 THEN 1 ELSE 0 END AS BIT) AS IsUrgent
     FROM #TempResult
     WHERE RemainingRooms >= @RequestedRooms

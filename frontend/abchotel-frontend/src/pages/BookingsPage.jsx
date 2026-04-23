@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Button, Space, Typography, Tag, Input, notification, Tooltip, Popconfirm, Grid, Divider, Empty, Tabs } from 'antd';
+import { Card, Table, Button, Space, Typography, Tag, Input, notification, Grid, Divider, Empty, Tabs } from 'antd';
 import { MagnifyingGlass, Eye, XCircle, CheckCircle, ClockCounterClockwise, CalendarCheck, DoorOpen } from '@phosphor-icons/react';
 import dayjs from 'dayjs';
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter'; // Cần dùng plugin này
 import { useNavigate } from 'react-router-dom';
 
 import { bookingApi } from '../api/bookingApi';
 import { useSignalR } from '../hooks/useSignalR';
-
 import BookingDetailDrawer from '../components/BookingDetailDrawer'; 
 
+dayjs.extend(isSameOrAfter);
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
 
-// 🔥 BẢNG MÀU LUXURY ĐỒNG BỘ
 const LUXURY_COLORS = {
     DARKEST: '#1C2E4A', NAVY: '#344966', MUTED_BLUE: '#7D92AD', 
     LIGHT_BLUE: '#B4CDED', LIGHTEST: '#E9F0F8', WHITE: '#FFFFFF',
@@ -24,12 +24,9 @@ export default function BookingsPage() {
   const [api, contextHolder] = notification.useNotification({ placement: 'bottomRight' });
   const navigate = useNavigate(); 
 
-  // States
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
-  
-  // 🔥 MẶC ĐỊNH MỞ TAB "ĐẾN HÔM NAY" ĐỂ LỄ TÂN VÀO CA LÀ THẤY NGAY
   const [activeTab, setActiveTab] = useState('ArrivalsToday'); 
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -50,7 +47,6 @@ export default function BookingsPage() {
   useEffect(() => { fetchBookings(); }, []);
 
   useSignalR((notification) => {
-    // Reload data nếu có đơn đặt phòng mới hoặc có ai đó vừa thanh toán
     if (notification.permission === "MANAGE_BOOKINGS" || notification.permission === "MANAGE_INVOICES") {
       fetchBookings(true);
     }
@@ -61,17 +57,28 @@ export default function BookingsPage() {
     setIsDrawerOpen(true);
   };
 
-  // 🔥 THUẬT TOÁN LỌC THEO LUỒNG VẬN HÀNH THỰC TẾ CỦA KHÁCH SẠN
+  // 🔥 THUẬT TOÁN LỌC CHUẨN NGHIỆP VỤ KHÁCH SẠN
   const processedBookings = bookings
     .filter(b => {
+      const today = dayjs().startOf('day');
+      const bookingDate = dayjs(b.expectedCheckIn).startOf('day');
+
       // 1. Lọc theo Tab Nghiệp vụ
       if (activeTab === 'ArrivalsToday') {
-          // Khách có lịch nhận hôm nay (Tạm dùng createdAt vì DTO chưa có ExpectedCheckIn)
-          return dayjs(b.createdAt).isSame(dayjs(), 'day') && (b.status === 'Confirmed' || b.status === 'Pending');
+          // KHÁCH ĐẾN HÔM NAY: Ngày dự kiến là hôm nay + Trạng thái chưa nhận phòng
+          return bookingDate.isSame(today, 'day') && (b.status === 'Confirmed' || b.status === 'Pending');
       }
-      if (activeTab === 'InHouse') return b.status === 'Checked_in';
-      if (activeTab === 'Upcoming') return b.status === 'Confirmed' && dayjs(b.createdAt).isAfter(dayjs(), 'day');
-      if (activeTab === 'PendingPayment') return b.status === 'Pending';
+      if (activeTab === 'InHouse') {
+          // ĐANG LƯU TRÚ: Đã làm thủ tục Check-in và chưa hoàn tất trả phòng
+          return b.status === 'Checked_in';
+      }
+      if (activeTab === 'Upcoming') {
+          // SẮP ĐẾN: Ngày dự kiến trong tương lai (sau ngày hôm nay)
+          return bookingDate.isAfter(today, 'day') && b.status === 'Confirmed';
+      }
+      if (activeTab === 'PendingPayment') {
+          return b.status === 'Pending';
+      }
       if (activeTab !== 'ALL' && b.status !== activeTab) return false;
       
       // 2. Lọc theo thanh tìm kiếm
@@ -82,11 +89,11 @@ export default function BookingsPage() {
         b.guestPhone?.includes(searchText)
       );
     })
-    .sort((a, b) => dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf());
+    .sort((a, b) => dayjs(a.expectedCheckIn).valueOf() - dayjs(b.expectedCheckIn).valueOf()); // Sắp xếp ai đến trước hiện trên đầu
 
   const renderStatus = (status) => {
     switch (status) {
-      case 'Pending': return <Tag color="warning" icon={<ClockCounterClockwise/>}> Chờ tiền Online</Tag>;
+      case 'Pending': return <Tag color="warning" icon={<ClockCounterClockwise/>}> Chờ thanh toán</Tag>;
       case 'Confirmed': return <Tag color="processing" icon={<CheckCircle/>}> Đã xác nhận</Tag>;
       case 'Checked_in': return <Tag color="success" icon={<DoorOpen/>}> Đang lưu trú</Tag>;
       case 'Completed': return <Tag color="default">Đã trả phòng</Tag>;
@@ -98,10 +105,7 @@ export default function BookingsPage() {
   const columns = [
     {
       title: 'Mã Đơn', dataIndex: 'bookingCode', key: 'code',
-      render: (text, record) => {
-        const isLocked = record.status === 'Cancelled' || record.status === 'Completed';
-        return <Text strong style={{ color: isLocked ? LUXURY_COLORS.MUTED_BLUE : LUXURY_COLORS.NAVY, textDecoration: record.status === 'Cancelled' ? 'line-through' : 'none', fontSize: 15 }}>{text}</Text>
-      }
+      render: (text, record) => <Text strong style={{ color: LUXURY_COLORS.NAVY, fontSize: 15 }}>{text}</Text>
     },
     {
       title: 'Khách hàng', key: 'guest',
@@ -113,11 +117,11 @@ export default function BookingsPage() {
       )
     },
     {
-      title: 'Thời gian thực tế', key: 'dates',
+      title: 'Lịch trình dự kiến', key: 'schedule',
       render: (_, record) => (
         <Space direction="vertical" size={0}>
-          <Text style={{ fontSize: 13, color: LUXURY_COLORS.MUTED_BLUE }}>Vào: <Text strong style={{ color: LUXURY_COLORS.DARKEST }}>{record.actualCheckIn ? dayjs(record.actualCheckIn).format('DD/MM/YYYY HH:mm') : '---'}</Text></Text>
-          <Text style={{ fontSize: 13, color: LUXURY_COLORS.MUTED_BLUE }}>Ra: <Text strong style={{ color: LUXURY_COLORS.DARKEST }}>{record.actualCheckOut ? dayjs(record.actualCheckOut).format('DD/MM/YYYY HH:mm') : '---'}</Text></Text>
+          <Text style={{ fontSize: 13 }}>Vào: <Text strong>{dayjs(record.expectedCheckIn).format('DD/MM HH:mm')}</Text></Text>
+          <Text style={{ fontSize: 13 }}>Ra: <Text strong>{dayjs(record.expectedCheckOut).format('DD/MM HH:mm')}</Text></Text>
         </Space>
       )
     },
@@ -128,7 +132,7 @@ export default function BookingsPage() {
     {
       title: 'Thao tác', key: 'actions', align: 'center', width: 180,
       render: (_, record) => (
-        <Button type="primary" ghost icon={<Eye size={20} />} onClick={() => openDrawer(record.bookingCode)} style={{ borderColor: LUXURY_COLORS.LIGHT_BLUE, color: LUXURY_COLORS.WHITE, backgroundColor: LUXURY_COLORS.DARKEST }}>
+        <Button type="primary" icon={<Eye size={20} />} onClick={() => openDrawer(record.bookingCode)} style={{ backgroundColor: LUXURY_COLORS.DARKEST }}>
            Chi tiết / Thu tiền
         </Button>
       )
@@ -139,80 +143,47 @@ export default function BookingsPage() {
     <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
       {contextHolder}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
-        <Title level={3} style={{ color: LUXURY_COLORS.DARKEST, margin: 0, fontWeight: 700 }}>Vận hành Đặt phòng & Thu ngân</Title>
+        <Title level={3} style={{ color: LUXURY_COLORS.DARKEST, margin: 0, fontWeight: 700 }}>Quản lý đơn đặt phòng</Title>
         <Button type="primary" size="large" icon={<CalendarCheck size={20}/>} style={{ backgroundColor: LUXURY_COLORS.ACCENT_RED }} onClick={() => navigate('/admin/bookings/create')}>
            ĐẶT PHÒNG MỚI
         </Button>
       </div>
 
-      <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(13,24,33,0.05)', padding: screens.md ? 0 : '16px 0', backgroundColor: LUXURY_COLORS.WHITE }}>
+      <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(13,24,33,0.05)', backgroundColor: LUXURY_COLORS.WHITE }}>
         
-        <div style={{ display: 'flex', flexDirection: screens.xs ? 'column' : 'row', justifyContent: 'space-between', alignItems: screens.xs ? 'stretch' : 'center', marginBottom: 16, gap: 16, padding: screens.md ? '0' : '0 16px' }}>
+        <div style={{ display: 'flex', flexDirection: screens.xs ? 'column' : 'row', justifyContent: 'space-between', alignItems: screens.xs ? 'stretch' : 'center', marginBottom: 16, gap: 16 }}>
           <Tabs 
             activeKey={activeTab} 
             onChange={setActiveTab} 
-            style={{ flex: 1, width: '100%' }}
+            style={{ flex: 1 }}
             items={[
-              { key: 'ArrivalsToday', label: <span style={{ fontWeight: activeTab === 'ArrivalsToday' ? 600 : 400 }}>Đến hôm nay <Tag color={LUXURY_COLORS.ACCENT_RED} style={{ marginLeft: 4, borderRadius: 12 }}>{bookings.filter(b => dayjs(b.createdAt).isSame(dayjs(), 'day') && (b.status === 'Confirmed' || b.status === 'Pending')).length}</Tag></span> },
-              { key: 'InHouse', label: <span style={{ fontWeight: activeTab === 'InHouse' ? 600 : 400 }}>Đang lưu trú</span> },
+              { key: 'ArrivalsToday', label: 'Đến hôm nay' },
+              { key: 'InHouse', label: 'Đang lưu trú' },
               { key: 'Upcoming', label: 'Sắp đến' },
-              { key: 'PendingPayment', label: 'Chờ thanh toán Online' },
+              { key: 'PendingPayment', label: 'Chờ thanh toán' },
               { key: 'ALL', label: 'Tất cả' },
             ]}
           />
           <Input 
-            placeholder="Tìm mã đơn, tên, SĐT..." 
+            placeholder="Tìm tên, SĐT..." 
             prefix={<MagnifyingGlass color={LUXURY_COLORS.MUTED_BLUE} />} 
             allowClear 
             onChange={e => setSearchText(e.target.value)}
-            style={{ width: screens.xs ? '100%' : 300, borderColor: LUXURY_COLORS.LIGHT_BLUE }}
-            size="large"
+            style={{ width: screens.xs ? '100%' : 250 }}
           />
         </div>
 
-        {screens.md ? (
-          <Table 
+        <Table 
             columns={columns} dataSource={processedBookings} rowKey="id" loading={loading}
-            pagination={{ pageSize: 10 }} rowClassName={(record, index) => index % 2 === 0 ? 'table-row-light' : 'table-row-dark'}
-          />
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 16px' }}>
-            {processedBookings.length === 0 ? <Empty description="Không có đơn nào phù hợp" /> : processedBookings.map(record => {
-              const isLocked = record.status === 'Cancelled' || record.status === 'Completed';
-              return (
-                <div key={record.id} style={{ border: `1px solid ${LUXURY_COLORS.LIGHT_BLUE}`, borderRadius: 8, padding: 16, backgroundColor: isLocked ? LUXURY_COLORS.LIGHTEST : LUXURY_COLORS.WHITE, opacity: isLocked ? 0.7 : 1 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                    <Text strong style={{ fontSize: 16, color: LUXURY_COLORS.NAVY, textDecoration: record.status === 'Cancelled' ? 'line-through' : 'none' }}>{record.bookingCode}</Text>
-                    {renderStatus(record.status)}
-                  </div>
-                  <Space direction="vertical" size={2} style={{ width: '100%', marginBottom: 12 }}>
-                    <Text strong style={{ color: LUXURY_COLORS.DARKEST }}>{record.guestName || 'Khách vãng lai'}</Text>
-                    <Text type="secondary" style={{ fontSize: 13 }}>SĐT: {record.guestPhone}</Text>
-                  </Space>
-                  <Divider style={{ margin: '8px 0', borderColor: LUXURY_COLORS.LIGHT_BLUE }} />
-                  <Button type="primary" block ghost onClick={() => openDrawer(record.bookingCode)} style={{ borderColor: LUXURY_COLORS.NAVY, color: LUXURY_COLORS.NAVY }}>Chi tiết / Thu tiền</Button>
-                </div>
-              );
-            })}
-          </div>
-        )}
+            pagination={{ pageSize: 10 }}
+        />
       </Card>
 
-      {/* Component siêu ngăn kéo All-in-One mà chúng ta vừa làm */}
       <BookingDetailDrawer 
           isOpen={isDrawerOpen} 
           onClose={() => { setIsDrawerOpen(false); fetchBookings(true); }} 
           bookingCode={selectedBookingCode} 
       />
-
-      <style>{`
-        .ant-table-thead > tr > th { background-color: ${LUXURY_COLORS.LIGHTEST} !important; color: ${LUXURY_COLORS.DARKEST} !important; font-weight: 700 !important; }
-        .table-row-light { background-color: #ffffff; }
-        .table-row-dark { background-color: #f8fafc; }
-        .ant-tabs-nav::before { border-bottom: 1px solid ${LUXURY_COLORS.LIGHT_BLUE} !important; }
-        .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn { color: ${LUXURY_COLORS.NAVY} !important; }
-        .ant-tabs-ink-bar { background-color: ${LUXURY_COLORS.NAVY} !important; }
-      `}</style>
     </div>
   );
 }

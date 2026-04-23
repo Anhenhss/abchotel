@@ -14,7 +14,7 @@ import { roomTypeApi } from '../../api/roomTypeApi';
 import { voucherApi } from '../../api/voucherApi'; 
 
 // ==========================================
-// MA THUẬT: ĐĂNG KÝ KHỐI CUSTOM CHO QUILL (Bảo vệ Card khỏi bị vỡ layout)
+// MA THUẬT: ĐĂNG KÝ KHỐI CUSTOM CHO QUILL
 // ==========================================
 const BlockEmbed = Quill.import('blots/block/embed');
 class CustomCardBlot extends BlockEmbed {
@@ -22,6 +22,22 @@ class CustomCardBlot extends BlockEmbed {
     let node = super.create();
     node.setAttribute('contenteditable', 'false');
     node.innerHTML = value;
+    
+    // 🔥 SỬ DỤNG MODAL CỦA ANT DESIGN THAY VÌ WINDOW.CONFIRM XẤU XÍ
+    node.addEventListener('dblclick', function() {
+      Modal.confirm({
+        title: 'Xác nhận xóa tiện ích',
+        content: 'Bạn có chắc chắn muốn xóa khối tiện ích này khỏi bài viết?',
+        okText: 'Xóa ngay',
+        okType: 'danger',
+        cancelText: 'Hủy',
+        centered: true,
+        onOk() {
+          node.remove(); // Xóa mượt mà khỏi khung soạn thảo
+        }
+      });
+    });
+
     return node;
   }
   static value(node) { return node.innerHTML; }
@@ -92,21 +108,15 @@ export default function ArticleEditorPage() {
     };
   };
 
-  // 🔥 MỞ KHÓA FULL TÍNH NĂNG & TẮT TỰ ĐỘNG ĐÁNH SỐ (1.)
   const fullModules = useMemo(() => ({
     table: true,
-    keyboard: {
-      bindings: {
-        'list autofill': null // Tắt tính năng tự động nhảy 1. 2. của Quill
-      }
-    },
+    keyboard: { bindings: { 'list autofill': null } },
     toolbar: {
       container: [
         [{ 'font': [] }, { 'size': ['small', false, 'large', 'huge'] }], 
         [{ 'header': [1, 2, 3, 4, 5, 6, false] }], 
         ['bold', 'italic', 'underline', 'strike'],
         [{ 'color': [] }, { 'background': [] }], 
-        [{ 'script': 'sub'}, { 'script': 'super' }], 
         [{ 'list': 'ordered'}, { 'list': 'bullet' }, { 'indent': '-1'}, { 'indent': '+1' }],
         [{ 'align': [] }],
         ['blockquote', 'code-block'], 
@@ -133,15 +143,11 @@ export default function ArticleEditorPage() {
       articleApi.getArticles(false).then(async res => {
         const items = res.items || res;
         const articleToEdit = items.find(a => a.id.toString() === id);
-        
         if (articleToEdit) {
           const isPub = articleToEdit.publishedAt != null;
-          form.setFieldsValue({
-            title: articleToEdit.title, categoryId: articleToEdit.categoryId, isPublished: isPub
-          });
+          form.setFieldsValue({ title: articleToEdit.title, categoryId: articleToEdit.categoryId, isPublished: isPub });
           setThumbnailUrl(articleToEdit.thumbnailUrl);
           setInitialState({ isPublished: isPub, thumbnailUrl: articleToEdit.thumbnailUrl });
-
           try {
              if(articleToEdit.slug) {
                 const detail = await articleApi.getArticleBySlug(articleToEdit.slug);
@@ -165,7 +171,7 @@ export default function ArticleEditorPage() {
       setThumbnailUrl(uploadRes.data?.url || uploadRes.url || uploadRes);
       onSuccess("ok");
     } catch (error) {
-      api.error({ message: 'Lỗi', description: 'Tải ảnh thất bại.' });
+      api.error({ message: 'Lỗi', description: 'Tải ảnh bìa thất bại.' });
       onError(error);
     } finally { setLoading(false); }
   };
@@ -174,17 +180,14 @@ export default function ArticleEditorPage() {
     try {
       setLoading(true);
       const currentContent = reactQuillRef.current ? reactQuillRef.current.getEditor().root.innerHTML : content;
-      
       const payload = { 
         categoryId: values.categoryId, title: values.title || "",
-        shortDescription: summaryContent || "", 
-        content: currentContent === '<p><br></p>' ? '' : currentContent,
-        metaTitle: values.title || "", 
-        metaDescription: summaryContent ? summaryContent.replace(/<[^>]*>?/gm, '').substring(0, 150) : "" 
+        shortDescription: summaryContent || "", content: currentContent === '<p><br></p>' ? '' : currentContent,
+        metaTitle: values.title || "", metaDescription: summaryContent ? summaryContent.replace(/<[^>]*>?/gm, '').substring(0, 150) : "" 
       }; 
 
       if (!payload.title || !payload.categoryId) {
-          api.warning({ message: 'Cảnh báo', description: 'Vui lòng nhập Tiêu đề và Danh mục.' });
+          api.warning({ message: 'Cảnh báo', description: 'Vui lòng nhập đủ Tiêu đề và Danh mục.' });
           setLoading(false); return;
       }
 
@@ -230,9 +233,6 @@ export default function ArticleEditorPage() {
     setIsPreviewModalOpen(true);
   };
 
-  // ==========================================
-  // 🔥 CHÈN TIỆN ÍCH - THIẾT KẾ CARD HIỆN ĐẠI (NHỎ GỌN & KẾ THỪA FONT)
-  // ==========================================
   const insertHtmlToQuill = (htmlContent) => {
     const quill = reactQuillRef.current.getEditor();
     quill.focus();
@@ -241,41 +241,46 @@ export default function ArticleEditorPage() {
     setTimeout(() => quill.setSelection(range.index + 1), 100);
   };
 
-  // 1. Điểm Du Lịch (Card chữ nhật nhỏ gọn)
   const handleInsertAttraction = (attr) => {
     const safeMapLink = `http://googleusercontent.com/maps.google.com/maps?q=${encodeURIComponent((attr.name + " " + (attr.address || "")).trim())}`;
     const html = `
-      <div style="margin: 16px 0; max-width: 500px; border: 1px solid #e2e8f0; border-left: 4px solid #0A192F; border-radius: 6px; padding: 12px 16px; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); font-family: inherit;">
-        <h4 style="margin: 0 0 6px 0; font-size: 18px; color: #0A192F; font-weight: 700;">📍 ${attr.name}</h4>
-        <p style="margin: 0 0 6px 0; font-size: 14px; color: #475569;"><strong>🚗 Cách KS:</strong> ${attr.distanceKm} km &nbsp;|&nbsp; <strong>🗺️ Địa chỉ:</strong> ${attr.address || 'Đang cập nhật'}</p>
-        ${attr.description ? `<p style="margin: 0 0 8px 0; font-size: 14px; color: #64748b; font-style: italic; line-height: 1.4;">"${attr.description}"</p>` : ''}
-        <a href="${safeMapLink}" target="_blank" style="font-size: 13px; font-weight: 600; color: #8B0000; text-decoration: none;">↗ Bản đồ</a>
+      <div style="margin: 24px auto; width: 100%; max-width: 480px; box-sizing: border-box; display: flex; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; font-family: inherit; align-items: stretch;">
+        <div style="background: #0A192F; color: #ffffff; padding: 24px 16px; display: flex; flex-direction: column; justify-content: center; align-items: center; min-width: 100px; border-right: 1px dashed #cbd5e1;">
+           <div style="font-size: 24px; line-height: 1; margin-bottom: 8px; color: #ef4444;">📍</div>
+           <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; text-align: center;">Điểm đến</div>
+        </div>
+        <div style="padding: 16px 20px; flex: 1; display: flex; flex-direction: column; justify-content: center; box-sizing: border-box;">
+           <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Cách khách sạn ${attr.distanceKm} km</div>
+           <div style="font-size: 18px; font-weight: 800; color: #0A192F; margin-bottom: 6px; line-height: 1.3;">${attr.name}</div>
+           <div style="font-size: 13px; color: #475569; margin-bottom: 12px; line-height: 1.4;">${attr.address || 'Đang cập nhật địa chỉ'}</div>
+           <div><a href="${safeMapLink}" target="_blank" style="display: inline-block; font-size: 12px; font-weight: 800; color: #8B0000; text-decoration: none; text-transform: uppercase; letter-spacing: 0.5px;">Xem bản đồ ⟶</a></div>
+        </div>
       </div>
     `;
     insertHtmlToQuill(html);
     setIsAttractionModalOpen(false);
   };
 
-  // 2. Hạng Phòng (Ảnh thu nhỏ, chiều cao thấp, Fix giá)
   const handleInsertRoom = (room) => {
-    const safePrice = room.price || room.basePricePerNight || room.defaultPrice || 0;
+    const safePrice = room.price || room.basePricePerNight || room.defaultPrice || room.basePrice || 0;
     const priceNight = safePrice > 0 ? new Intl.NumberFormat('vi-VN').format(safePrice) : 'Liên hệ';
     const coverImg = room.images?.find(i => i.isPrimary)?.imageUrl || room.images?.[0]?.imageUrl || 'https://via.placeholder.com/300x200?text=Room';
+    const shortDesc = room.description ? (room.description.length > 70 ? room.description.substring(0, 70) + '...' : room.description) : 'Trải nghiệm không gian nghỉ dưỡng sang trọng.';
 
     const html = `
-      <div style="margin: 16px 0; max-width: 600px; border: 1px solid #e2e8f0; border-radius: 8px; background: #ffffff; display: flex; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); font-family: inherit;">
-        <img src="${coverImg}" style="width: 160px; height: 130px; object-fit: cover; margin: 0;" alt="${room.name}"/>
-        <div style="padding: 12px 16px; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
-           <div>
-               <h4 style="margin: 0 0 4px 0; font-size: 18px; font-weight: 700; color: #0A192F;">${room.name}</h4>
-               <p style="margin: 0; font-size: 14px; color: #475569; line-height: 1.4;">${room.description?.substring(0, 70) || 'Hạng phòng cao cấp với đầy đủ tiện nghi.'}...</p>
-           </div>
-           <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 8px;">
+      <div style="margin: 24px auto; width: 100%; max-width: 480px; box-sizing: border-box; display: flex; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; font-family: inherit; align-items: stretch;">
+        <div style="width: 140px; min-width: 140px; flex-shrink: 0; background: #f8fafc; display: flex; flex-direction: column;">
+           <img src="${coverImg}" style="width: 100%; flex: 1; object-fit: cover; display: block; margin: 0;" alt="${room.name}"/>
+        </div>
+        <div style="padding: 16px; flex: 1; display: flex; flex-direction: column; justify-content: center; box-sizing: border-box;">
+           <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Hạng phòng</div>
+           <div style="font-size: 18px; font-weight: 800; color: #0A192F; margin-bottom: 6px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;">${room.name}</div>
+           <div style="font-size: 12px; color: #64748b; margin-bottom: 12px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${shortDesc}</div>
+           <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: auto;">
               <div>
-                  <span style="font-size: 12px; color: #64748b; display: block;">Giá từ</span>
-                  <span style="font-size: 18px; font-weight: bold; color: #8B0000;">${priceNight}đ</span>
+                  <span style="font-size: 18px; font-weight: 900; color: #8B0000; line-height: 1;">${priceNight}đ</span><span style="font-size: 11px; color: #64748b; font-weight: 600; margin-left: 2px;">/đêm</span>
               </div>
-              <a href="/booking?roomTypeId=${room.id}" style="background: #0A192F; color: #ffffff; padding: 6px 16px; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: bold;">ĐẶT NGAY</a>
+              <a href="#booking" style="background: #0A192F; color: #ffffff; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Đặt ngay</a>
            </div>
         </div>
       </div>
@@ -284,18 +289,23 @@ export default function ArticleEditorPage() {
     setIsRoomModalOpen(false);
   };
 
-  // 3. Voucher (Giao diện Vé đục lỗ)
   const handleInsertVoucher = (voucher) => {
+    const isPercent = voucher.discountType === 'PERCENT' || voucher.discountPercent;
+    const value = voucher.discountValue || voucher.discountPercent || 0;
+    const displayValue = isPercent ? `${value}%` : `${new Intl.NumberFormat('vi-VN').format(value)}đ`;
+
     const html = `
-      <div style="margin: 16px 0; max-width: 450px; border: 1px solid #fecaca; border-radius: 8px; display: flex; background: #ffffff; overflow: hidden; box-shadow: 0 2px 4px rgba(220, 38, 38, 0.05); font-family: inherit;">
-        <div style="background: #8B0000; color: #ffffff; padding: 12px; display: flex; flex-direction: column; justify-content: center; align-items: center; min-width: 90px; border-right: 2px dashed #fca5a5;">
-           <span style="font-size: 22px; font-weight: 900;">${voucher.discountPercent}%</span>
-           <span style="font-size: 11px; text-transform: uppercase;">Giảm giá</span>
+      <div style="margin: 24px auto; width: 100%; max-width: 480px; box-sizing: border-box; display: flex; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 24px rgba(139, 0, 0, 0.08); border: 1px dashed #fca5a5; font-family: inherit;">
+        <div style="background: linear-gradient(135deg, #8B0000 0%, #5c0000 100%); color: #ffffff; padding: 24px 16px; display: flex; flex-direction: column; justify-content: center; align-items: center; min-width: 120px; position: relative;">
+           <span style="font-size: 28px; font-weight: 900; line-height: 1;">${displayValue}</span>
+           <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-top: 6px; opacity: 0.9;">GIẢM GIÁ</span>
+           <div style="position: absolute; right: -10px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; background: #ffffff; border-radius: 50%; border-left: 1px dashed #fca5a5;"></div>
         </div>
-        <div style="padding: 12px 16px; flex: 1; display: flex; flex-direction: column; justify-content: center;">
-           <h4 style="margin: 0 0 4px 0; font-size: 16px; color: #0A192F; font-weight: bold;">Mã: <span style="color: #8B0000;">${voucher.code}</span></h4>
-           <p style="margin: 0 0 8px 0; font-size: 14px; color: #475569; line-height: 1.4;">${voucher.description || 'Áp dụng cho mọi hóa đơn thanh toán.'}</p>
-           <a href="/booking" style="font-size: 13px; font-weight: bold; color: #0A192F; text-decoration: underline;">Sử dụng ngay →</a>
+        <div style="padding: 24px; flex: 1; display: flex; flex-direction: column; justify-content: center; background: #ffffff; box-sizing: border-box;">
+           <h4 style="margin: 0 0 8px 0; font-size: 13px; color: #64748b; text-transform: uppercase; letter-spacing: 1px;">Mã Khuyến Mãi</h4>
+           <div style="font-size: 24px; font-weight: 900; color: #0A192F; margin-bottom: 8px; letter-spacing: 1px;">${voucher.code}</div>
+           <p style="margin: 0 0 16px 0; font-size: 13px; color: #64748b; line-height: 1.5;">${voucher.description || 'Sử dụng mã này tại bước thanh toán để nhận ưu đãi đặc biệt.'}</p>
+           <a href="#booking" style="display: inline-block; font-size: 13px; font-weight: bold; color: #8B0000; text-decoration: none; text-transform: uppercase; letter-spacing: 0.5px;">Sử dụng ngay ⟶</a>
         </div>
       </div>
     `;
@@ -303,23 +313,22 @@ export default function ArticleEditorPage() {
     setIsVoucherModalOpen(false);
   };
 
-  // 4. Nút Đặt Ngay
+  // 🔥 ĐÃ VÁ LỖI NÚT ĐẶT PHÒNG: Ép cứng height, bỏ padding dọc để chống bị vỡ
   const handleInsertButton = () => {
     const html = `
-      <div style="margin: 24px 0;">
-         <a href="/booking" style="display: inline-block; padding: 10px 28px; background-color: #8B0000; color: #ffffff; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 15px;">ĐẶT NGAY</a>
+      <div style="margin: 32px auto; text-align: center; width: 100%; box-sizing: border-box; font-family: inherit;">
+         <a href="#booking" style="display: inline-block; padding: 14px 48px; background: linear-gradient(135deg, #D4AF37 0%, #aa771c 100%); color: #ffffff; text-decoration: none; border-radius: 30px; font-weight: 800; font-size: 15px; text-transform: uppercase; letter-spacing: 1.5px; box-shadow: 0 8px 20px rgba(212, 175, 55, 0.4);">ĐẶT PHÒNG NGAY</a>
       </div>
     `;
     insertHtmlToQuill(html);
   };
-
   const insertMenu = {
     items: [
-      { key: '1', icon: <MapPin size={18} />, label: 'Chèn Điểm Du Lịch', onClick: () => setIsAttractionModalOpen(true) },
-      { key: '2', icon: <Bed size={18} />, label: 'Chèn Hạng Phòng', onClick: () => setIsRoomModalOpen(true) },
-      { key: '3', icon: <Ticket size={18} />, label: 'Chèn Voucher', onClick: () => setIsVoucherModalOpen(true) },
+      { key: '1', icon: <MapPin size={18} />, label: 'Điểm Du Lịch', onClick: () => setIsAttractionModalOpen(true) },
+      { key: '2', icon: <Bed size={18} />, label: 'Hạng Phòng', onClick: () => setIsRoomModalOpen(true) },
+      { key: '3', icon: <Ticket size={18} />, label: 'Mã Giảm Giá', onClick: () => setIsVoucherModalOpen(true) },
       { type: 'divider' },
-      { key: '4', icon: <HandPointing size={18} />, label: 'Chèn Nút Đặt Ngay', onClick: handleInsertButton },
+      { key: '4', icon: <HandPointing size={18} />, label: 'Nút Đặt Ngay', onClick: handleInsertButton },
     ]
   };
 
@@ -327,36 +336,40 @@ export default function ArticleEditorPage() {
     <div style={{ paddingBottom: 40, maxWidth: 1200, margin: '0 auto' }}>
       {contextHolder}
       
-      {/* 🔥 CSS: FIX FONT SOURCE SERIF & STICKY TOOLBAR + NÚT CHÈN BÊN PHẢI */}
       <style>{`
         .ql-editor { 
             font-family: "Source Serif 4", Georgia, serif !important; 
-            font-size: 18px !important; 
-            line-height: 1.8 !important; 
-            color: #1e293b !important; 
-            min-height: 500px; 
-            padding: 24px 32px !important;
+            font-size: 18px !important; line-height: 1.8 !important; color: #1e293b !important; 
+            min-height: 500px; padding: 24px 32px !important;
         }
         .ql-editor h2 { font-size: 28px; color: #0f172a; margin-top: 32px; margin-bottom: 16px; font-weight: 700; }
         .ql-editor h3 { font-size: 22px; color: #334155; margin-top: 24px; margin-bottom: 12px; font-weight: 600; }
         .ql-editor img { border-radius: 8px; margin: 24px 0; max-width: 100%; height: auto; display: block; }
-        
         .ql-editor table { border-collapse: collapse; width: 100%; margin: 24px 0; font-size: 15px !important; }
         .ql-editor table td, .ql-editor table th { border: 1px solid #cbd5e1; padding: 12px; }
-        .ql-editor table tbody tr:nth-child(odd) { background-color: #f8fafc; }
         
-        .hotel-embedded-card { display: block; cursor: default; transition: opacity 0.2s ease; }
-        .hotel-embedded-card:hover { opacity: 0.9; }
+        /* CHỐNG VỠ KHUNG TRONG QUILL */
+        .hotel-embedded-card { display: block; cursor: default; transition: opacity 0.2s ease; width: 100%; box-sizing: border-box; position: relative; }
+        .hotel-embedded-card > div { width: 100%; margin-left: auto; margin-right: auto; }
+        .hotel-embedded-card > div { transition: transform 0.3s ease, box-shadow 0.3s ease; }
         
-        /* Chừa khoảng trống bên phải cho nút Chèn */
-        .editor-wrapper .ql-toolbar.ql-snow {
+        /* HIỆU ỨNG CẢNH BÁO KHI RÊ CHUỘT VÀO ĐỂ XÓA */
+        .hotel-embedded-card:hover {
+            box-shadow: 0 0 0 2px #ef4444; border-radius: 8px;
+        }
+        .hotel-embedded-card:hover::after {
+            content: "Nhấp đúp (Double-click) để xóa";
+            position: absolute; top: -25px; right: 10px; background: #ef4444; color: #fff;
+            padding: 4px 10px; font-size: 12px; border-radius: 6px; font-weight: bold;
+            pointer-events: none; z-index: 10; font-family: sans-serif;
+        }
+
+        .ql-toolbar.ql-snow {
             position: sticky; top: 0; z-index: 100;
             background: #ffffff; border-top-left-radius: 8px; border-top-right-radius: 8px;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 12px; border-color: #cbd5e1;
-            padding-right: 180px; 
         }
-        .editor-wrapper .ql-container.ql-snow { border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; border-color: #cbd5e1; }
-
+        .ql-container.ql-snow { border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; border-color: #cbd5e1; }
         .summary-quill .ql-editor { min-height: 120px !important; font-size: 16px !important; background: #f8fafc; padding: 16px !important; }
         .summary-quill .ql-toolbar.ql-snow { position: static; background: #f1f5f9; box-shadow: none; border-radius: 8px 8px 0 0; }
       `}</style>
@@ -368,12 +381,9 @@ export default function ArticleEditorPage() {
             {id ? 'Chỉnh sửa Bài viết' : 'Soạn thảo Bài viết mới'}
           </Title>
         </Space>
-        
         <Space>
-          <Button size="large" onClick={generatePreview} icon={<Eye size={20} />} style={{ fontWeight: 600 }}>Xem thử Giao diện</Button>
-          <Button type="primary" size="large" onClick={() => form.submit()} loading={loading} icon={<FloppyDisk size={20} />} style={{ backgroundColor: LUXURY_COLORS.NAVY, fontWeight: 'bold' }}>
-            LƯU BÀI VIẾT
-          </Button>
+          <Button size="large" onClick={generatePreview} icon={<Eye size={20} />} style={{ fontWeight: 600 }}>Xem thử</Button>
+          <Button type="primary" size="large" onClick={() => form.submit()} loading={loading} icon={<FloppyDisk size={20} />} style={{ backgroundColor: LUXURY_COLORS.NAVY, fontWeight: 'bold' }}>LƯU BÀI VIẾT</Button>
         </Space>
       </div>
 
@@ -384,64 +394,73 @@ export default function ArticleEditorPage() {
               <Form.Item name="title" label={<Text strong>Tiêu đề bài viết</Text>} rules={[{ required: true, message: 'Vui lòng nhập tiêu đề' }]}>
                 <Input size="large" placeholder="Nhập tiêu đề..." style={{ fontSize: 20, fontWeight: 700, color: LUXURY_COLORS.DARKEST, fontFamily: '"Source Serif 4", serif' }} />
               </Form.Item>
-              
               <div style={{ marginBottom: 24 }}>
                 <Text strong style={{ display: 'block', marginBottom: 8 }}>Tóm tắt (Sẽ xuất hiện ngoài trang chủ)</Text>
                 <div className="summary-quill">
-                    <ReactQuill theme="snow" value={summaryContent} onChange={setSummaryContent} modules={miniModules} placeholder="Đoạn văn ngắn gây tò mò cho người đọc..." />
+                    <ReactQuill theme="snow" value={summaryContent} onChange={setSummaryContent} modules={miniModules} placeholder="Đoạn văn ngắn gây tò mò..." />
                 </div>
               </div>
-
               <div style={{ marginBottom: 24 }}>
                 <Text strong style={{ display: 'block', marginBottom: 8 }}>Nội dung bài viết</Text>
-                {/* 🔥 NÚT CHÈN TIỆN ÍCH BÁM DÍNH TRÊN THANH TOOLBAR */}
-                <div className="editor-wrapper" style={{ position: 'relative' }}>
-                    <div style={{ position: 'sticky', top: 8, zIndex: 105, height: 0, textAlign: 'right', marginRight: 12 }}>
-                         <Dropdown menu={insertMenu} trigger={['click']}>
-                             <Button type="primary" icon={<PlusCircle size={18} />} style={{ backgroundColor: LUXURY_COLORS.ACCENT_RED, fontWeight: 'bold', borderRadius: 4, transform: 'translateY(2px)' }}>
-                                 CHÈN TIỆN ÍCH
-                             </Button>
-                         </Dropdown>
-                    </div>
-                    <ReactQuill ref={reactQuillRef} theme="snow" value={content} onChange={setContent} modules={fullModules} placeholder="Bắt đầu viết nội dung tại đây..." />
+                <div className="editor-wrapper">
+                    <ReactQuill ref={reactQuillRef} theme="snow" value={content} onChange={setContent} modules={fullModules} placeholder="Bắt đầu viết nội dung..." />
                 </div>
               </div>
             </Card>
           </Col>
 
+          {/* CỘT BÊN PHẢI STICKY */}
           <Col xs={24} lg={8}>
-            <Card variant="borderless" style={{ borderRadius: 12, marginBottom: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.1)', background: '#fff' }}>
-              <Form.Item name="isPublished" label={<Text strong>Trạng thái hiển thị</Text>} valuePropName="checked">
-                <Switch checkedChildren="Xuất bản ngay" unCheckedChildren="Lưu bản nháp" />
-              </Form.Item>
+            <div style={{ position: 'sticky', top: 24 }}>
+                
+                <Card variant="borderless" style={{ borderRadius: 12, marginBottom: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', background: '#fff' }}>
+                  <Form.Item name="isPublished" label={<Text strong>Trạng thái hiển thị</Text>} valuePropName="checked" style={{ marginBottom: 16 }}>
+                    <Switch checkedChildren="Xuất bản" unCheckedChildren="Bản nháp" />
+                  </Form.Item>
+                  <Form.Item name="categoryId" label={<Text strong>Thuộc Danh mục</Text>} rules={[{ required: true, message: 'Chọn danh mục' }]} style={{ marginBottom: 0 }}>
+                    <Select size="large" placeholder="Chọn...">{categories.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}</Select>
+                  </Form.Item>
+                </Card>
 
-              <Form.Item name="categoryId" label={<Text strong>Thuộc Danh mục</Text>} rules={[{ required: true, message: 'Vui lòng chọn danh mục' }]}>
-                <Select size="large" placeholder="Chọn danh mục...">
-                  {categories.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}
-                </Select>
-              </Form.Item>
+                <Card title={<Text strong>Ảnh đại diện (Thumbnail)</Text>} variant="borderless" style={{ borderRadius: 12, marginBottom: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', background: '#fff' }}>
+                  {thumbnailUrl ? (
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 8, background: '#f8fafc' }}>
+                        <Image src={thumbnailUrl} style={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 4 }} />
+                        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                            <Upload customRequest={handleUploadThumbnail} showUploadList={false} accept="image/*" style={{ flex: 1 }}>
+                              <Button block icon={<UploadSimple />}>Đổi ảnh</Button>
+                            </Upload>
+                            <Button danger icon={<Trash />} onClick={() => setThumbnailUrl(null)} />
+                        </div>
+                      </div>
+                  ) : (
+                      <Upload customRequest={handleUploadThumbnail} showUploadList={false} accept="image/*">
+                        <div style={{ border: '2px dashed #cbd5e1', borderRadius: 8, padding: '30px 20px', textAlign: 'center', cursor: 'pointer', background: '#f8fafc', width: '100%' }}>
+                            <ImageSquare size={32} color="#94a3b8" /><div style={{ marginTop: 8 }}><Text type="secondary">Tải ảnh lên</Text></div>
+                        </div>
+                      </Upload>
+                  )}
+                </Card>
 
-              <Divider />
-              <Text strong style={{ display: 'block', marginBottom: 8 }}>Ảnh bìa (Thumbnail)</Text>
-              {thumbnailUrl ? (
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 8, background: '#f8fafc' }}>
-                  <Image src={thumbnailUrl} style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 4 }} />
-                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                    <Upload customRequest={handleUploadThumbnail} showUploadList={false} accept="image/*" style={{ flex: 1 }}>
-                      <Button block type="default" icon={<UploadSimple />}>Đổi ảnh</Button>
-                    </Upload>
-                    <Button danger icon={<Trash />} onClick={() => setThumbnailUrl(null)} />
-                  </div>
-                </div>
-              ) : (
-                <Upload customRequest={handleUploadThumbnail} showUploadList={false} accept="image/*">
-                  <div style={{ border: '2px dashed #cbd5e1', borderRadius: 8, padding: '40px 20px', textAlign: 'center', cursor: 'pointer', background: '#f8fafc', width: '100%' }}>
-                    <ImageSquare size={32} color="#94a3b8" />
-                    <div style={{ marginTop: 8 }}><Text type="secondary">Nhấp để tải ảnh lên</Text></div>
-                  </div>
-                </Upload>
-              )}
-            </Card>
+                {/* KHỐI CHÈN TIỆN ÍCH */}
+                <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 8px 20px rgba(139, 0, 0, 0.08)', background: 'linear-gradient(135deg, #ffffff 0%, #fff5f5 100%)', border: `1px solid ${LUXURY_COLORS.ACCENT_RED}` }}>
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{ background: '#fca5a5', width: 48, height: 48, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                            <PlusCircle size={24} color={LUXURY_COLORS.ACCENT_RED} weight="fill" />
+                        </div>
+                        <Title level={5} style={{ color: LUXURY_COLORS.ACCENT_RED, marginTop: 0, marginBottom: 8 }}>Chèn Tiện Ích</Title>
+                        <Text type="secondary" style={{ display: 'block', marginBottom: 20, fontSize: 13, lineHeight: 1.5 }}>
+                            Làm phong phú bài viết của bạn với thẻ hạng phòng, điểm du lịch, và mã khuyến mãi.
+                        </Text>
+                        <Dropdown menu={insertMenu} trigger={['click']} placement="bottomCenter">
+                            <Button type="primary" size="large" block style={{ backgroundColor: LUXURY_COLORS.ACCENT_RED, fontWeight: 'bold', borderRadius: 8, height: 45, letterSpacing: 1 }}>
+                                CHỌN TIỆN ÍCH
+                            </Button>
+                        </Dropdown>
+                    </div>
+                </Card>
+
+            </div>
           </Col>
         </Row>
       </Form>
@@ -449,27 +468,21 @@ export default function ArticleEditorPage() {
       {/* MODALS */}
       <Modal open={isPreviewModalOpen} onCancel={() => setIsPreviewModalOpen(false)} footer={null} width={1000} closeIcon={false} styles={{ body: { padding: 0 } }}>
          <div style={{ background: LUXURY_COLORS.NAVY, padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: '8px 8px 0 0' }}>
-            <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>Chế độ Xem trước</Text>
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>Xem trước bài viết</Text>
             <Button onClick={() => setIsPreviewModalOpen(false)}>Đóng</Button>
          </div>
          <div style={{ padding: '32px 24px', background: '#f1f5f9' }}>
             <Card variant="borderless" style={{ maxWidth: 850, margin: '0 auto', borderRadius: 12, padding: '32px 16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-                <Breadcrumb style={{ marginBottom: 24, fontSize: 14 }} items={[ { title: 'Trang chủ' }, { title: previewData.category }, { title: <Text style={{color: LUXURY_COLORS.MUTED_BLUE}}>{previewData.title}</Text> } ]} />
-                <Title level={1} style={{ color: '#0f172a', marginTop: 0, fontFamily: '"Source Serif 4", serif', fontSize: 36, fontWeight: 700 }}>{previewData.title}</Title>
+                <Title level={1} style={{ color: '#0f172a', marginTop: 0, fontFamily: '"Source Serif 4", serif', fontSize: 32, fontWeight: 700 }}>{previewData.title}</Title>
                 <div style={{ fontStyle: 'italic', color: '#475569', borderLeft: `4px solid ${LUXURY_COLORS.NAVY}`, paddingLeft: 20, fontSize: 18, lineHeight: 1.6, marginBottom: 32 }} dangerouslySetInnerHTML={{ __html: summaryContent }} />
-                {thumbnailUrl && <img src={thumbnailUrl} alt="cover" style={{ width: '100%', borderRadius: 8, marginBottom: 32, maxHeight: 450, objectFit: 'cover' }} />}
-
+                {thumbnailUrl && <img src={thumbnailUrl} alt="cover" style={{ width: '100%', borderRadius: 8, marginBottom: 32, maxHeight: 400, objectFit: 'cover' }} />}
                 <Row gutter={40}>
-                    <Col xs={24} md={16}>
-                        <div className="ql-editor" style={{ padding: 0 }} dangerouslySetInnerHTML={{ __html: previewData.html }} />
-                    </Col>
+                    <Col xs={24} md={16}><div className="ql-editor" style={{ padding: 0 }} dangerouslySetInnerHTML={{ __html: previewData.html }} /></Col>
                     <Col xs={0} md={8}>
                         {previewData.toc.length > 0 && (
                             <div style={{ position: 'sticky', top: 24, background: '#f8fafc', padding: '20px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
                                 <Text strong style={{ display: 'block', marginBottom: 16, color: '#0f172a', fontSize: 15, textTransform: 'uppercase' }}><ListDashes style={{verticalAlign:'middle'}}/> MỤC LỤC</Text>
-                                <Anchor affix={false} showInkInFixed items={previewData.toc.map(t => ({
-                                    key: t.key, href: t.href, title: <span style={{ marginLeft: t.level * 16, fontSize: 14 }}>{t.title}</span>
-                                }))}/>
+                                <Anchor affix={false} showInkInFixed items={previewData.toc.map(t => ({ key: t.key, href: t.href, title: <span style={{ marginLeft: t.level * 16, fontSize: 14 }}>{t.title}</span> }))}/>
                             </div>
                         )}
                     </Col>
@@ -478,36 +491,22 @@ export default function ArticleEditorPage() {
          </div>
       </Modal>
 
-      <Modal title={<span style={{fontSize: 18, color: LUXURY_COLORS.NAVY}}><MapPin/> Chọn Điểm Du Lịch</span>} open={isAttractionModalOpen} onCancel={() => setIsAttractionModalOpen(false)} footer={null}>
-         <List itemLayout="horizontal" dataSource={attractions} renderItem={item => (
-              <List.Item actions={[<Button type="primary" size="small" onClick={() => handleInsertAttraction(item)} style={{backgroundColor: LUXURY_COLORS.NAVY, fontWeight: 'bold'}}>Chèn</Button>]}>
-                <List.Item.Meta title={<Text strong>{item.name}</Text>} description={<Text type="secondary">{item.distanceKm}km</Text>} />
-              </List.Item>
-            )} />
+      <Modal title="Chọn Điểm Du Lịch" open={isAttractionModalOpen} onCancel={() => setIsAttractionModalOpen(false)} footer={null}>
+         <List itemLayout="horizontal" dataSource={attractions} renderItem={item => (<List.Item actions={[<Button type="primary" size="small" onClick={() => handleInsertAttraction(item)} style={{backgroundColor: LUXURY_COLORS.NAVY, fontWeight: 'bold'}}>Chèn</Button>]}><List.Item.Meta title={<Text strong>{item.name}</Text>} description={<Text type="secondary">{item.distanceKm}km</Text>} /></List.Item>)} />
       </Modal>
 
-      <Modal title={<span style={{fontSize: 18, color: LUXURY_COLORS.NAVY}}><Bed/> Chọn Hạng Phòng</span>} open={isRoomModalOpen} onCancel={() => setIsRoomModalOpen(false)} footer={null} width={600}>
+      <Modal title="Chọn Hạng Phòng" open={isRoomModalOpen} onCancel={() => setIsRoomModalOpen(false)} footer={null} width={600}>
          <List itemLayout="horizontal" dataSource={roomTypes} renderItem={room => {
-              const safePrice = room.price || room.basePricePerNight || room.defaultPrice || 0;
+              const safePrice = room.price || room.basePricePerNight || room.defaultPrice || room.basePrice || 0;
               const coverImg = room.images?.find(i => i.isPrimary)?.imageUrl || room.images?.[0]?.imageUrl;
-              return (
-              <List.Item actions={[<Button type="primary" size="small" onClick={() => handleInsertRoom(room)} style={{backgroundColor: LUXURY_COLORS.NAVY, fontWeight: 'bold'}}>Chèn</Button>]}>
-                <List.Item.Meta 
-                    avatar={coverImg ? <img src={coverImg} style={{width: 60, height: 60, objectFit: 'cover', borderRadius: 4}} alt="room" /> : <div style={{width: 60, height: 60, background: '#eee', borderRadius: 4}}/>}
-                    title={<Text strong>{room.name}</Text>} 
-                    description={<Text type="secondary">Giá từ: {new Intl.NumberFormat('vi-VN').format(safePrice)}đ</Text>} 
-                />
-              </List.Item>
-            )}} />
+              return (<List.Item actions={[<Button type="primary" size="small" onClick={() => handleInsertRoom(room)} style={{backgroundColor: LUXURY_COLORS.NAVY, fontWeight: 'bold'}}>Chèn</Button>]}><List.Item.Meta avatar={coverImg ? <img src={coverImg} style={{width: 60, height: 60, objectFit: 'cover', borderRadius: 4}} alt="room" /> : <div style={{width: 60, height: 60, background: '#eee', borderRadius: 4}}/>} title={<Text strong>{room.name}</Text>} description={<Text type="secondary">{new Intl.NumberFormat('vi-VN').format(safePrice)}đ</Text>} /></List.Item>)
+         }} />
       </Modal>
 
-      <Modal title={<span style={{fontSize: 18, color: LUXURY_COLORS.ACCENT_RED}}><Ticket/> Chọn Mã Giảm Giá</span>} open={isVoucherModalOpen} onCancel={() => setIsVoucherModalOpen(false)} footer={null}>
+      <Modal title="Chọn Mã Giảm Giá" open={isVoucherModalOpen} onCancel={() => setIsVoucherModalOpen(false)} footer={null}>
          <List itemLayout="horizontal" dataSource={vouchers} renderItem={voucher => (
               <List.Item actions={[<Button type="primary" size="small" onClick={() => handleInsertVoucher(voucher)} style={{backgroundColor: LUXURY_COLORS.ACCENT_RED, fontWeight: 'bold'}}>Chèn</Button>]}>
-                <List.Item.Meta 
-                    title={<Text strong style={{color: LUXURY_COLORS.ACCENT_RED}}>{voucher.code} (-{voucher.discountPercent}%)</Text>} 
-                    description={<Text type="secondary">{voucher.description}</Text>} 
-                />
+                <List.Item.Meta title={<Text strong style={{color: LUXURY_COLORS.ACCENT_RED}}>{voucher.code}</Text>} description={<Text type="secondary">{voucher.description}</Text>} />
               </List.Item>
             )} />
       </Modal>

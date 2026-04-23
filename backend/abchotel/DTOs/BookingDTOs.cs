@@ -30,6 +30,13 @@ namespace abchotel.DTOs
         public int RemainingRooms { get; set; } // Số phòng còn trống thực tế
         public decimal SubTotal { get; set; }   // Tổng tiền dự kiến
         public bool IsUrgent { get; set; }      // true nếu chỉ còn <= 3 phòng
+        public int CapacityAdults { get; set; }
+        public int CapacityChildren { get; set; }
+        public double SizeSqm { get; set; }
+        public string BedType { get; set; }
+        public string ViewDirection { get; set; }
+        public string AllImages { get; set; }        
+        public string AmenitiesSummary { get; set; }
     }
 
     // ==========================================
@@ -102,6 +109,8 @@ namespace abchotel.DTOs
         public DateTime? ActualCheckIn { get; set; }
         public DateTime? ActualCheckOut { get; set; }
         public DateTime? CreatedAt { get; set; }
+        public DateTime? ExpectedCheckIn { get; set; }
+        public DateTime? ExpectedCheckOut { get; set; }
     }
 
     public class UpdateBookingStatusRequest

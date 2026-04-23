@@ -13,5 +13,7 @@ export const reviewApi = {
   // Xóa / Ẩn bài (Spam)
   deleteReview: (id) => axiosClient.delete(`/Reviews/${id}`),
   // Lấy Top review cho trang chủ/About
-  getTopReviews: (count = 3) => axiosClient.get('/Reviews/top', { params: { count } })
+  getTopReviews: (count = 3) => axiosClient.get('/Reviews/top', { params: { count } }),
+
+  createReview: (data) => axiosClient.post('/Reviews', data)
 };
