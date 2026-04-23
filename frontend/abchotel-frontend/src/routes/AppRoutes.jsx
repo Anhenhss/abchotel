@@ -42,9 +42,20 @@ import ServicesPage from '../pages/ServicesPage';
 import BookingsPage from '../pages/BookingsPage';
 import CreateBookingPage from "../pages/CreateBookingPage";
 import InvoicesPage from "../pages/InvoicesPage";
+import RevenueReportPage from '../pages/RevenueReportPage';
 // ================= CLIENT PAGES =================
 import AboutPage from '../pages/Client/AboutPage';
 import ContactPage from '../pages/Client/ContactPage';
+import TermsPolicyPage from "../pages/Client/TermsPolicyPage";
+import ClientVoucherPage from '../pages/Client/ClientVoucherPage';
+import ClientProfilePage from '../pages/Client/ClientProfilePage';
+import ClientBookingHistoryPage from '../pages/Client/ClientBookingHistoryPage';
+import RoomsAndSuitesPage from '../pages/Client/RoomsAndSuitesPage';
+import ClientBookingPage from '../pages/Client/ClientBookingPage';
+import RoomDetailsArticles from "../pages/Client/RoomDetailsArticles";
+import ClientArticlePage from '../pages/Client/ArticlePage';
+import ClientArticleDetailPage from '../pages/Client/ArticleDetailPage';
+import ClientServicesPage from '../pages/Client/ClientServicesPage';
 
 
 // COMPONENT TẠM THỜI ĐỂ XEM TEST GIAO DIỆN CLIENT
@@ -78,23 +89,26 @@ export default function AppRoutes() {
         <Route path="/" element={<HomePage />} /> 
         
         {/* Các trang hiển thị cho khách */}
-        <Route path="/rooms" element={<PlaceholderClientPage title="Phòng & Suites" />} />
-        <Route path="/services" element={<PlaceholderClientPage title="Dịch vụ Khách sạn" />} />
-        <Route path="/offers" element={<PlaceholderClientPage title="Khuyến mãi & Ưu đãi" />} />
-        <Route path="/blog" element={<PlaceholderClientPage title="Cẩm nang du lịch" />} />
+        <Route path="/rooms" element={<RoomsAndSuitesPage />} />
+        <Route path="/room-details" element={<RoomDetailsArticles />} />
+        <Route path="/services" element={<ClientServicesPage />} />
+        <Route path="/offers" element={<ClientVoucherPage />} />
+        <Route path="/blog" element={<ClientArticlePage />} />
+        <Route path="/article/:slug" element={<ClientArticleDetailPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/contact" element={<ContactPage />} />
-        <Route path="/privacy-policy" element={<PlaceholderClientPage title="Chính sách & Điều khoản" />} />
+        <Route path="/privacy-policy" element={<TermsPolicyPage />} />
+        <Route path="/booking" element={<ClientBookingPage />} />
         
         {/* Route cho Khách hàng đăng nhập vào xem thông tin cá nhân */}
         <Route path="/profile" element={
           <ProtectedRoute>
-            <PlaceholderClientPage title="Hồ sơ cá nhân của Khách" />
+            <ClientProfilePage />
           </ProtectedRoute>
         } />
         <Route path="/my-bookings" element={
           <ProtectedRoute>
-            <PlaceholderClientPage title="Lịch sử đặt phòng của Khách" />
+            <ClientBookingHistoryPage />
           </ProtectedRoute>
         } />
 
@@ -257,6 +271,11 @@ export default function AppRoutes() {
         <Route path="invoices" element={
           <RequirePermission requiredPermissions={["MANAGE_INVOICES"]}>
             <InvoicesPage />
+          </RequirePermission>
+        } />
+        <Route path="revenue-report" element={
+          <RequirePermission requiredPermissions={["VIEW_REPORTS", "MANAGE_INVOICES"]}>
+             <RevenueReportPage />
           </RequirePermission>
         } />
 

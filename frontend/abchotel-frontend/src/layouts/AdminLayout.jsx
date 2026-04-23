@@ -5,7 +5,7 @@ import {
   House, SquaresFour, Archive, WifiHigh, Star, MapPin, WarningCircle, Clock, ChartLineUp, Door, FileText,
   Ticket, CalendarCheck, Receipt , Crown, Coffee, CalendarPlus
 } from '@phosphor-icons/react';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom'; // 🔥 ĐÃ THÊM Link
 import { useAuthStore } from '../store/authStore';
 import { useSignalR } from '../hooks/useSignalR';
 import { notificationApi } from '../api/notificationApi';
@@ -31,7 +31,6 @@ export default function AdminLayout() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // 🔥 1 Context duy nhất, không khai báo placement ở đây để tránh Infinite Loop
   const [api, contextHolder] = notification.useNotification();
 
   useEffect(() => {
@@ -103,14 +102,15 @@ export default function AdminLayout() {
 
   const renderGroupTitle = (title) => (collapsed && !isMobile) ? <div style={{ borderBottom: '1px solid #52677D', margin: '16px 8px 8px 8px' }} /> : <span style={{ color: '#52677D', fontWeight: 600, fontSize: 12 }}>{title}</span>;
 
-  const sidebarMenuItems = [
+  // Cấu trúc dữ liệu menu gốc
+  const rawSidebarMenuItems = [
     { key: '/admin/dashboard', icon: <SquaresFour size={20} />, label: 'Tổng quan' },
     
     { key: 'grp_frontdesk_booking', label: renderGroupTitle('VẬN HÀNH & ĐIỀU PHỐI'), type: 'group', children: [
       { key: '/admin/rooms', icon: <Bed size={20} />, label: 'Sơ đồ phòng' }, 
       { key: '/admin/bookings/create', icon: <CalendarPlus size={20} />, label: 'Đặt phòng' },
-      { key: '/admin/invoices', icon: <Receipt size={20} />, label: 'Hóa Đơn & Thu ngân' }, 
       { key: '/admin/bookings', icon: <CalendarCheck size={20} />, label: 'Quản lý Đơn đặt phòng' },
+      { key: '/admin/invoices', icon: <Receipt size={20} />, label: 'Hóa Đơn & Thu ngân' }, 
     ]},
     { key: 'grp_hotel_setup', label: renderGroupTitle('THIẾT LẬP KHÁCH SẠN'), type: 'group', children: [
       { key: '/admin/room-setup', icon: <Door size={20} />, label: 'Hạng Phòng' },
@@ -129,15 +129,33 @@ export default function AdminLayout() {
 
     { key: 'grp_system_hr', label: renderGroupTitle('HỆ THỐNG & NHÂN SỰ'), type: 'group', children: [
       { key: '/admin/users', icon: <Users size={20} />, label: 'Người dùng' },
-      { key: '/admin/shifts', icon: <Clock size={20} />, label: 'Chấm công ca làm' },
+      // { key: '/admin/shifts', icon: <Clock size={20} />, label: 'Chấm công ca làm' },
       { key: '/admin/roles', icon: <Key size={20} />, label: 'Vai trò & Quyền' },
     ]},
 
     { key: 'grp_reports_audit', label: renderGroupTitle('BÁO CÁO & GIÁM SÁT'), type: 'group', children: [
       { key: '/admin/loss-damages', icon: <WarningCircle size={20} />, label: 'Báo cáo Hư hỏng' },
+      { key: '/admin/revenue-report', icon: <ChartLineUp size={20} />, label: 'Báo cáo Doanh thu' },
       { key: '/admin/audit-logs', icon: <ListIcon size={20} />, label: 'Lịch sử hệ thống' },
     ]},
-];
+  ];
+
+  // 🔥 HÀM TỰ ĐỘNG BỌC LINK CHO MENU ĐỂ HỖ TRỢ CHUỘT PHẢI
+  const sidebarMenuItems = rawSidebarMenuItems.map(item => {
+    if (item.type === 'group') {
+      return {
+        ...item,
+        children: item.children.map(child => ({
+          ...child,
+          label: <Link to={child.key} style={{ color: 'inherit', textDecoration: 'none', display: 'block' }}>{child.label}</Link>
+        }))
+      };
+    }
+    return {
+      ...item,
+      label: <Link to={item.key} style={{ color: 'inherit', textDecoration: 'none', display: 'block' }}>{item.label}</Link>
+    };
+  });
 
   const SidebarContent = () => (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#001529' }}>
@@ -146,14 +164,20 @@ export default function AdminLayout() {
         {!(collapsed && !isMobile) && <Title level={4} style={{ color: '#FFFFFF', margin: 0, fontFamily: '"Source Serif 4", serif', letterSpacing: '2px' }}>ABCHOTEL</Title>}
       </div>
       <div className="custom-sider-scroll" style={{ flex: 1, overflowY: 'auto' }}>
-        <Menu theme="dark" mode="inline" selectedKeys={[location.pathname]} items={sidebarMenuItems} onClick={({ key }) => { navigate(key); setDrawerVisible(false); }} style={{ paddingBottom: 20 }} />
+        <Menu 
+          theme="dark" 
+          mode="inline" 
+          selectedKeys={[location.pathname]} 
+          items={sidebarMenuItems} 
+          onClick={() => { if(isMobile) setDrawerVisible(false); }} 
+          style={{ paddingBottom: 20 }} 
+        />
       </div>
     </div>
   );
 
   return (
     <Layout style={{ minHeight: '100vh', overflow: 'hidden' }}>
-      {/* 🔥 RENDERING CONTEXT HOLDER */}
       {contextHolder}
       
       <style>{`
@@ -162,6 +186,7 @@ export default function AdminLayout() {
         .notif-item:hover { background-color: #e9f0f8 !important; border-radius: 6px; }
         .ant-menu-dark .ant-menu-item-selected { background-color: ${ACCENT_RED} !important; border-radius: 8px !important; width: calc(100% - 16px) !important; margin: 4px 8px !important; }
         .ant-menu-dark .ant-menu-item:hover:not(.ant-menu-item-selected) { background-color: rgba(138, 21, 56, 0.2) !important; border-radius: 8px !important; width: calc(100% - 16px) !important; margin: 4px 8px !important; }
+        .header-home-link { color: #52677D; font-weight: 500; display: inline-flex; align-items: center; text-decoration: none; padding: 4px 8px; border-radius: 4px; transition: background 0.3s; }
       `}</style>
       
       {!isMobile && (
@@ -170,7 +195,6 @@ export default function AdminLayout() {
         </Sider>
       )}
 
-      {/* 🔥 FIX Drawer Warning width -> styles={{ wrapper: { width: 260 } }} */}
       <Drawer placement="left" closable={false} onClose={() => setDrawerVisible(false)} open={drawerVisible} styles={{ wrapper: { width: 260 }, body: { padding: 0 } }}>
         <SidebarContent />
       </Drawer>
@@ -180,7 +204,12 @@ export default function AdminLayout() {
           
           <Space size="middle" align="center">
             <Button type="text" icon={<ListIcon size={24} color="#1C2E4A" />} onClick={() => isMobile ? setDrawerVisible(true) : setCollapsed(!collapsed)} style={{display: 'flex', alignItems: 'center'}} />
-            {!isMobile && <Button type="text" icon={<House size={20} color="#52677D" />} onClick={() => navigate('/')} style={{ color: '#52677D', fontWeight: 500, display: 'flex', alignItems: 'center' }}>Trang chủ</Button>}
+            {/* 🔥 ĐÃ CẬP NHẬT NÚT TRANG CHỦ THÀNH LINK */}
+            {!isMobile && (
+              <Link to="/" className="header-home-link" style={{ display: 'flex', gap: '8px' }}>
+                <House size={20} /> Trang chủ
+              </Link>
+            )}
           </Space>
           
           <Space size="large" align="center" style={{ height: '100%' }}>
