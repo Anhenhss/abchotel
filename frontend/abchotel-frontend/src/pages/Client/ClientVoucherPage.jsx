@@ -1,276 +1,258 @@
 import React, { useState, useEffect } from 'react';
-import { Typography, Row, Col, Spin, Empty, Button, message, Tag, Space, Tabs, notification } from 'antd';
+import { Typography, Row, Col, Spin, Button, message, Modal, Tabs, InputNumber } from 'antd';
 import { 
-  Ticket, Copy, CheckCircle, Sparkle, Clock, Crown, ShieldCheck, 
-  MapPin, ArrowRight, BellRinging
+  Crown, Gift, MagicWand, Cards, Star, Quotes,
+  DiamondsFour, MusicNotes, HandWaving, LockKey, UserPlus, Percent, Coins
 } from '@phosphor-icons/react';
-import { motion, AnimatePresence } from 'framer-motion';
-import dayjs from 'dayjs';
-
+import { motion } from 'framer-motion';
 import { voucherApi } from '../../api/voucherApi';
-import { useSignalR } from '../../hooks/useSignalR';
 
 const { Title, Text, Paragraph } = Typography;
 
 const THEME = {
-  NAVY_DARK: '#0D1821',
-  NAVY_LIGHT: '#1C2E4A',
-  DARK_RED: '#8A1538',
-  GOLD: '#D4AF37',
-  BG_LIGHT: '#F8FAFC'
+  NAVY_DARK: '#0D1821', 
+  DARK_RED: '#8A1538',  
+  GOLD: '#D4AF37',      
+  BG_LIGHT: '#F8FAFC',
 };
 
-export default function ClientVoucherPage() {
+export default function FinalFixVoucherPage() {
   const [vouchers, setVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [copiedCode, setCopiedCode] = useState(null);
-  const [activeTab, setActiveTab] = useState('ALL');
-  const [api, contextHolder] = notification.useNotification();
+  const [activeTab, setActiveTab] = useState('NEW');
+  
+  const [isGridModalOpen, setIsGridModalOpen] = useState(false);
+  const [gridType, setGridType] = useState('BOX'); 
+  const [isScratchModalOpen, setIsScratchModalOpen] = useState(false);
+  const [isMusicModalOpen, setIsMusicModalOpen] = useState(false);
+  const [isResultModalOpen, setIsResultModalOpen] = useState(false);
 
-  // 1. FETCH DỮ LIỆU
-  const fetchVouchers = async (isSilent = false) => {
-    try {
-      if (!isSilent) setLoading(true);
-      const res = await voucherApi.getAll(true); // true = Chỉ lấy mã Active
-      
-      // Sắp xếp mã ưu tiên hiển thị trước (Khách mới -> Giảm % -> Giảm tiền)
-      const sorted = (res || []).sort((a, b) => {
-        if (a.isForNewCustomer && !b.isForNewCustomer) return -1;
-        if (!a.isForNewCustomer && b.isForNewCustomer) return 1;
-        return dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf();
-      });
-
-      setVouchers(sorted);
-    } catch (error) {
-      console.error("Lỗi lấy danh sách voucher", error);
-    } finally {
-      if (!isSilent) setLoading(false);
-    }
-  };
+  const [revealedVoucher, setRevealedVoucher] = useState(null);
+  const [isSpinning, setIsSpinning] = useState(false);
+  const [rotation, setRotation] = useState(0);
+  const [isDiceRolling, setIsDiceRolling] = useState(false);
+  const [scratchProgress, setScratchProgress] = useState(0);
 
   useEffect(() => {
+    const fetchVouchers = async () => {
+      try {
+        setLoading(true);
+        const res = await voucherApi.getAll(true);
+        setVouchers(res || []);
+      } catch (error) { console.error(error); }
+      finally { setLoading(false); }
+    };
     fetchVouchers();
-    window.scrollTo(0, 0);
   }, []);
 
-  // 2. SIGNALR: REALTIME TỰ ĐỘNG CẬP NHẬT MÃ MỚI
-  useSignalR((newNotif) => {
-    if (newNotif.permission === "MANAGE_VOUCHERS" || newNotif.type === "PROMOTION") {
-      fetchVouchers(true);
-      api.info({
-        message: <Text strong style={{ color: THEME.DARK_RED }}>Ưu đãi mới vừa hạ cánh!</Text>,
-        description: 'Chúng tôi vừa tung ra một mã giảm giá mới. Hãy kiểm tra ngay!',
-        icon: <BellRinging color={THEME.GOLD} weight="fill" />,
-        placement: 'bottomRight',
-      });
+  const handleOpenGame = (type) => {
+    setRevealedVoucher(vouchers[Math.floor(Math.random() * vouchers.length)]);
+    if (type === 'WHEEL') {
+        setIsSpinning(true); setRotation(rotation + 1800 + Math.random() * 360);
+        setTimeout(() => { setIsSpinning(false); setIsResultModalOpen(true); }, 3000);
+    } else if (type === 'DICE') {
+        setIsDiceRolling(true);
+        setTimeout(() => { setIsDiceRolling(false); setIsResultModalOpen(true); }, 1500);
+    } else if (type === 'BOX' || type === 'CARD') {
+        setGridType(type); setIsGridModalOpen(true);
+    } else if (type === 'SCRATCH') {
+        setScratchProgress(0); setIsScratchModalOpen(true);
+    } else if (type === 'MUSIC') {
+        setIsMusicModalOpen(true);
     }
-  });
-
-  // 3. COPY MÃ VOUCHER
-  const handleCopyCode = (code) => {
-    navigator.clipboard.writeText(code);
-    setCopiedCode(code);
-    message.success({
-      content: `Đã copy mã ${code} ! Sẵn sàng để thanh toán.`,
-      icon: <CheckCircle weight="fill" color={THEME.SUCCESS} />
-    });
-    setTimeout(() => setCopiedCode(null), 3000);
   };
 
-  // 4. LỌC DỮ LIỆU THEO TABS
-  const filteredVouchers = vouchers.filter(v => {
-    if (activeTab === 'ALL') return true;
-    if (activeTab === 'NEW') return v.isForNewCustomer;
-    if (activeTab === 'PERCENT') return v.discountType === 'PERCENT';
-    if (activeTab === 'FIXED') return v.discountType === 'FIXED_AMOUNT';
-    return true;
-  });
-
-  const tabItems = [
-    { key: 'ALL', label: 'TẤT CẢ ƯU ĐÃI' },
-    { key: 'NEW', label: 'DÀNH CHO KHÁCH MỚI' },
-    { key: 'PERCENT', label: 'GIẢM THEO %' },
-    { key: 'FIXED', label: 'GIẢM TIỀN MẶT' },
-  ];
+  const renderGameCard = (title, story, icon, color, bgColor, btnLabel, type) => (
+    <div className={`luxury-card ${color === THEME.DARK_RED ? 'br-red' : 'br-navy'}`}>
+      <div className="visual-part" style={{ backgroundColor: bgColor }}>
+        <div className="icon-main">{icon}</div>
+        <Button className={`btn-game ${color === THEME.DARK_RED ? 'btn-red' : 'btn-gold'}`} onClick={() => handleOpenGame(type)} loading={type==='WHEEL' ? isSpinning : type==='DICE' ? isDiceRolling : false}>
+          {btnLabel}
+        </Button>
+      </div>
+      <div className="story-part">
+        <Quotes size={24} color={THEME.GOLD} weight="fill" style={{ opacity: 0.2 }} />
+        <Title level={4} style={{ fontFamily: '"Source Serif 4", serif', margin: '5px 0' }}>{title}</Title>
+        <Paragraph style={{ fontSize: 12, color: '#64748b', fontStyle: 'italic', margin: 0 }}>{story}</Paragraph>
+      </div>
+    </div>
+  );
 
   return (
-    <div style={{ backgroundColor: THEME.BG_LIGHT, minHeight: '100vh' }}>
-      {contextHolder}
-
-      {/* ================= HERO SECTION ================= */}
-      <div style={{ 
-        position: 'relative', height: '60vh', minHeight: 400,
-        backgroundImage: 'url("https://i.pinimg.com/1200x/2c/16/33/2c1633b3d7f37db080958612ce2db2f9.jpg")', 
-        backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed',
-        display: 'flex', alignItems: 'center', justifyContent: 'center'
-      }}>
-        <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to bottom, rgba(13, 24, 33, 0.6), ${THEME.NAVY_DARK})` }}></div>
-        <motion.div 
-          initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}
-          style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: '0 20px', maxWidth: 800 }}
-        >
-          <Ticket size={56} color={THEME.GOLD} weight="duotone" style={{ marginBottom: 16 }} />
-          <Title style={{ color: '#fff', fontSize: 48, fontFamily: '"Source Serif 4", serif', letterSpacing: 2, margin: '0 0 16px 0' }}>
-            ƯU ĐÃI ĐỘC QUYỀN
-          </Title>
-          <Paragraph style={{ color: '#B4CDED', fontSize: 18, lineHeight: 1.6 }}>
-            Nâng tầm kỳ nghỉ của bạn với những đặc quyền tài chính hấp dẫn nhất. Chúng tôi cam kết mang lại mức giá tốt nhất khi bạn đặt phòng trực tiếp.
-          </Paragraph>
-        </motion.div>
-      </div>
-
-      {/* ================= DANH SÁCH VOUCHER ================= */}
-      <div style={{ maxWidth: 1200, margin: '-40px auto 80px', padding: '0 20px', position: 'relative', zIndex: 10 }}>
-        
-        {/* TABS LỌC MÃ LƠ LỬNG */}
-        <div style={{ background: '#fff', padding: '16px 24px', borderRadius: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.08)', marginBottom: 40 }}>
-          <Tabs 
-            activeKey={activeTab} 
-            onChange={setActiveTab} 
-            items={tabItems} 
-            centered
-            tabBarStyle={{ marginBottom: 0, borderBottom: 'none' }}
-            tabBarGutter={32}
-            className="luxury-tabs"
-          />
+    <div style={{ backgroundColor: THEME.BG_LIGHT, minHeight: '100vh', paddingBottom: 100 }}>
+      {/* HERO SECTION */}
+      <div className="luxury-hero">
+        <div className="overlay-dark" />
+        <div className="hero-content">
+          <Crown size={60} color={THEME.GOLD} weight="fill" />
+          <Title className="main-title">SẢNH GAME ƯU ĐÃI</Title>
+          <div style={{ height: 2, width: 60, background: THEME.GOLD, margin: '10px auto' }} />
+          <Text className="sub-title">TRẢI NGHIỆM ĐẶC QUYỀN THƯỢNG LƯU</Text>
         </div>
-
-        {/* LƯỚI CARD VOUCHER */}
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '100px 0' }}><Spin size="large" /></div>
-        ) : filteredVouchers.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '80px 0', background: '#fff', borderRadius: 16 }}>
-            <Empty description={<Text style={{ fontSize: 16, color: '#64748b' }}>Hiện chưa có mã ưu đãi nào cho danh mục này.</Text>} />
-          </div>
-        ) : (
-          <motion.div layout>
-            <AnimatePresence>
-              <Row gutter={[32, 32]}>
-                {filteredVouchers.map((v) => {
-                  const isPercent = v.discountType === 'PERCENT';
-                  const displayValue = isPercent ? `${v.discountValue}%` : `${new Intl.NumberFormat('vi-VN').format(v.discountValue)}đ`;
-                  const isCopied = copiedCode === v.code;
-
-                  return (
-                    <Col xs={24} md={12} lg={12} key={v.id}>
-                      <motion.div 
-                        initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
-                        whileHover={{ y: -5, boxShadow: '0 15px 35px rgba(139, 0, 0, 0.15)' }}
-                        style={{ 
-                          display: 'flex', background: '#ffffff', borderRadius: 16, overflow: 'hidden', 
-                          boxShadow: '0 6px 20px rgba(0,0,0,0.06)', border: `1px dashed ${THEME.GOLD}`,
-                          transition: 'all 0.3s ease', position: 'relative'
-                        }}
-                      >
-                        {/* THE TICKET LEFT (ĐỎ SẪM) */}
-                        <div style={{ 
-                          background: `linear-gradient(135deg, ${THEME.DARK_RED} 0%, #5c0000 100%)`, 
-                          color: '#ffffff', padding: '30px 20px', display: 'flex', flexDirection: 'column', 
-                          justifyContent: 'center', alignItems: 'center', minWidth: 140, position: 'relative' 
-                        }}>
-                          <span style={{ fontSize: 32, fontWeight: 900, lineHeight: 1 }}>{displayValue}</span>
-                          <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.5, marginTop: 8, opacity: 0.9 }}>GIẢM GIÁ</span>
-                          {/* Nửa vòng tròn đục lỗ */}
-                          <div style={{ position: 'absolute', right: -12, top: '50%', transform: 'translateY(-50%)', width: 24, height: 24, background: THEME.BG_LIGHT, borderRadius: '50%', borderLeft: `1px dashed ${THEME.GOLD}`, zIndex: 2 }}></div>
-                        </div>
-
-                        {/* THE TICKET RIGHT (TRẮNG) */}
-                        <div style={{ padding: '24px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                          
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                            <div>
-                                <h4 style={{ margin: '0 0 4px 0', fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 }}>Mã Khuyến Mãi</h4>
-                                <div style={{ fontSize: 26, fontWeight: 900, color: THEME.NAVY_DARK, letterSpacing: 2 }}>{v.code}</div>
-                            </div>
-                            {v.isForNewCustomer && (
-                                <Tag color="gold" style={{ margin: 0, fontWeight: 700, borderRadius: 20, padding: '2px 10px' }}><Sparkle size={12} style={{marginRight:4}}/>Khách mới</Tag>
-                            )}
-                          </div>
-
-                          <Paragraph style={{ margin: '0 0 16px 0', fontSize: 14, color: '#475569', lineHeight: 1.5, minHeight: 42 }} ellipsis={{ rows: 2 }}>
-                            {v.description || 'Sử dụng mã này tại bước thanh toán để nhận ưu đãi đặc biệt.'}
-                          </Paragraph>
-
-                          {/* Thông tin phụ */}
-                          <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: 8, marginBottom: 16 }}>
-                            <Space direction="vertical" size={2} style={{ width: '100%' }}>
-                              {v.minBookingValue > 0 && (
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                                  <Text type="secondary">Đơn tối thiểu:</Text>
-                                  <Text strong>{new Intl.NumberFormat('vi-VN').format(v.minBookingValue)}đ</Text>
-                                </div>
-                              )}
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                                <Text type="secondary"><Clock size={14} style={{ verticalAlign: 'middle', marginRight: 4 }}/>Hạn sử dụng:</Text>
-                                <Text strong>{v.validTo ? dayjs(v.validTo).format('DD/MM/YYYY') : 'Không thời hạn'}</Text>
-                              </div>
-                            </Space>
-                          </div>
-
-                          {/* Nút Copy */}
-                          <Button 
-                            type="primary" block size="large"
-                            onClick={() => handleCopyCode(v.code)}
-                            style={{ 
-                              backgroundColor: isCopied ? THEME.NAVY_DARK : '#ffffff', 
-                              color: isCopied ? '#ffffff' : THEME.DARK_RED, 
-                              borderColor: THEME.DARK_RED,
-                              fontWeight: 800, letterSpacing: 1, borderRadius: 8
-                            }}
-                            icon={isCopied ? <CheckCircle size={20} weight="fill" /> : <Copy size={20} />}
-                          >
-                            {isCopied ? 'ĐÃ SAO CHÉP MÃ' : 'COPY MÃ NGAY'}
-                          </Button>
-                        </div>
-                      </motion.div>
-                    </Col>
-                  );
-                })}
-              </Row>
-            </AnimatePresence>
-          </motion.div>
-        )}
       </div>
 
-      {/* ================= SECTION ĐẶC QUYỀN ĐẶT PHÒNG TRỰC TIẾP ================= */}
-      <div style={{ backgroundColor: THEME.NAVY_DARK, padding: '100px 20px', color: '#fff' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 60 }}>
-            <Title level={2} style={{ color: THEME.GOLD, fontFamily: '"Source Serif 4", serif' }}>ĐẶC QUYỀN THƯỢNG LƯU</Title>
-            <Paragraph style={{ color: '#B4CDED', fontSize: 16 }}>Khi đặt phòng trực tiếp qua Website, bạn luôn nhận được nhiều hơn thế.</Paragraph>
-          </div>
+      <div style={{ maxWidth: 1200, margin: '80px auto 0', padding: '0 20px' }}>
+        {/* HÀNG 1: ĐỎ ĐÔ */}
+        <Title level={3} className="label-section red-label">ƯU ĐÃI THỊNH VƯỢNG</Title>
+        <Row gutter={[32, 32]} style={{ marginBottom: 50 }}>
+          <Col xs={24} lg={12}>
+            {renderGameCard("Vòng Quay Di Sản", "Xoay trục thời gian để nhận về những ưu đãi mang đậm dấu ấn hoàng gia.", 
+              <div className="wheel-wrap"><div className="wheel-body" style={{ transform: `rotate(${rotation}deg)` }} /><div className="wheel-pin" /></div>, 
+              THEME.DARK_RED, "#fff5f5", "QUAY THƯỞNG", "WHEEL")}
+          </Col>
+          <Col xs={24} lg={12}>
+            {renderGameCard("Hộp Quà Bí Mật", "Khám phá 15 lựa chọn ẩn chứa những món quà tri ân tinh tế nhất.", 
+              <Gift size={60} color={THEME.DARK_RED} weight="duotone" />, THEME.DARK_RED, "#fff5f5", "MỞ HỘP QUÀ", "BOX")}
+          </Col>
+          <Col xs={24}>
+            {renderGameCard("Cào Thẻ May Mắn", "Dùng đôi tay của bạn để 'gỡ bỏ' lớp phủ hoàng gia và lộ diện Voucher bí ẩn.", 
+              <HandWaving size={60} color={THEME.DARK_RED} weight="fill" />, THEME.DARK_RED, "#fff5f5", "CÀO THẺ NGAY", "SCRATCH")}
+          </Col>
+        </Row>
 
-          <Row gutter={[40, 40]}>
-            {[
-              { icon: <ShieldCheck size={48} weight="duotone" color={THEME.GOLD}/>, title: 'Cam Kết Giá Tốt Nhất', desc: 'Chúng tôi đảm bảo mức giá hiển thị trên website luôn là mức giá cuối cùng và tốt nhất dành cho bạn.' },
-              { icon: <Crown size={48} weight="duotone" color={THEME.GOLD}/>, title: 'Ưu Đãi Đặc Quyền', desc: 'Tận hưởng các mã giảm giá ẩn chỉ dành riêng cho khách hàng tạo tài khoản và đặt phòng trực tiếp.' },
-              { icon: <Clock size={48} weight="duotone" color={THEME.GOLD}/>, title: 'Linh Hoạt Thời Gian', desc: 'Hỗ trợ nhận phòng sớm hoặc trả phòng trễ hoàn toàn miễn phí (Tùy thuộc vào tình trạng phòng trống).' }
-            ].map((item, idx) => (
-              <Col xs={24} md={8} key={idx}>
-                <div style={{ textAlign: 'center', padding: '30px 20px', background: 'rgba(255,255,255,0.03)', borderRadius: 20, height: '100%', border: '1px solid rgba(212, 175, 55, 0.1)' }}>
-                  <div style={{ marginBottom: 20 }}>{item.icon}</div>
-                  <Title level={4} style={{ color: '#fff', marginBottom: 16 }}>{item.title}</Title>
-                  <Text style={{ color: '#A0AABF', fontSize: 15, lineHeight: 1.6 }}>{item.desc}</Text>
+        {/* HÀNG 2: XANH NAVY */}
+        <Title level={3} className="label-section navy-label">KHO TÀNG DI SẢN</Title>
+        <Row gutter={[32, 32]}>
+          <Col xs={24} lg={12}>
+            {renderGameCard("Thẻ Bài Quý Tộc", "Những quân bài định mệnh sẽ dẫn lối bạn đến với không gian nghỉ dưỡng lý tưởng.", 
+              <Cards size={60} color={THEME.GOLD} weight="duotone" />, THEME.NAVY_DARK, THEME.NAVY_DARK, "LẬT THẺ BÀI", "CARD")}
+          </Col>
+          <Col xs={24} lg={12}>
+            {renderGameCard("Xúc Xắc Tài Lộc", "Để vận may lên tiếng thông qua những nhịp đập của quân xúc xắc vàng.", 
+              <DiamondsFour size={60} color={THEME.GOLD} weight="fill" />, THEME.NAVY_DARK, THEME.NAVY_DARK, "GIEO XÚC XẮC", "DICE")}
+          </Col>
+          <Col xs={24}>
+            {renderGameCard("Giai Điệu Di Sản", "Xoay mã số két sắt theo nhịp điệu để mở ra kho tàng ưu đãi quý giá.", 
+              <MusicNotes size={60} color={THEME.GOLD} weight="fill" />, THEME.NAVY_DARK, THEME.NAVY_DARK, "MỞ KÉT SẮT", "MUSIC")}
+          </Col>
+        </Row>
+
+        {/* DANH SÁCH VOUCHER RĂNG CƯA MỚI */}
+        <div style={{ marginTop: 100, textAlign: 'center' }}>
+          <Title level={2} style={{ fontFamily: '"Source Serif 4", serif' }}>KHO VOUCHER</Title>
+          <Tabs activeKey={activeTab} onChange={setActiveTab} centered className="luxury-tabs"
+              items={[
+                { key: 'NEW', label: <span className="tab-flex"><UserPlus size={20}/> Khách Mới</span> },
+                { key: 'PERCENT', label: <span className="tab-flex"><Percent size={20}/> Giảm %</span> },
+                { key: 'FIXED', label: <span className="tab-flex"><Coins size={20}/> Tiền Mặt</span> },
+              ]}
+            />
+          <Row gutter={[24, 24]} style={{ marginTop: 40 }}>
+            {vouchers.filter(v => (activeTab === 'NEW' ? v.isForNewCustomer : activeTab === 'PERCENT' ? v.discountType === 'PERCENT' : v.discountType === 'FIXED_AMOUNT')).map(v => (
+              <Col xs={24} md={12} key={v.id}>
+                <div className="real-ticket-ui">
+                  <div className="ticket-left-bg">
+                    <span className="discount-text">{v.discountValue}{v.discountType === 'PERCENT' ? '%' : 'K'}</span>
+                    <div className="cut-circle top"></div>
+                    <div className="cut-circle bottom"></div>
+                  </div>
+                  <div className="ticket-right-bg">
+                    <div style={{ flex: 1 }}>
+                      <Title level={4} style={{ margin: 0, color: THEME.NAVY_DARK }}>{v.code}</Title>
+                      <Paragraph ellipsis={{ rows: 1 }} style={{ color: '#64748b', fontSize: 12, margin: 0 }}>{v.description}</Paragraph>
+                    </div>
+                    <Button className="btn-copy-ticket" onClick={() => {navigator.clipboard.writeText(v.code); message.success('Đã copy mã!');}}>COPY</Button>
+                    <div className="dashed-line"></div>
+                  </div>
                 </div>
               </Col>
             ))}
           </Row>
-
-          <div style={{ textAlign: 'center', marginTop: 60 }}>
-             <Button size="large" type="primary" onClick={() => window.location.href='/rooms'} style={{ backgroundColor: THEME.DARK_RED, height: 50, padding: '0 40px', fontSize: 15, fontWeight: 'bold', letterSpacing: 1, borderRadius: 30 }}>
-                XEM PHÒNG VÀ ÁP MÃ NGAY <ArrowRight size={20} style={{ marginLeft: 8 }} />
-             </Button>
-          </div>
         </div>
       </div>
 
       <style>{`
-        /* Tùy chỉnh CSS cho Tabs để nó sang trọng hơn */
-        .luxury-tabs .ant-tabs-nav::before { display: none; }
-        .luxury-tabs .ant-tabs-tab { padding: 12px 0; font-weight: 700; color: #64748b; font-size: 14px; }
-        .luxury-tabs .ant-tabs-tab-active .ant-tabs-tab-btn { color: ${THEME.DARK_RED} !important; }
-        .luxury-tabs .ant-tabs-ink-bar { background: ${THEME.DARK_RED}; height: 3px !important; border-radius: 3px; }
+        .luxury-hero { position: relative; height: 380px; display: flex; align-items: center; justify-content: center; background-image: url("https://i.pinimg.com/1200x/2c/16/33/2c1633b3d7f37db080958612ce2db2f9.jpg"); background-size: cover; }
+        .overlay-dark { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(13,24,33,0.9), ${THEME.NAVY_DARK}); }
+        .hero-content { position: relative; text-align: center; z-index: 1; }
+        .main-title { color: #fff !important; font-size: 42px !important; font-family: "Source Serif 4", serif !important; letter-spacing: 4px; }
+        .sub-title { color: ${THEME.GOLD}; font-weight: 800; letter-spacing: 2px; font-size: 13px; }
+
+        .label-section { padding-left: 15px; margin-bottom: 25px !important; font-family: "Source Serif 4", serif !important; }
+        .red-label { border-left: 5px solid ${THEME.DARK_RED}; color: ${THEME.DARK_RED} !important; }
+        .navy-label { border-left: 5px solid ${THEME.NAVY_DARK}; color: ${THEME.NAVY_DARK} !important; }
+
+        .luxury-card { background: #fff; border-radius: 24px; height: 260px; display: flex; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        .br-red { border-bottom: 5px solid ${THEME.DARK_RED}; }
+        .br-navy { border-bottom: 5px solid ${THEME.NAVY_DARK}; }
+        .visual-part { width: 40%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 25px; border-right: 1px dashed #eee; }
+        .story-part { width: 60%; padding: 25px; display: flex; flex-direction: column; justify-content: center; }
+
+        .btn-game { border-radius: 12px; height: 42px; font-weight: 800; width: 100%; border: none; font-size: 11px; }
+        .btn-red { background: ${THEME.DARK_RED}; color: #fff; }
+        .btn-gold { background: ${THEME.GOLD}; color: ${THEME.NAVY_DARK}; }
+
+        /* TICKET UI MỚI: RĂNG CƯA KHOÉT SÂU */
+        .real-ticket-ui { display: flex; height: 110px; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.08)); }
+        .ticket-left-bg { width: 110px; background: ${THEME.DARK_RED}; color: #fff; display: flex; align-items: center; justify-content: center; position: relative; border-radius: 16px 0 0 16px; }
+        .discount-text { font-size: 26px; font-weight: 900; z-index: 2; }
+        
+        .ticket-right-bg { flex: 1; background: #fff; border-radius: 0 16px 16px 0; display: flex; align-items: center; padding: 0 25px; position: relative; border-left: 2px dashed #f0f0f0; }
+        
+        /* Vết khoét tròn */
+        .cut-circle { position: absolute; width: 24px; height: 24px; background: ${THEME.BG_LIGHT}; border-radius: 50%; right: -12px; z-index: 5; }
+        .cut-circle.top { top: -12px; }
+        .cut-circle.bottom { bottom: -12px; }
+        
+        .btn-copy-ticket { border: 2px solid ${THEME.DARK_RED}; color: ${THEME.DARK_RED}; font-weight: 800; border-radius: 8px; }
+
+        .wheel-wrap { position: relative; width: 110px; height: 110px; }
+        .wheel-body { width: 100%; height: 100%; border-radius: 50%; border: 3px solid ${THEME.GOLD}; background: conic-gradient(${THEME.NAVY_DARK} 0% 25%, ${THEME.DARK_RED} 25% 50%, ${THEME.NAVY_DARK} 50% 75%, ${THEME.DARK_RED} 75% 100%); transition: transform 3s cubic-bezier(0.1, 0, 0, 1); }
+        .wheel-pin { position: absolute; top: -5px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 12px solid ${THEME.GOLD}; z-index: 5; }
+
+        .grid-15-layout { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; padding: 15px 0; }
+        .card-15 { height: 100px; border-radius: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border: 2px solid ${THEME.GOLD}; transition: 0.2s; }
+        .tab-flex { display: flex; align-items: center; gap: 8px; font-weight: bold; }
       `}</style>
+
+      {/* MODAL 15 Ô: CHUẨN 5x3 */}
+      <Modal title={`CHỌN ${gridType === 'BOX' ? 'HỘP QUÀ' : 'THẺ BÀI'} MAY MẮN`} open={isGridModalOpen} onCancel={() => setIsGridModalOpen(false)} footer={null} width={750} centered>
+        <div className="grid-15-layout">
+          {[...Array(15)].map((_, i) => (
+            <div key={i} className="card-15" style={{ background: gridType === 'BOX' ? '#fff' : THEME.NAVY_DARK }} onClick={() => { setIsGridModalOpen(false); setIsResultModalOpen(true); }}>
+              {gridType === 'BOX' ? <Gift size={28} color={THEME.DARK_RED} weight="duotone" /> : <Crown size={28} color={THEME.GOLD} weight="fill" />}
+              <Text style={{ fontSize: 11, marginTop: 5, fontWeight: 'bold', color: gridType === 'BOX' ? THEME.NAVY_DARK : THEME.GOLD }}>#{i + 1}</Text>
+            </div>
+          ))}
+        </div>
+      </Modal>
+
+      {/* MODAL CÀO THẺ: CÀO LÀ HIỆN */}
+      <Modal open={isScratchModalOpen} onCancel={() => setIsScratchModalOpen(false)} footer={null} centered width={450}>
+        <div style={{ textAlign: 'center', padding: '20px' }}>
+          <Title level={4}>CÀO LỚP PHỦ VÀNG</Title>
+          <div style={{ position: 'relative', width: '300px', height: '150px', margin: '30px auto', background: THEME.NAVY_DARK, borderRadius: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: `3px solid ${THEME.GOLD}` }}>
+            <div style={{ color: THEME.GOLD, fontSize: 32, fontWeight: 'bold' }}>{revealedVoucher?.code}</div>
+            <motion.div onMouseMove={() => setScratchProgress(prev => Math.min(prev + 1.5, 100))}
+              style={{ position: 'absolute', inset: 0, zIndex: 10, background: `linear-gradient(135deg, ${THEME.GOLD}, #B8860B)`, opacity: 1 - scratchProgress / 100, cursor: 'crosshair', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <HandWaving size={40} color="#fff" />
+            </motion.div>
+          </div>
+          {scratchProgress >= 100 && <Button type="primary" block style={{ background: THEME.DARK_RED }} onClick={() => { setIsScratchModalOpen(false); setIsResultModalOpen(true); }}>NHẬN VOUCHER</Button>}
+        </div>
+      </Modal>
+
+      {/* MODAL KÉT SẮT */}
+      <Modal open={isMusicModalOpen} onCancel={() => setIsMusicModalOpen(false)} footer={null} centered width={350}>
+        <div style={{ textAlign: 'center', padding: '20px' }}>
+          <div style={{ background: '#f1f5f9', padding: '30px', borderRadius: '50%', width: '120px', height: '120px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `4px solid ${THEME.NAVY_DARK}` }}>
+            <LockKey size={60} color={THEME.NAVY_DARK} weight="fill" />
+          </div>
+          <Title level={4} style={{ margin: '20px 0' }}>MỞ KHÓA KÉT SẮT</Title>
+          <InputNumber min={0} max={99} defaultValue={0} size="large" style={{ width: '100px', marginBottom: 20 }} />
+          <Button type="primary" block style={{ background: THEME.NAVY_DARK, color: THEME.GOLD }} onClick={() => { setIsMusicModalOpen(false); setIsResultModalOpen(true); }}>XÁC NHẬN</Button>
+        </div>
+      </Modal>
+
+      {/* MODAL KẾT QUẢ */}
+      <Modal open={isResultModalOpen} onCancel={() => setIsResultModalOpen(false)} footer={null} centered>
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          <MagicWand size={64} color={THEME.GOLD} weight="fill" />
+          <Title level={2} style={{ fontFamily: '"Source Serif 4", serif' }}>XIN CHÚC MỪNG!</Title>
+          <div style={{ background: THEME.NAVY_DARK, color: THEME.GOLD, padding: '25px', borderRadius: 20, fontSize: 36, fontWeight: 'bold', margin: '20px 0' }}>{revealedVoucher?.code}</div>
+          <Button type="primary" block onClick={() => { navigator.clipboard.writeText(revealedVoucher?.code); message.success('Đã copy!'); setIsResultModalOpen(false); }} style={{ background: THEME.DARK_RED, height: 50 }}>SAO CHÉP MÃ</Button>
+        </div>
+      </Modal>
     </div>
   );
 }

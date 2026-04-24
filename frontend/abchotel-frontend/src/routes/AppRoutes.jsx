@@ -51,11 +51,12 @@ import ClientVoucherPage from '../pages/Client/ClientVoucherPage';
 import ClientProfilePage from '../pages/Client/ClientProfilePage';
 import ClientBookingHistoryPage from '../pages/Client/ClientBookingHistoryPage';
 import RoomsAndSuitesPage from '../pages/Client/RoomsAndSuitesPage';
-import ClientBookingPage from '../pages/Client/ClientBookingPage';
-import RoomDetailsArticles from "../pages/Client/RoomDetailsArticles";
+// import ClientBookingPage from '../pages/Client/ClientBookingPage';
+import RoomTypeDetails from "../pages/Client/RoomTypeDetails";
 import ClientArticlePage from '../pages/Client/ArticlePage';
 import ClientArticleDetailPage from '../pages/Client/ArticleDetailPage';
 import ClientServicesPage from '../pages/Client/ClientServicesPage';
+import SelectRoomPage from '../pages/Client/Booking/SelectRoomPage';
 
 
 // COMPONENT TẠM THỜI ĐỂ XEM TEST GIAO DIỆN CLIENT
@@ -90,7 +91,7 @@ export default function AppRoutes() {
         
         {/* Các trang hiển thị cho khách */}
         <Route path="/rooms" element={<RoomsAndSuitesPage />} />
-        <Route path="/room-details" element={<RoomDetailsArticles />} />
+        <Route path="/room-details" element={<RoomTypeDetails />} />
         <Route path="/services" element={<ClientServicesPage />} />
         <Route path="/offers" element={<ClientVoucherPage />} />
         <Route path="/blog" element={<ClientArticlePage />} />
@@ -98,7 +99,7 @@ export default function AppRoutes() {
         <Route path="/about" element={<AboutPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/privacy-policy" element={<TermsPolicyPage />} />
-        <Route path="/booking" element={<ClientBookingPage />} />
+        <Route path="/booking" element={<SelectRoomPage />} />
         
         {/* Route cho Khách hàng đăng nhập vào xem thông tin cá nhân */}
         <Route path="/profile" element={

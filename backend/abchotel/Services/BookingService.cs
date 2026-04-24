@@ -40,53 +40,64 @@ namespace abchotel.Services
         // ==========================================================
         public async Task<List<AvailableRoomResponse>> SearchRoomsAsync(SearchRoomRequest request)
         {
+            // Tính số đêm/giờ
+            int duration = request.PriceType == "HOURLY"
+                ? (int)Math.Ceiling((request.CheckOut - request.CheckIn).TotalHours)
+                : Math.Max(1, (int)(request.CheckOut.Date - request.CheckIn.Date).TotalDays);
+
+            // 1. Tìm ID các phòng vật lý ĐANG BẬN trong khoảng thời gian này
+            var bookedRoomIds = await _context.BookingDetails
+                .Where(bd => bd.RoomId != null && bd.Booking.Status != "Cancelled" &&
+                             !(bd.CheckOutDate <= request.CheckIn || bd.CheckInDate >= request.CheckOut))
+                .Select(bd => bd.RoomId)
+                .ToListAsync();
+
+            // 2. Truy vấn hạng phòng, KÈM THEO Ảnh và Tiện ích từ Model chuẩn của em
+            var roomTypes = await _context.RoomTypes
+                .Include(rt => rt.Rooms)
+                .Include(rt => rt.RoomImages)
+                .Include(rt => rt.RoomTypeAmenities).ThenInclude(rta => rta.Amenity)
+                .Where(rt => rt.IsActive && rt.CapacityAdults >= request.Adults && rt.CapacityChildren >= request.Children)
+                .ToListAsync();
+
             var result = new List<AvailableRoomResponse>();
 
-            // Sử dụng ADO.NET thuần để gọi Stored Procedure và map dữ liệu ra DTO
-            using (var command = _context.Database.GetDbConnection().CreateCommand())
+            foreach (var rt in roomTypes)
             {
-                command.CommandText = "sp_SearchAvailableRooms";
-                command.CommandType = CommandType.StoredProcedure;
+                // Đếm số phòng trống thực tế = Tổng phòng - Các phòng đang bận
+                int remaining = rt.Rooms.Count(r => r.Status == "Available" && !bookedRoomIds.Contains(r.Id));
 
-                // Truyền tham số an toàn
-                command.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@CheckIn", request.CheckIn));
-                command.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@CheckOut", request.CheckOut));
-                command.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@Adults", request.Adults));
-                command.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@Children", request.Children));
-                command.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@RequestedRooms", request.RequestedRooms));
-                command.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@PriceType", request.PriceType));
-
-                if (request.MinPrice.HasValue) command.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@MinPrice", request.MinPrice.Value));
-                if (request.MaxPrice.HasValue) command.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@MaxPrice", request.MaxPrice.Value));
-
-                await _context.Database.OpenConnectionAsync();
-
-                using (var reader = await command.ExecuteReaderAsync())
+                if (remaining >= request.RequestedRooms)
                 {
-                    while (await reader.ReadAsync())
+                    decimal pricePerUnit = request.PriceType == "HOURLY" ? rt.PricePerHour : rt.BasePrice;
+
+                    if (request.MinPrice.HasValue && pricePerUnit < request.MinPrice.Value) continue;
+                    if (request.MaxPrice.HasValue && pricePerUnit > request.MaxPrice.Value) continue;
+
+                    result.Add(new AvailableRoomResponse
                     {
-                        result.Add(new AvailableRoomResponse
-                        {
-                            RoomTypeId = reader.GetInt32(reader.GetOrdinal("RoomTypeId")),
-                            RoomTypeName = reader.GetString(reader.GetOrdinal("RoomTypeName")),
-                            PricePerUnit = reader.GetDecimal(reader.GetOrdinal("PricePerUnit")),
-                            ImageUrl = reader.IsDBNull(reader.GetOrdinal("ImageUrl")) ? null : reader.GetString(reader.GetOrdinal("ImageUrl")),
-                            RemainingRooms = reader.GetInt32(reader.GetOrdinal("RemainingRooms")),
-                            SubTotal = reader.GetDecimal(reader.GetOrdinal("SubTotal")),
-                            IsUrgent = reader.GetBoolean(reader.GetOrdinal("IsUrgent")),
-                            CapacityAdults = reader.GetInt32(reader.GetOrdinal("CapacityAdults")),
-                            CapacityChildren = reader.GetInt32(reader.GetOrdinal("CapacityChildren")),
-                            SizeSqm = reader.IsDBNull(reader.GetOrdinal("SizeSqm")) ? 0 : reader.GetDouble(reader.GetOrdinal("SizeSqm")),
-                            BedType = reader.IsDBNull(reader.GetOrdinal("BedType")) ? "Tiêu chuẩn" : reader.GetString(reader.GetOrdinal("BedType")),
-                            ViewDirection = reader.IsDBNull(reader.GetOrdinal("ViewDirection")) ? "Đang cập nhật" : reader.GetString(reader.GetOrdinal("ViewDirection")),
-                            AllImages = reader.IsDBNull(reader.GetOrdinal("AllImages")) ? null : reader.GetString(reader.GetOrdinal("AllImages")),
-                            AmenitiesSummary = reader.IsDBNull(reader.GetOrdinal("AmenitiesSummary")) ? "Chưa có tiện ích" : reader.GetString(reader.GetOrdinal("AmenitiesSummary"))
-                        });
-                    }
+                        RoomTypeId = rt.Id,
+                        RoomTypeName = rt.Name,
+                        PricePerUnit = pricePerUnit,
+                        BasePricePerNight = rt.BasePrice,
+                        BasePricePerHour = rt.PricePerHour,
+                        RemainingRooms = remaining,
+                        SubTotal = duration * pricePerUnit * request.RequestedRooms,
+                        IsUrgent = remaining <= 3,
+                        CapacityAdults = rt.CapacityAdults,
+                        CapacityChildren = rt.CapacityChildren,
+                        SizeSqm = rt.SizeSqm ?? 0,
+                        BedType = rt.BedType,
+                        ViewDirection = rt.ViewDirection ?? "Thành phố",
+                        Description = rt.Description,
+                        // Tự động map sang mảng List<string> cực mượt
+                        Images = rt.RoomImages.Where(i => i.IsActive).OrderByDescending(i => i.IsPrimary).Select(i => i.ImageUrl).ToList(),
+                        Amenities = rt.RoomTypeAmenities.Where(a => a.Amenity.IsActive).Select(a => a.Amenity.Name).ToList()
+                    });
                 }
             }
 
-            return result;
+            return result.OrderBy(r => r.PricePerUnit).ToList();
         }
 
         // ==========================================================

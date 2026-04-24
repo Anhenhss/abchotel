@@ -180,7 +180,7 @@ export default function HomePage() {
     queryParams.append('checkIn', checkInDate.format('YYYY-MM-DDTHH:mm:ss'));
     queryParams.append('checkOut', checkOutDate.format('YYYY-MM-DDTHH:mm:ss'));
 
-    navigate(`/rooms?${queryParams.toString()}`);
+    navigate(`/booking?${queryParams.toString()}`);
   };
 
   return (
@@ -275,7 +275,7 @@ export default function HomePage() {
             {/* Cột 3: Nút Submit */}
             <Col xs={24} md={4}>
               <Button type="primary" size="large" block icon={<MagnifyingGlass />} onClick={handleSearch} style={{ backgroundColor: THEME.DARK_RED, fontWeight: 'bold', borderRadius: 6 }}>
-                TÌM
+                TÌM PHÒNG
               </Button>
             </Col>
           </Row>

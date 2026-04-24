@@ -25,18 +25,23 @@ namespace abchotel.DTOs
     {
         public int RoomTypeId { get; set; }
         public string RoomTypeName { get; set; }
-        public decimal PricePerUnit { get; set; }
-        public string ImageUrl { get; set; }
-        public int RemainingRooms { get; set; } // Số phòng còn trống thực tế
-        public decimal SubTotal { get; set; }   // Tổng tiền dự kiến
-        public bool IsUrgent { get; set; }      // true nếu chỉ còn <= 3 phòng
+        public decimal PricePerUnit { get; set; }       // Giá sẽ áp dụng (tùy theo khách chọn Đêm hay Giờ)
+        
+        // CÁC THÔNG TIN HIỂN THỊ CHI TIẾT
+        public decimal BasePricePerNight { get; set; }  // Giá gốc theo Đêm
+        public decimal BasePricePerHour { get; set; }   // Giá gốc theo Giờ
+        public string ViewDirection { get; set; }
+        public string Description { get; set; }
+        
+        public int RemainingRooms { get; set; } 
+        public decimal SubTotal { get; set; }   
+        public bool IsUrgent { get; set; }      
         public int CapacityAdults { get; set; }
         public int CapacityChildren { get; set; }
         public double SizeSqm { get; set; }
         public string BedType { get; set; }
-        public string ViewDirection { get; set; }
-        public string AllImages { get; set; }        
-        public string AmenitiesSummary { get; set; }
+        public List<string> Images { get; set; } 
+        public List<string> Amenities { get; set; }
     }
 
     // ==========================================

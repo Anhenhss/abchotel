@@ -141,29 +141,38 @@ export default function RoomsAndSuitesPage() {
             font-weight: 500;
           }
 
+          /* Tối ưu Responsive cho Tablet */
+          @media (max-width: 992px) {
+            .rooms-page-wrapper .room-content { padding: 24px; }
+            .rooms-page-wrapper .room-content h2 { font-size: 22px !important; }
+          }
+
+          /* Tối ưu Responsive cho Mobile */
           @media (max-width: 768px) {
-            .rooms-page-wrapper .room-list-card { flex-direction: column; }
-            .rooms-page-wrapper .room-img-container { width: 100%; height: 250px; }
-            .rooms-page-wrapper .room-content { width: 100%; padding: 24px; }
-            .rooms-page-wrapper .price-action-container { flex-direction: column; align-items: flex-start !important; gap: 16px; }
-            .rooms-page-wrapper .action-buttons { width: 100%; display: flex; gap: 10px; }
-            .rooms-page-wrapper .action-buttons button { flex: 1; padding: 0 10px !important; }
+            .rooms-page-wrapper .room-list-card { flex-direction: column !important; }
+            .rooms-page-wrapper .room-img-container { width: 100% !important; height: 250px !important; }
+            .rooms-page-wrapper .room-content { width: 100% !important; padding: 20px !important; }
+            .rooms-page-wrapper .price-action-container { flex-direction: column !important; align-items: flex-start !important; gap: 16px !important; }
+            
+            /* Sửa lại nút bấm trải đều toàn màn hình điện thoại */
+            .rooms-page-wrapper .action-buttons { width: 100% !important; display: flex !important; flex-direction: column !important; gap: 10px !important; }
+            .rooms-page-wrapper .action-buttons button { width: 100% !important; }
           }
         `}
       </style>
 
+      {/* Đã xóa marginTop: '-80px' để không chèn lên Header */}
       <section style={{ 
         position: 'relative', 
         height: '40vh', 
         minHeight: 350,
         backgroundImage: 'url("https://images.unsplash.com/photo-1578683010236-d716f9a3f461?auto=format&fit=crop&w=1920&q=80")', 
         backgroundSize: 'cover', 
-        backgroundPosition: 'center',
-        marginTop: '-80px' 
+        backgroundPosition: 'center'
       }}>
         <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to right, ${THEME.NAVY_DARK}, rgba(13,24,33,0.4))` }} />
         
-        <div style={{ ...CONTAINER_STYLE, position: 'relative', zIndex: 10, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', paddingTop: 80 }}>
+        <div style={{ ...CONTAINER_STYLE, position: 'relative', zIndex: 10, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <Text style={{ color: THEME.GOLD, fontWeight: 600, letterSpacing: '3px', textTransform: 'uppercase', fontSize: 13 }}>
             Không Gian Nghỉ Dưỡng
           </Text>
@@ -252,7 +261,7 @@ export default function RoomsAndSuitesPage() {
                         <Button 
                           size="large" 
                           style={{ borderColor: THEME.NAVY_DARK, color: THEME.NAVY_DARK, borderRadius: 0, fontWeight: 600, height: 44, padding: '0 24px' }}
-                          onClick={() => handleViewDetails(room, index)} // GỌI HÀM MỚI Ở ĐÂY
+                          onClick={() => handleViewDetails(room, index)}
                         >
                           XEM CHI TIẾT
                         </Button>

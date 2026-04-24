@@ -1,248 +1,246 @@
 import React, { useState, useEffect } from 'react';
-import { Typography, Row, Col, Spin, Tag, Empty, Input, Button, Badge } from 'antd';
-import { 
-    Knife, Waves, Car, FlowerLotus, WifiHigh,
-    MagnifyingGlass, CheckCircle, ShoppingCart, 
-    PlusCircle, ArrowRight
-} from '@phosphor-icons/react';
+import { Typography, Row, Col, Spin, Tag, Input, ConfigProvider, Divider, List, notification } from 'antd';
+import { MagnifyingGlass, Crown, Sparkle, ArrowUpRight, CaretRight, BellRinging } from '@phosphor-icons/react';
 import { serviceApi } from '../../api/serviceApi';
+import * as signalR from '@microsoft/signalr';
+import dayjs from 'dayjs';
 
-const { Title, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
 
 const THEME = {
-    NAVY: '#0D1821',
-    GOLD: '#D4AF37',
-    DARK_RED: '#8A1538',
-    SUCCESS: '#22C55E',
-    BG: '#F8F9FA',
-    WHITE: '#FFFFFF'
+  NAVY_DARK: '#0D1821',
+  GOLD: '#D4AF37',
+  WHITE: '#FFFFFF',
+  GRAY_BG: '#F8FAFC'
 };
 
 export default function ClientServicesPage() {
-    const [services, setServices] = useState([]);
-    const [categories, setCategories] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [searchText, setSearchText] = useState('');
-    const [selectedItems, setSelectedItems] = useState([]);
+  const [services, setServices] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [activeCat, setActiveCat] = useState(null);
 
-    useEffect(() => {
-        const loadData = async () => {
-            try {
-                setLoading(true);
-                const [svcRes, catRes] = await Promise.all([
-                    serviceApi.getServices(true),
-                    serviceApi.getCategories()
-                ]);
-                setServices(svcRes || []);
-                setCategories(catRes || []);
-            } catch (err) { console.error(err); } 
-            finally { setLoading(false); }
-        };
-        loadData();
-    }, []);
+  // 1. KẾT NỐI SIGNALR REALTIME
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const connection = new signalR.HubConnectionBuilder()
+      .withUrl("https://localhost:5035/notificationHub", {
+        accessTokenFactory: () => token
+      })
+      .withAutomaticReconnect()
+      .build();
 
-    const toggleSelect = (service) => {
-        const isExist = selectedItems.find(item => item.id === service.id);
-        if (isExist) {
-            setSelectedItems(selectedItems.filter(item => item.id !== service.id));
-        } else {
-            setSelectedItems([...selectedItems, service]);
+    connection.start()
+      .then(() => {
+        connection.on("ReceiveNotification", (msg) => {
+          notification.open({
+            message: 'Thông báo dịch vụ',
+            description: msg,
+            icon: <BellRinging weight="fill" color={THEME.GOLD} />,
+            placement: 'bottomRight',
+            style: { borderRadius: '8px', borderLeft: `4px solid ${THEME.GOLD}` }
+          });
+        });
+      })
+      .catch(err => console.error("SignalR Connection Error: ", err));
+
+    return () => { connection.stop(); };
+  }, []);
+
+  // 2. TẢI DỮ LIỆU
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        if (serviceApi) {
+          const [s, c] = await Promise.all([serviceApi.getServices(true), serviceApi.getCategories()]);
+          const activeCats = Array.isArray(c) ? c : [];
+          setServices(Array.isArray(s) ? s : []);
+          setCategories(activeCats);
+          if (activeCats.length > 0) setActiveCat(activeCats[0].id);
         }
+      } catch (e) { console.error("Lỗi tải dữ liệu"); }
+      finally { setLoading(false); }
     };
+    loadData();
+  }, []);
 
-    const getIcon = (catName) => {
-        const name = catName?.toLowerCase() || '';
-        if (name.includes('ăn')) return <Knife size={24} weight="duotone" />;
-        if (name.includes('nước')) return <Waves size={24} weight="duotone" />;
-        if (name.includes('xe')) return <Car size={24} weight="duotone" />;
-        if (name.includes('spa')) return <FlowerLotus size={24} weight="duotone" />;
-        return <WifiHigh size={24} weight="duotone" />;
-    };
+  const scrollToCategory = (id) => {
+    setActiveCat(id);
+    const element = document.getElementById(`category-${id}`);
+    if (element) {
+      const offset = 80;
+      const bodyRect = document.body.getBoundingClientRect().top;
+      const elementRect = element.getBoundingClientRect().top;
+      const elementPosition = elementRect - bodyRect;
+      window.scrollTo({ top: elementPosition - offset, behavior: 'smooth' });
+    }
+  };
 
-    if (loading) return <div style={{ height: '80vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}><Spin size="large" /></div>;
+  if (loading) return (
+    <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <Spin size="large" tip="Đang chuẩn bị không gian Elite..." />
+    </div>
+  );
 
-    return (
-        <div style={{ backgroundColor: THEME.BG, minHeight: '100vh', paddingBottom: 100 }}>
-            {/* Header giữ nguyên chữ Luxury Services */}
-            <div style={{ background: THEME.NAVY, padding: '40px 20px', textAlign: 'center' }}>
-                <Title level={2} style={{ color: THEME.GOLD, margin: 0, fontFamily: "'Playfair Display', serif" }}>TINH HOA TIỆN NGHI</Title>
-                <Text style={{ color: 'rgba(255,255,255,0.5)' }}>"Nâng tầm kỳ nghỉ của quý khách với những đặc quyền duy nhất"</Text>
-                
-                <div className="search-box-wrapper">
-                    <Input 
-                        prefix={<MagnifyingGlass size={20} color={THEME.GOLD} />} 
-                        placeholder="Tìm dịch vụ bạn cần..." 
-                        variant="borderless"
-                        onChange={e => setSearchText(e.target.value)}
-                    />
+  return (
+    <ConfigProvider theme={{ token: { fontFamily: '"Source Serif 4", serif' } }}>
+      <div style={{ minHeight: '100vh', background: THEME.WHITE }}>
+        
+        <section className="banner-section">
+          <div className="banner-overlay"></div>
+          <div className="banner-content">
+            <Title className="banner-title">NGHỆ THUẬT <span style={{ color: THEME.GOLD }}>PHỤC VỤ</span></Title>
+            <div className="search-container">
+              <MagnifyingGlass size={20} color="white" />
+              <Input placeholder="Tìm kiếm dịch vụ..." variant="borderless" onChange={e => setSearch(e.target.value)} style={{ color: 'white' }} />
+            </div>
+          </div>
+        </section>
+
+        <div className="main-container">
+          <Row gutter={[40, 0]}>
+            
+            {/* SIDEBAR / MOBILE NAV */}
+            <Col xs={24} md={6} lg={5}>
+              <div className="sticky-sidebar">
+                <div className="sidebar-header">
+                  <Text strong style={{ letterSpacing: 2, color: '#94a3b8', fontSize: 11 }}>DANH MỤC DỊCH VỤ</Text>
                 </div>
-            </div>
-
-            <div style={{ maxWidth: 1000, margin: '30px auto', padding: '0 20px' }}>
-                {categories.map(cat => {
-                    const filteredSvc = services.filter(s => s.categoryId === cat.id && s.name.toLowerCase().includes(searchText.toLowerCase()));
-                    if (filteredSvc.length === 0) return null;
-
-                    return (
-                        <div key={cat.id} style={{ marginBottom: 40 }}>
-                            <div className="section-title">
-                                <div className="icon-circle">{getIcon(cat.name)}</div>
-                                <Title level={4} style={{ margin: 0, color: THEME.NAVY }}>{cat.name.toUpperCase()}</Title>
-                            </div>
-
-                            <Row gutter={[16, 16]}>
-                                {filteredSvc.map(svc => {
-                                    const isSelected = selectedItems.some(item => item.id === svc.id);
-                                    return (
-                                        <Col xs={24} sm={12} md={8} key={svc.id}>
-                                            <div className={`svc-card-compact ${isSelected ? 'active' : ''}`} onClick={() => toggleSelect(svc)}>
-                                                <div className="card-main">
-                                                    <Text strong className="svc-name">{svc.name}</Text>
-                                                    <div className="price-row">
-                                                        <Text className="price-val">{svc.price.toLocaleString()}₫</Text>
-                                                        <Text type="secondary" style={{ fontSize: 11 }}>/{svc.unit}</Text>
-                                                    </div>
-                                                </div>
-                                                <div className="card-action">
-                                                    {isSelected ? <CheckCircle size={24} weight="fill" color={THEME.SUCCESS} /> : <PlusCircle size={24} weight="light" opacity={0.3} />}
-                                                </div>
-                                            </div>
-                                        </Col>
-                                    );
-                                })}
-                            </Row>
-                        </div>
-                    );
-                })}
-
-                {services.length === 0 && <Empty description="Chưa có dịch vụ nào" />}
-            </div>
-
-            {/* Giỏ hàng nổi (Floating Cart) - Giữ nguyên chữ ĐẶT NGAY */}
-            {selectedItems.length > 0 && (
-                <div className="floating-cart-bar">
-                    <div className="cart-info">
-                        <Badge count={selectedItems.length} color={THEME.DARK_RED}>
-                            <div className="cart-icon-bg">
-                                <ShoppingCart size={24} weight="bold" color="#fff" />
-                            </div>
-                        </Badge>
-                        <div style={{ marginLeft: 15 }}>
-                            <Text strong style={{ color: '#fff', fontSize: 15 }}>Đã chọn {selectedItems.length} dịch vụ</Text>
-                        </div>
+                <div className="category-list-wrapper">
+                  {categories.map(cat => (
+                    <div 
+                      key={cat.id}
+                      onClick={() => scrollToCategory(cat.id)}
+                      className={`sidebar-item ${activeCat === cat.id ? 'active' : ''}`}
+                    >
+                      <span className="dot"></span>
+                      <span className="cat-name">{cat.name.toUpperCase()}</span>
+                      <CaretRight size={14} className="arrow" />
                     </div>
-                    <Button type="primary" className="btn-confirm-booking" icon={<ArrowRight weight="bold" />}>
-                        ĐẶT NGAY
-                    </Button>
+                  ))}
                 </div>
-            )}
+              </div>
+            </Col>
 
-            <style>{`
-                .search-box-wrapper {
-                    background: #fff;
-                    max-width: 500px;
-                    margin: 25px auto 0;
-                    border-radius: 30px;
-                    padding: 8px 20px;
-                    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-                }
+            {/* SERVICE LIST */}
+            <Col xs={24} md={18} lg={19}>
+              {categories.map((cat) => {
+                const filtered = services.filter(s => s.categoryId === cat.id && s.name.toLowerCase().includes(search.toLowerCase()));
+                if (filtered.length === 0) return null;
 
-                .section-title {
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
-                    margin-bottom: 20px;
-                    border-bottom: 2px solid ${THEME.GOLD}33;
-                    padding-bottom: 10px;
-                }
+                return (
+                  <div key={cat.id} id={`category-${cat.id}`} className="category-block">
+                    <div className="category-title-row">
+                      <Title level={3} className="category-name-text">{cat.name}</Title>
+                      <div className="title-line"></div>
+                      <Sparkle size={20} color={THEME.GOLD} weight="fill" />
+                    </div>
 
-                .icon-circle {
-                    width: 40px;
-                    height: 40px;
-                    background: ${THEME.NAVY};
-                    color: ${THEME.GOLD};
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }
+                    <Row gutter={[24, 24]}>
+                      {filtered.map(svc => (
+                        <Col xs={24} sm={12} xl={8} key={svc.id}>
+                          <div className="luxury-card">
+                            <div className="card-inner">
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <Tag className="elite-tag">EXCLUSIVE</Tag>
+                                <ArrowUpRight size={18} className="card-arrow" />
+                              </div>
+                              <Title level={4} style={{ margin: '20px 0 10px', fontSize: 18 }}>{svc.name}</Title>
+                              
+                              {/* XỬ LÝ TABLE-TO-CARD TRONG CONTENT */}
+                              <div className="service-description">
+                                <Paragraph type="secondary">
+                                  {svc.description ? svc.description.replace(/<[^>]*>/g, '').substring(0, 80) + '...' : 'Trải nghiệm cá nhân hóa đỉnh cao.'}
+                                </Paragraph>
+                              </div>
 
-                .svc-card-compact {
-                    background: #fff;
-                    padding: 15px;
-                    border-radius: 16px;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                    border: 1px solid #edf2f7;
-                }
-
-                .svc-card-compact:hover {
-                    transform: translateY(-3px);
-                    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
-                }
-
-                .svc-card-compact.active {
-                    background: #F0FDF4;
-                    border-color: ${THEME.SUCCESS};
-                }
-
-                .svc-name {
-                    display: block;
-                    font-size: 15px;
-                    margin-bottom: 4px;
-                }
-
-                .price-val {
-                    color: ${THEME.DARK_RED};
-                    font-weight: 700;
-                    font-size: 16px;
-                }
-
-                .floating-cart-bar {
-                    position: fixed;
-                    bottom: 30px;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    width: 90%;
-                    max-width: 450px;
-                    background: ${THEME.NAVY};
-                    border-radius: 50px;
-                    padding: 10px 10px 10px 20px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    box-shadow: 0 15px 35px rgba(0,0,0,0.3);
-                    z-index: 1000;
-                }
-
-                .cart-info { display: flex; align-items: center; }
-                
-                .cart-icon-bg {
-                    width: 45px;
-                    height: 45px;
-                    background: ${THEME.DARK_RED};
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }
-
-                .btn-confirm-booking {
-                    height: 45px;
-                    border-radius: 25px;
-                    background: ${THEME.GOLD} !important;
-                    border: none;
-                    color: ${THEME.NAVY} !important;
-                    font-weight: 800;
-                    padding: 0 25px;
-                }
-
-                @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
-                * { font-family: 'Plus Jakarta Sans', sans-serif; }
-            `}</style>
+                              <Divider style={{ margin: '15px 0' }} />
+                              <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                                <Text strong style={{ fontSize: 20, color: THEME.NAVY_DARK }}>{svc.price?.toLocaleString()}</Text>
+                                <Text type="secondary" style={{ fontSize: 11 }}>VNĐ / {svc.unit || 'DV'}</Text>
+                              </div>
+                            </div>
+                            <div className="card-hover-overlay">
+                              <Crown size={32} weight="light" color={THEME.GOLD} />
+                              <span style={{ color: 'white', marginTop: 10, letterSpacing: 2, fontSize: 11 }}>BOOKING NOW</span>
+                            </div>
+                          </div>
+                        </Col>
+                      ))}
+                    </Row>
+                  </div>
+                );
+              })}
+            </Col>
+          </Row>
         </div>
-    );
+
+        <style>{`
+          /* 1. LAYOUT CHUNG & BANNER */
+          .main-container { maxWidth: 1400px; margin: 0 auto; padding: 60px 20px; }
+          .banner-section { height: 300px; background-image: url("https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?q=80&w=2070"); background-size: cover; background-position: center; position: relative; display: flex; alignItems: center; padding-top: 60px; }
+          .banner-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(13,24,33,0.8) 0%, rgba(255,255,255,0) 100%); z-index: 1; }
+          .banner-content { position: relative; z-index: 2; width: 100%; text-align: center; }
+          .banner-title { color: white !important; font-size: clamp(20px, 5vw, 32px) !important; font-weight: 700 !important; letter-spacing: 2px !important; }
+          .search-container { maxWidth: 400px; margin: 20px auto 0; border-bottom: 1px solid rgba(255,255,255,0.5); display: flex; align-items: center; padding: 5px 10px; }
+
+          /* 2. RESPONSIVE SIDEBAR TO TOP NAV */
+          .sticky-sidebar { position: sticky; top: 100px; padding-right: 20px; }
+          
+          @media (max-width: 768px) {
+            .main-container { padding: 30px 15px; }
+            .sticky-sidebar { 
+                position: relative; top: 0; padding-right: 0; 
+                margin-bottom: 30px; border-right: none; 
+            }
+            .sidebar-header { display: none; }
+            .category-list-wrapper { 
+                display: flex; overflow-x: auto; gap: 15px; padding-bottom: 10px;
+                scrollbar-width: none; 
+            }
+            .category-list-wrapper::-webkit-scrollbar { display: none; }
+            .sidebar-item { 
+                flex: 0 0 auto; padding: 8px 16px !important; 
+                background: #f1f5f9; border-radius: 20px; border: none !important;
+            }
+            .sidebar-item.active { background: ${THEME.NAVY_DARK}; color: ${THEME.GOLD} !important; }
+            .sidebar-item .dot, .sidebar-item .arrow { display: none; }
+            .cat-name { font-size: 11px; }
+            
+            /* Table to Card Responsive */
+            .service-description table, .service-description tbody, .service-description tr, .service-description td {
+                display: block; width: 100% !important;
+            }
+            .service-description tr { margin-bottom: 10px; border: 1px solid #eee; border-radius: 4px; padding: 8px; }
+            .service-description td { border: none !important; display: flex; justify-content: space-between; }
+          }
+
+          /* 3. SIDEBAR ITEMS (DESKTOP) */
+          .sidebar-item { padding: 15px 0; cursor: pointer; display: flex; align-items: center; gap: 12px; font-size: 13px; font-weight: 500; color: #64748b; transition: all 0.3s ease; }
+          .sidebar-item .dot { width: 6px; height: 6px; border-radius: 50%; background: #cbd5e1; }
+          .sidebar-item .arrow { opacity: 0; transform: translateX(-10px); transition: 0.3s; }
+          .sidebar-item:hover, .sidebar-item.active { color: ${THEME.GOLD}; padding-left: 5px; }
+          .sidebar-item.active .dot { background: ${THEME.GOLD}; box-shadow: 0 0 10px ${THEME.GOLD}; }
+          .sidebar-item.active .arrow { opacity: 1; transform: translateX(0); }
+
+          /* 4. LUXURY CARD */
+          .luxury-card { background: #fff; border: 1px solid #f1f5f9; padding: 25px; position: relative; overflow: hidden; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; height: 100%; }
+          .luxury-card:hover { border-color: ${THEME.GOLD}; box-shadow: 0 15px 30px rgba(0,0,0,0.05); }
+          .elite-tag { border: none; background: #fefce8; color: ${THEME.GOLD}; font-size: 10px; font-weight: 700; border-radius: 0; }
+          .card-hover-overlay { position: absolute; inset: 0; background: ${THEME.NAVY_DARK}; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; transform: translateY(100%); transition: 0.4s ease; }
+          .luxury-card:hover .card-hover-overlay { opacity: 1; transform: translateY(0); }
+          .card-arrow { color: #cbd5e1; transition: 0.3s; }
+          .luxury-card:hover .card-arrow { color: ${THEME.GOLD}; transform: translate(3px, -3px); }
+
+          /* 5. UI ELEMENTS */
+          .category-block { marginBottom: 80px; scroll-margin-top: 100px; }
+          .category-title-row { marginBottom: 30px; display: flex; align-items: center; gap: 15px; }
+          .title-line { flex: 1; height: 1px; background: #eee; }
+          html { scroll-behavior: smooth; }
+        `}</style>
+      </div>
+    </ConfigProvider>
+  );
 }

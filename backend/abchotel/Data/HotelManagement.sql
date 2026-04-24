@@ -207,7 +207,7 @@ CREATE TABLE [dbo].[Articles] (
     [author_id] INT NULL FOREIGN KEY REFERENCES [dbo].[Users](id),
     [title] NVARCHAR(MAX) NOT NULL,
     [slug] NVARCHAR(255) NOT NULL UNIQUE,
-    [short_description] NVARCHAR(500) NULL,
+    [short_description] NVARCHAR(1000) NULL,
     [content] NVARCHAR(MAX) NULL,
     [thumbnail_url] NVARCHAR(MAX) NULL,
     [meta_title] NVARCHAR(255) NULL,
@@ -526,27 +526,7 @@ INSERT INTO [dbo].[Users] ([id], [role_id], [membership_id], [full_name], [email
 SET IDENTITY_INSERT [dbo].[Users] OFF;
 GO
 GO
--- Tiện ích & Vật tư
-SET IDENTITY_INSERT [dbo].[Amenities] ON;
-INSERT INTO [dbo].[Amenities] ([id], [name], [icon_url]) VALUES 
-(1, N'Wifi Miễn Phí', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775076276/abchotel/nbmk4rbzezt0zz2awm8a.png'), 
-(2, N'Smart TV', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775075677/abchotel/zjezmfg1peinqew4eajt.png'), 
-(3, N'Điều Hòa', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775075697/abchotel/gylftilqo31cqc5wjpxr.png'),
-(4, N'Bồn Tắm Sứ', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775075717/abchotel/nrpvfk5uvij96qdzeoxc.png'), 
-(5, N'Ban Công', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775075956/abchotel/yczwpsgrqfwvqhntkt0t.png'), 
-(6, N'Minibar', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775075759/abchotel/dv5lfsbnyjtiqdy2lq7m.png'),
-(7, N'Két Sắt', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775076224/abchotel/ckfycmh8knlccvjewkvx.png'),
-(8, N'Máy Sấy Tóc', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775076237/abchotel/rrrul4h2lm5okyve99xw.png'), 
-(9, N'Máy Pha Cà Phê', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775076250/abchotel/cgs3okt75wcjbq7gcqjj.png'),
-(10, N'Bàn Làm Việc', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775076262/abchotel/arcpp7q5oz4h0bzmamkg.png'),
-(11, N'View Biển', N'url'),
-(12, N'View Thành Phố', N'url'),
-(13, N'Bồn Tắm Nằm', N'url'),
-(14, N'Dịch Vụ Phòng 24/7', N'url'),
-(15, N'Trò Chơi Truyền Hình', N'url'),
-(16, N'Bếp Nhỏ', N'url');
-SET IDENTITY_INSERT [dbo].[Amenities] OFF;
-GO
+-- Vật tư
 SET IDENTITY_INSERT [dbo].[Equipments] ON;
 INSERT INTO [dbo].[Equipments] ([id], [item_code], [name], [category], [unit], [total_quantity], [in_use_quantity], [damaged_quantity], [liquidated_quantity], [base_price], [default_price_if_lost], [supplier], [is_active], [image_url]) VALUES
 (1,'TV-SS-43',N'Smart TV Samsung 43 inch',N'Điện tử',N'Cái',60,50,1,0,7500000,8000000,N'Samsung Vietnam',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775147835/abchotel/sekontj2hjzfhr6eygki.jpg'),
@@ -556,38 +536,38 @@ INSERT INTO [dbo].[Equipments] ([id], [item_code], [name], [category], [unit], [
 (5,'KL-SH-17',N'Ấm đun nước Sunhouse 1.7L',N'Điện tử',N'Cái',40,36,1,1,250000,350000,N'Sunhouse',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775147592/abchotel/vczhrb1xae2s4achqc3d.jpg'),
 (6,'TV-SS-55',N'Smart TV Samsung 55 inch',N'Điện tử',N'Cái',5,3,0,0,15000000,17000000,N'Điện Máy Xanh',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775145674/abchotel/dxtsgusaa6vqqaje4i2e.jpg'),
 (7,'BED-SG-12',N'Giường Single 1m2 x 2m',N'Nội thất',N'Chiếc',40,35,0,0,5500000,7000000,N'Hòa Phát',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775147567/abchotel/bmndld75tbvlhh7acbjh.jpg'),
-(8,'BED-TWIN-12',N'Bộ 2 giường đơn Twin 1m2 x 2m',N'Nội thất',N'Bộ',25,22,0,0,9000000,12000000,N'Hòa Phát',1,NULL),
-(9,'BED-DB-18',N'Giường Double 1m8 x 2m',N'Nội thất',N'Chiếc',35,30,0,0,7500000,9000000,N'Hòa Phát',1,NULL),
+(8,'BED-TWIN-12',N'Bộ 2 giường đơn Twin 1m2 x 2m',N'Nội thất',N'Bộ',25,22,0,0,9000000,12000000,N'Hòa Phát',1,N'https://everonvn.com.vn/Media/CK/images/tin-tuc/2025/giuong-don.jpg'),
+(9,'BED-DB-18',N'Giường Double 1m8 x 2m',N'Nội thất',N'Chiếc',35,30,0,0,7500000,9000000,N'Hòa Phát',1,N'https://furniturehome.vn/wp-content/uploads/2023/03/Gi%C6%B0%E1%BB%9Dng-ng%E1%BB%A7-g%E1%BB%97-c%C3%B4ng-nghi%E1%BB%87p-MDF-1m8-x-2m-FHGNCN406-Copy.jpg'),
 (10,'BED-KG-22',N'Giường King 2m x 2m2',N'Nội thất',N'Chiếc',20,18,0,0,12000000,15000000,N'Hòa Phát',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775147891/abchotel/efav4xkd2vz1frcljc2f.jpg'),
 (11,'WD-AC-01',N'Tủ quần áo gỗ An Cường',N'Nội thất',N'Cái',40,35,0,0,3500000,5000000,N'An Cường',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775146133/abchotel/lkibicpdakkdc2gqp6c4.jpg'),
 (12,'TB-HP-01',N'Bàn làm việc Hòa Phát 1m2',N'Nội thất',N'Bộ',40,34,1,0,2200000,3000000,N'Hòa Phát',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775146110/abchotel/snj7eeexxgrjvyuz9tlh.jpg'),
 (13,'HG-DT-01',N'Móc treo quần áo Duy Tân',N'Nội thất',N'Chiếc',500,420,10,5,15000,30000,N'Duy Tân',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775146097/abchotel/qujuesi0hzsb7feeafcj.jpg'),
-(14,'SAFE-PH-01',N'Két sắt điện tử Philips',N'Điện tử',N'Cái',40,35,0,0,1500000,2000000,N'Philips',1,NULL),
+(14,'SAFE-PH-01',N'Két sắt điện tử Philips',N'Điện tử',N'Cái',40,35,0,0,1500000,2000000,N'Philips',1,N'https://product.hstatic.net/200000277379/product/2-5_12eea323a4eb489cb7323bd8af288350_grande.jpg'),
 (15,'TW-BT-70',N'Khăn tắm cotton 70x140cm',N'Đồ vải',N'Chiếc',250,180,5,5,85000,150000,N'Thành Công',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775145951/abchotel/lhdgm4ipfatqxingoxgo.jpg'),
 (16,'TW-FC-30',N'Khăn mặt cotton 30x30cm',N'Đồ vải',N'Chiếc',250,175,5,5,25000,50000,N'Thành Công',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775145850/abchotel/mze1ksxfvwufy0hcnqxh.jpg'),
-(17,'BS-SET-01',N'Bộ ga giường cotton 1m8',N'Đồ vải',N'Bộ',120,100,5,5,150000,300000,N'Thành Công',1,NULL),
-(18,'RB-TC-01',N'Áo choàng tắm cotton',N'Đồ vải',N'Chiếc',120,100,3,2,200000,400000,N'Thành Công',1,NULL),
+(17,'BS-SET-01',N'Bộ ga giường cotton 1m8',N'Đồ vải',N'Bộ',120,100,5,5,150000,300000,N'Thành Công',1,N'https://down-vn.img.susercontent.com/file/vn-11134207-7r98o-ls9p8jjhxn6h5a'),
+(18,'RB-TC-01',N'Áo choàng tắm cotton',N'Đồ vải',N'Chiếc',120,100,3,2,200000,400000,N'Thành Công',1,N'https://product.hstatic.net/200000376323/product/ao-choang_99a9cbd580a3469988faa3da3b4fdddd.jpg'),
 (19,'DR-LV-500',N'Nước suối Lavie 500ml',N'Minibar',N'Chai',800,300,0,0,4000,0,N'Lavie',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775145833/abchotel/mk8ize4lr5dngdj3zbwg.jpg'),
 (20,'DR-CC-320',N'Nước ngọt Coca Cola 320ml',N'Minibar',N'Lon',600,250,0,0,7000,20000,N'Coca Cola',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775145819/abchotel/zdkidxk8g14a3limpkkb.jpg'),
-(21,'DR-PS-330',N'Nước ngọt Pepsi 330ml',N'Minibar',N'Lon',500,220,0,0,7000,20000,N'Pepsi',1,NULL),
+(21,'DR-PS-330',N'Nước ngọt Pepsi 330ml',N'Minibar',N'Lon',500,220,0,0,7000,20000,N'Pepsi',1,N'https://cdn.tgdd.vn/Products/Images/2443/88121/bhx/thung-24-lon-nuoc-ngot-pepsi-cola-320ml-202405140910328596.jpg'),
 (22,'DR-HB-330',N'Bia Heineken 330ml',N'Minibar',N'Lon',400,200,0,0,16000,35000,N'Heineken',1,N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775145794/abchotel/guk4pazknafewx765fxa.jpg'),
-(23,'CF-NC-20',N'Cà phê Nescafe 20g',N'Minibar',N'Gói',700,300,0,0,3000,10000,N'Nescafe',1,NULL),
-(24,'SN-OS-50',N'Snack khoai tây Oishi 50g',N'Minibar',N'Gói',600,280,0,0,10000,30000,N'Oishi',1,NULL),
-(25,'SN-TT-50',N'Đậu phộng rang Tân Tân 50g',N'Minibar',N'Gói',600,260,0,0,8000,25000,N'Tân Tân',1,NULL),
-(26,'TB-CL-01',N'Bàn chải đánh răng Colgate',N'Đồ dùng',N'Chiếc',800,300,0,0,5000,20000,N'Colgate',1,NULL),
-(27,'SP-DV-30',N'Sữa tắm Dove 30ml',N'Đồ dùng',N'Chai',800,300,0,0,8000,30000,N'Dove',1,NULL),
-(28,'SH-DV-30',N'Dầu gội Dove 30ml',N'Đồ dùng',N'Chai',800,300,0,0,8000,30000,N'Dove',1,NULL),
-(29,'PJ-EP-01',N'Máy chiếu Epson EB-X05',N'Phòng họp',N'Cái',6,5,0,0,12000000,15000000,N'Epson',1,NULL),
-(30,'MC-SN-01',N'Micro không dây Sony UHF',N'Phòng họp',N'Cái',18,15,1,0,1500000,2500000,N'Sony',1,NULL),
-(31,'WB-BK-12',N'Bảng trắng di động Bách Khoa 1m2',N'Phòng họp',N'Cái',6,5,0,0,2000000,3000000,N'Bách Khoa',1,NULL),
-(32,'TB-MEET-18',N'Bàn họp Hòa Phát 1m8',N'Phòng họp',N'Cái',15,12,0,0,2500000,4000000,N'Hòa Phát',1,NULL),
-(33,'CH-MEET-HP',N'Ghế họp lưng cao Hòa Phát',N'Phòng họp',N'Cái',90,75,3,0,800000,1200000,N'Hòa Phát',1,NULL),
-(34,'LED-LG-200',N'Màn hình LED LG 200 inch',N'Hội trường',N'Bộ',2,2,0,0,150000000,200000000,N'LG',1,NULL),
-(35,'ST-EV-20',N'Sân khấu di động Event 20m2',N'Hội trường',N'Bộ',2,2,0,0,50000000,70000000,N'Event VN',1,NULL),
-(36,'CH-HALL-HP',N'Ghế hội trường Hòa Phát đệm nỉ',N'Hội trường',N'Cái',400,350,10,0,600000,900000,N'Hòa Phát',1,NULL),
-(37,'TB-HALL-18',N'Bàn hội trường Hòa Phát 1m8',N'Hội trường',N'Cái',120,100,5,0,1200000,2000000,N'Hòa Phát',1,NULL),
-(38,'TE-LP-20',N'Trà Lipton túi lọc 20g',N'Minibar',N'Hộp',300,120,0,0,25000,60000,N'Lipton',1,NULL),
-(39,'GL-GL-250',N'Ly thủy tinh Ocean 250ml',N'Đồ dùng',N'Chiếc',500,350,10,5,20000,50000,N'Ocean',1,NULL);
+(23,'CF-NC-17',N'Cà phê Nescafe 17g',N'Minibar',N'Gói',700,300,0,0,3000,10000,N'Nescafe',1,N'https://img.lazcdn.com/g/p/7a331be70e903c8345986bbf31084a47.jpg_720x720q80.jpg'),
+(24,'SN-OS-50',N'Snack khoai tây Oishi 50g',N'Minibar',N'Gói',600,280,0,0,10000,30000,N'Oishi',1,N'https://bizweb.dktcdn.net/thumb/grande/100/561/131/products/snack-khoai-tay-oishi-vi-muoi-34g-3.webp?v=1763004823993'),
+(25,'SN-TT-50',N'Đậu phộng rang Tân Tân 50g',N'Minibar',N'Gói',600,260,0,0,8000,25000,N'Tân Tân',1,N'https://lh3.googleusercontent.com/xpA_eHV3gDFhaebYPsapeL8r9bxngQcKj2_AkVHi3Am5ibKCPWTcKlDWWoSzQrgN_ijyfwlAJUoKlcjsVhDqtEf2YKUcsBE=rw'),
+(26,'TB-CL-01',N'Bàn chải đánh răng Colgate',N'Đồ dùng',N'Chiếc',800,300,0,0,5000,20000,N'Colgate',1,N'https://horeco.vn/cdn/shop/files/Ban-Chai-Danh-Rang-Colgate-SlimSoft-Flex-Clean-Charcoal.jpg?v=1763611109'),
+(27,'SP-DV-500',N'Sữa tắm Dove 500g',N'Đồ dùng',N'Chai',800,300,0,0,8000,30000,N'Dove',1,N'https://cdnv2.tgdd.vn/bhx-static/bhx/Products/Images/2444/85808/bhx/1024x768-500g-copy-4_202501101059090841.png'),
+(28,'SH-DV-640',N'Dầu gội Dove 640g',N'Đồ dùng',N'Chai',800,300,0,0,8000,30000,N'Dove',1,N'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTgrJoTssjv3vrRS6FPbLcoY88v_PGA4Q-esQ&s'),
+(29,'PJ-EP-01',N'Máy chiếu Epson EB-X05',N'Phòng họp',N'Cái',6,5,0,0,12000000,15000000,N'Epson',1,N'https://ducphap.vn/image/cache/data/may-chieu/Epson/2017/EB-2140W-500x500.png'),
+(30,'MC-SN-01',N'Micro không dây Sony UHF',N'Phòng họp',N'Cái',18,15,1,0,1500000,2500000,N'Sony',1,N'https://cdn2.cellphones.com.vn/x/media/catalog/product/b/o/bo-micro-khong-day-sony-uo-ultmic1-ze_3_.png'),
+(31,'WB-BK-12',N'Bảng trắng di động Bách Khoa 1m2',N'Phòng họp',N'Cái',6,5,0,0,2000000,3000000,N'Bách Khoa',1,N'https://bizweb.dktcdn.net/thumb/large/100/419/787/products/8320cc50a57e62b10c90514c32f0d01b-e5013335-169e-4b10-9eba-3d78a22152c3.png?v=1620026119543'),
+(32,'TB-MEET-18',N'Bàn họp Hòa Phát 1m8',N'Phòng họp',N'Cái',15,12,0,0,2500000,4000000,N'Hòa Phát',1,N'https://hoaphatnoithat.net.vn/wp-content/uploads/2019/11/ban-hop-lon-CT7016NK-4.jpeg'),
+(33,'CH-MEET-HP',N'Ghế họp lưng cao Hòa Phát',N'Phòng họp',N'Cái',90,75,3,0,800000,1200000,N'Hòa Phát',1,N'https://hoaphatsaigon.com/upload/sanpham/large/2760-ghe-hop-sl908-2.jpg'),
+(34,'LED-LG-200',N'Màn hình LED LG 200 inch',N'Hội trường',N'Bộ',2,2,0,0,150000000,200000000,N'LG',1,N'https://hcom.vn/wp-content/uploads/2025/07/man-hinh-led-200-inch-5.webp'),
+(35,'ST-EV-20',N'Sân khấu di động Event 20m2',N'Hội trường',N'Bộ',2,2,0,0,50000000,70000000,N'Event VN',1,N'https://hanhtinhxanh.com.vn/media/catalog/product/cache/4/image/5e06319eda06f020e43594a9c230972d/s/a/san-khau-di-dong_3_/htx-s%C3%A2n-kh%E1%BA%A5u-di-%C4%91%E1%BB%99ng-htskdd01-htskdd02-33.jpg'),
+(36,'CH-HALL-HP',N'Ghế hội trường Hòa Phát đệm nỉ',N'Hội trường',N'Cái',400,350,10,0,600000,900000,N'Hòa Phát',1,N'https://noithathoaphat.com/Uploads/images/ghe-hoi-truong/ghe-hoi-truong-nhap-khau/ghe-hoi-truong-dem-ni-mz-12-1.jpg'),
+(37,'TB-HALL-18',N'Bàn hội trường Hòa Phát 1m8',N'Hội trường',N'Cái',120,100,5,0,1200000,2000000,N'Hòa Phát',1,N'https://hoaphat.net.vn/wp-content/uploads/BG01-I.jpg'),
+(38,'TE-LP-20',N'Trà Lipton túi lọc 20g',N'Minibar',N'Hộp',300,120,0,0,25000,60000,N'Lipton',1,N'https://down-vn.img.susercontent.com/file/vn-11134207-7ras8-m2jsja6a3i5w7e'),
+(39,'GL-GL-250',N'Ly thủy tinh Ocean 250ml',N'Đồ dùng',N'Chiếc',500,350,10,5,20000,50000,N'Ocean',1,N'https://chaloglass.vn/wp-content/uploads/ly-thuy-tinh-ocean-san-marino-water-0411-1-Copy.jpg');
 SET IDENTITY_INSERT [dbo].[Equipments] OFF;
 GO
 -- Phòng
@@ -861,6 +841,26 @@ INSERT INTO [dbo].[Room_Inventory]
 
 SET IDENTITY_INSERT [dbo].[Room_Inventory] OFF;
 GO
+-- Tiện ích phòng
+SET IDENTITY_INSERT [dbo].[Amenities] ON;
+INSERT INTO [dbo].[Amenities] ([id], [name], [icon_url]) VALUES 
+(1, N'Wifi Miễn Phí', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775076276/abchotel/nbmk4rbzezt0zz2awm8a.png'), 
+(2, N'Smart TV', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775075677/abchotel/zjezmfg1peinqew4eajt.png'), 
+(3, N'Điều Hòa', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775075697/abchotel/gylftilqo31cqc5wjpxr.png'),
+(4, N'Bồn Tắm Sứ', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775075717/abchotel/nrpvfk5uvij96qdzeoxc.png'), 
+(5, N'Ban Công', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775075956/abchotel/yczwpsgrqfwvqhntkt0t.png'), 
+(6, N'Minibar', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775075759/abchotel/dv5lfsbnyjtiqdy2lq7m.png'),
+(7, N'Két Sắt', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775076224/abchotel/ckfycmh8knlccvjewkvx.png'),
+(8, N'Máy Sấy Tóc', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775076237/abchotel/rrrul4h2lm5okyve99xw.png'), 
+(9, N'Máy Pha Cà Phê', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775076250/abchotel/cgs3okt75wcjbq7gcqjj.png'),
+(10, N'Bàn Làm Việc', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775076262/abchotel/arcpp7q5oz4h0bzmamkg.png'),
+(11, N'View Biển', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1776953347/abchotel/ekcxyqyk6khko6mwh7dr.png'),
+(12, N'View Thành Phố', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1776953370/abchotel/hkluele6mn8s0dwimid7.png'),
+(13, N'Dịch Vụ Phòng 24/7', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1776953402/abchotel/sgkqvqbjyj0ywmagogad.png'),
+(14, N'Game', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1776953426/abchotel/aluhzlvv4evrrlkluzt4.png'),
+(15, N'Bếp Nhỏ', N'https://res.cloudinary.com/dngyxxwul/image/upload/v1776953438/abchotel/v3odv8rguh5lqkyx8li2.png');
+SET IDENTITY_INSERT [dbo].[Amenities] OFF;
+GO
 INSERT INTO [dbo].[RoomType_Amenities] ([room_type_id], [amenity_id]) VALUES
 -- 1. Standard Single (Tiêu chuẩn cơ bản + View Thành phố)
 (1, 1), (1, 2), (1, 3), (1, 6), (1, 8), (1, 12),
@@ -878,13 +878,13 @@ INSERT INTO [dbo].[RoomType_Amenities] ([room_type_id], [amenity_id]) VALUES
 (5, 1), (5, 2), (5, 3), (5, 4), (5, 5), (5, 6), (5, 7), (5, 8), (5, 10), (5, 11),
 
 -- 6. Family Room (Ưu tiên gia đình: Thêm Bếp nhỏ, Trò chơi TV)
-(6, 1), (6, 2), (6, 3), (6, 4), (6, 6), (6, 7), (6, 8), (6, 12), (6, 15), (6, 16),
+(6, 1), (6, 2), (6, 3), (6, 4), (6, 6), (6, 7), (6, 8), (6, 12), (6, 14), (6, 15),
 
 -- 7. Junior Suite (Sang trọng: Có Dịch vụ 24/7, Máy pha Cà phê)
-(7, 1), (7, 2), (7, 3), (7, 4), (7, 5), (7, 6), (7, 7), (7, 8), (7, 9), (7, 10), (7, 12), (7, 14),
+(7, 1), (7, 2), (7, 3), (7, 4), (7, 5), (7, 6), (7, 7), (7, 8), (7, 9), (7, 10), (7, 12), (7, 13),
 
 -- 8. Presidential Suite (Trùm cuối: Có TẤT CẢ mọi thứ cao cấp nhất, Bồn tắm nằm xịn, View Biển)
-(8, 1), (8, 2), (8, 3), (8, 5), (8, 6), (8, 7), (8, 8), (8, 9), (8, 10), (8, 11), (8, 13), (8, 14), (8, 15), (8, 16),
+(8, 1), (8, 2), (8, 3), (8, 4), (8, 5), (8, 6), (8, 7), (8, 8), (8, 9), (8, 10), (8, 11), (8, 13), (8, 14), (8, 15), 
 
 -- 9. Meeting Room (Phòng họp: Rất gọn gàng, chủ yếu công năng)
 (9, 1), (9, 3), (9, 9), (9, 10), -- (Wifi, Điều hòa, Máy pha cafe, Bàn làm việc)
@@ -964,66 +964,66 @@ VALUES
 
 -- 1. Tin tức & ưu đãi
 (1, 1, 1, N'Khai trương hồ bơi vô cực view biển Mỹ Khê', N'ho-boi-vo-cuc-my-khe',
-N'Trải nghiệm hồ bơi vô cực với tầm nhìn trực diện biển Mỹ Khê cực chill.',
+N'Đà Nẵng tiếp tục khẳng định vị thế là điểm đến du lịch hàng đầu khi một khách sạn ven biển vừa chính thức khai trương hồ bơi vô cực với tầm nhìn hướng trực diện ra biển Mỹ Khê. Không chỉ mang đến trải nghiệm nghỉ dưỡng đẳng cấp, nơi đây còn hứa hẹn trở thành địa điểm check-in gây sốt trong mùa hè 2026.',
 NULL,
-N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775068010/abchotel/zhiqb8waywm93dtx0vkh.jpg',
+N'https://i.pinimg.com/1200x/b8/bd/39/b8bd39ad9d45228821a3db7f72ca438f.jpg',
 '2026-03-01'),
 
 (2, 1, 2, N'Ưu đãi mùa hè 2026 - Combo nghỉ dưỡng 3N2Đ', N'uu-dai-mua-he-2026',
-N'Combo trọn gói bao gồm phòng + buffet sáng + xe đưa đón sân bay.',
+N'Mùa hè 2026, các khách sạn tại Đà Nẵng triển khai chương trình ưu đãi đặc biệt với combo nghỉ dưỡng 3 ngày 2 đêm. Đây là cơ hội lý tưởng để du khách tận hưởng kỳ nghỉ trọn vẹn với chi phí tiết kiệm nhưng vẫn đầy đủ tiện nghi và dịch vụ cao cấp.',
 NULL,
-N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775068210/abchotel/w72i22sz0gycbuaseah3.jpg',
-'2026-03-02'),
+N'https://i.pinimg.com/1200x/b2/e8/0d/b2e80deb0d9d984071aa9174f748d450.jpg',
+'2026-03-12'),
 
 -- 2. Cẩm nang du lịch
 (3, 2, 2, N'Top 5 địa điểm gần khách sạn bạn nên ghé', N'top-dia-diem-da-nang',
-N'Các điểm check-in nổi bật như Bà Nà Hills, Cầu Rồng, Ngũ Hành Sơn.',
+N'Khi lưu trú tại Đà Nẵng, bạn có thể dễ dàng tham quan nhiều địa điểm nổi tiếng gần khách sạn mà không cần di chuyển xa. Dưới đây là top 5 địa điểm hấp dẫn, thuận tiện và đáng để trải nghiệm.',
 NULL,
-N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775051779/abchotel/pygtbkrdfkaqmvolf7yg.jpg',
-'2026-03-03'),
+N'https://i.pinimg.com/736x/61/d8/79/61d879b5d5dff6d266096bf138646ca5.jpg',
+'2026-04-03'),
 
 (4, 2, 3, N'Lịch trình 2 ngày 1 đêm tại Đà Nẵng', N'lich-trinh-2n1d-da-nang',
-N'Gợi ý lịch trình tiết kiệm thời gian cho khách du lịch ngắn ngày.',
+N'Nếu bạn chỉ có thời gian ngắn nhưng vẫn muốn khám phá Đà Nẵng, lịch trình 2 ngày 1 đêm là lựa chọn hợp lý. Với kế hoạch hợp lý, bạn vẫn có thể trải nghiệm đầy đủ các điểm nổi bật của thành phố biển xinh đẹp này.',
 NULL,
-N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775068239/abchotel/ffyi4wyufzjs8uzrvwuu.jpg',
+N'https://i.pinimg.com/736x/0d/84/2d/0d842d3b35b488001cce7406dbb78fb4.jpg',
 '2026-03-04'),
 
 (5, 2, 1, N'Khám phá bán đảo Sơn Trà từ A-Z', N'ban-dao-son-tra',
-N'Điểm đến thiên nhiên nổi bật với chùa Linh Ứng và voọc chà vá.',
+N'Bán đảo Sơn Trà là một trong những điểm du lịch nổi bật nhất tại Đà Nẵng, nổi tiếng với cảnh quan thiên nhiên hoang sơ, không khí trong lành và nhiều địa điểm tham quan hấp dẫn. Đây là nơi lý tưởng cho những ai yêu thích khám phá và trải nghiệm thiên nhiên.',
 NULL,
-N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775068225/abchotel/hsr1vvx2axblkl4rh6rd.jpg',
-'2026-03-05'),
+N'https://i.pinimg.com/1200x/11/48/db/1148db66ab2f6265bc71a995fdd13fcd.jpg',
+'2026-04-15'),
 
 -- 3. Ẩm thực & trải nghiệm
 (6, 3, 3, N'Ăn gì ở Đà Nẵng? 7 món nhất định phải thử', N'am-thuc-da-nang',
-N'Mì Quảng, bún chả cá, bánh tráng cuốn thịt heo...',
+N'Đà Nẵng không chỉ nổi tiếng với cảnh đẹp mà còn hấp dẫn du khách bởi nền ẩm thực phong phú, đa dạng và giá cả phải chăng. Dưới đây là 7 món ăn đặc sản mà bạn nhất định phải thử khi đến đây.',
 NULL,
-N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775068189/abchotel/yumqrqbadves92v1idpu.jpg',
-'2026-03-06'),
+N'https://i.pinimg.com/1200x/d3/9e/67/d39e67de44c63802b5db238b6d965e67.jpg',
+'2026-03-26'),
 
 (7, 3, 1, N'Trải nghiệm tiệc BBQ ngoài trời bên biển', N'bbq-ben-bien',
-N'Tận hưởng bữa tối lãng mạn với hải sản tươi sống.',
+N'Tiệc BBQ ngoài trời bên biển là một trong những trải nghiệm thú vị và đáng nhớ khi du lịch Đà Nẵng. Với không gian thoáng đãng, gió biển mát lành và những món nướng hấp dẫn, đây chắc chắn sẽ là hoạt động không thể bỏ qua.',
 NULL,
-N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775051977/abchotel/jjjmgilirxampfayomat.jpg',
+N'https://i.pinimg.com/1200x/68/b8/4f/68b84f66e29f5a7d53948793b0a39bba.jpg',
 '2026-03-07'),
 
 -- 4. Hướng dẫn & thông tin
 (8, 4, 2, N'Hướng dẫn đi từ sân bay Đà Nẵng về khách sạn', N'di-chuyen-san-bay',
-N'Chi tiết taxi, Grab, xe đưa đón tiện lợi.',
+N'Sân bay Đà Nẵng nằm gần trung tâm thành phố nên việc di chuyển về khách sạn rất thuận tiện. Du khách có nhiều lựa chọn phương tiện phù hợp với nhu cầu và ngân sách.',
 NULL,
-N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775051887/abchotel/dwravtzojerdio4y19ix.jpg',
+N'https://i.pinimg.com/1200x/41/05/66/4105669309199d418ec4a20f0d9c461d.jpg',
 '2026-03-08'),
 
 (9, 4, 3, N'Giờ check-in và quy định khách sạn', N'checkin-checkout',
-N'Những thông tin quan trọng khách cần biết trước khi đặt phòng.',
+N'Khi lưu trú tại khách sạn ở Đà Nẵng, việc nắm rõ giờ check-in, check-out và các quy định sẽ giúp bạn tránh những rắc rối không đáng có và có trải nghiệm nghỉ dưỡng thoải mái hơn.',
 NULL,
-N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775051909/abchotel/sauxn5rb0if3ouxjlder.jpg',
+N'https://i.pinimg.com/1200x/09/d8/d2/09d8d24f191ffdaa558c7e1515068cb0.jpg',
 '2026-03-09'),
 
 (10, 4, 1, N'Kinh nghiệm du lịch Đà Nẵng mùa mưa', N'du-lich-mua-mua',
-N'Những lưu ý giúp chuyến đi vẫn trọn vẹn dù thời tiết xấu.',
+N'Du lịch Đà Nẵng vào mùa mưa có thể khiến nhiều người e ngại, nhưng nếu chuẩn bị kỹ càng, bạn vẫn có thể tận hưởng chuyến đi trọn vẹn với nhiều trải nghiệm thú vị và tiết kiệm chi phí.',
 NULL,
-N'https://res.cloudinary.com/dngyxxwul/image/upload/v1775068254/abchotel/ynnbbgulwukdogjhgpgj.jpg',
+N'https://i.pinimg.com/736x/05/03/0a/05030ab180e0ee5f580989fa37da1f1a.jpg',
 '2026-03-10');
 
 SET IDENTITY_INSERT [dbo].[Articles] OFF;
@@ -1591,7 +1591,7 @@ DECLARE @Sql NVARCHAR(MAX);
 DECLARE table_cursor CURSOR FOR
 SELECT table_name FROM information_schema.tables 
 WHERE table_type = 'BASE TABLE' 
-  AND table_name NOT IN ('sysdiagrams', 'Audit_Logs', 'Role_Permissions', 'RoomType_Amenities');
+  AND table_name NOT IN ('sysdiagrams', 'Audit_Logs', 'Role_Permissions');
 
 OPEN table_cursor; FETCH NEXT FROM table_cursor INTO @TableName;
 WHILE @@FETCH_STATUS = 0

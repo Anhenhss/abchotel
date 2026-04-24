@@ -137,7 +137,7 @@ export default function ClientProfilePage() {
       {/* ================= COVER BÌA ================= */}
       <div style={{ 
           height: 280, 
-          backgroundImage: 'url("https://i.pinimg.com/1200x/2c/16/33/2c1633b3d7f37db080958612ce2db2f9.jpg")', 
+          backgroundImage: 'url("https://i.pinimg.com/1200x/b1/83/84/b18384e20e48c0e5885dd538a897e5cd.jpg")', 
           backgroundSize: 'cover', backgroundPosition: 'center',
           position: 'relative'
       }}>

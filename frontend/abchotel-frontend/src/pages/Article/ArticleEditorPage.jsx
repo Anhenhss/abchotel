@@ -81,6 +81,21 @@ export default function ArticleEditorPage() {
   const [isAttractionModalOpen, setIsAttractionModalOpen] = useState(false);
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false); 
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false); 
+  const [mapModalOpen, setMapModalOpen] = useState(false);
+  const [currentMapUrl, setCurrentMapUrl] = useState('');
+
+  // 🔥 2. HÀM BẮT SỰ KIỆN CLICK VÀO LINK TRONG HTML THÔ
+  const handleContentClick = (e) => {
+    const trigger = e.target.closest('.hotel-map-trigger'); // Tìm xem có click trúng cái class này không
+    if (trigger) {
+      e.preventDefault(); // Chặn hành vi chuyển trang mặc định
+      const url = trigger.getAttribute('data-map-url');
+      if (url) {
+        setCurrentMapUrl(url);
+        setMapModalOpen(true); // Mở Modal bản đồ
+      }
+    }
+  };
 
   const reactQuillRef = useRef(null);
 
@@ -241,8 +256,11 @@ export default function ArticleEditorPage() {
     setTimeout(() => quill.setSelection(range.index + 1), 100);
   };
 
+  // 1. ĐIỂM DU LỊCH (Đã fix lỗi click và link nhúng Google Maps)
   const handleInsertAttraction = (attr) => {
-    const safeMapLink = `http://googleusercontent.com/maps.google.com/maps?q=${encodeURIComponent((attr.name + " " + (attr.address || "")).trim())}`;
+    const mapQuery = encodeURIComponent((attr.name + " " + (attr.address || "")).trim());
+    const embedMapUrl = `https://maps.google.com/maps?q=${mapQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+
     const html = `
       <div style="margin: 24px auto; width: 100%; max-width: 480px; box-sizing: border-box; display: flex; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; font-family: inherit; align-items: stretch;">
         <div style="background: #0A192F; color: #ffffff; padding: 24px 16px; display: flex; flex-direction: column; justify-content: center; align-items: center; min-width: 100px; border-right: 1px dashed #cbd5e1;">
@@ -253,7 +271,9 @@ export default function ArticleEditorPage() {
            <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Cách khách sạn ${attr.distanceKm} km</div>
            <div style="font-size: 18px; font-weight: 800; color: #0A192F; margin-bottom: 6px; line-height: 1.3;">${attr.name}</div>
            <div style="font-size: 13px; color: #475569; margin-bottom: 12px; line-height: 1.4;">${attr.address || 'Đang cập nhật địa chỉ'}</div>
-           <div><a href="${safeMapLink}" target="_blank" style="display: inline-block; font-size: 12px; font-weight: 800; color: #8B0000; text-decoration: none; text-transform: uppercase; letter-spacing: 0.5px;">Xem bản đồ ⟶</a></div>
+           <div>
+              <a href="#map-popup" class="hotel-map-trigger" data-map-url="${embedMapUrl}" style="display: inline-block; font-size: 12px; font-weight: 800; color: #8B0000; text-decoration: none; text-transform: uppercase; letter-spacing: 0.5px;">Xem bản đồ ⟶</a>
+           </div>
         </div>
       </div>
     `;
@@ -315,12 +335,19 @@ export default function ArticleEditorPage() {
 
   // 🔥 ĐÃ VÁ LỖI NÚT ĐẶT PHÒNG: Ép cứng height, bỏ padding dọc để chống bị vỡ
   const handleInsertButton = () => {
+
     const html = `
+
       <div style="margin: 32px auto; text-align: center; width: 100%; box-sizing: border-box; font-family: inherit;">
+
          <a href="#booking" style="display: inline-block; padding: 14px 48px; background: linear-gradient(135deg, #D4AF37 0%, #aa771c 100%); color: #ffffff; text-decoration: none; border-radius: 30px; font-weight: 800; font-size: 15px; text-transform: uppercase; letter-spacing: 1.5px; box-shadow: 0 8px 20px rgba(212, 175, 55, 0.4);">ĐẶT PHÒNG NGAY</a>
+
       </div>
+
     `;
+
     insertHtmlToQuill(html);
+
   };
   const insertMenu = {
     items: [
@@ -402,7 +429,7 @@ export default function ArticleEditorPage() {
               </div>
               <div style={{ marginBottom: 24 }}>
                 <Text strong style={{ display: 'block', marginBottom: 8 }}>Nội dung bài viết</Text>
-                <div className="editor-wrapper">
+                <div className="editor-wrapper" onClick={handleContentClick}>
                     <ReactQuill ref={reactQuillRef} theme="snow" value={content} onChange={setContent} modules={fullModules} placeholder="Bắt đầu viết nội dung..." />
                 </div>
               </div>
@@ -477,7 +504,9 @@ export default function ArticleEditorPage() {
                 <div style={{ fontStyle: 'italic', color: '#475569', borderLeft: `4px solid ${LUXURY_COLORS.NAVY}`, paddingLeft: 20, fontSize: 18, lineHeight: 1.6, marginBottom: 32 }} dangerouslySetInnerHTML={{ __html: summaryContent }} />
                 {thumbnailUrl && <img src={thumbnailUrl} alt="cover" style={{ width: '100%', borderRadius: 8, marginBottom: 32, maxHeight: 400, objectFit: 'cover' }} />}
                 <Row gutter={40}>
-                    <Col xs={24} md={16}><div className="ql-editor" style={{ padding: 0 }} dangerouslySetInnerHTML={{ __html: previewData.html }} /></Col>
+                    <Col xs={24} md={16}>
+                        <div className="ql-editor" style={{ padding: 0 }} dangerouslySetInnerHTML={{ __html: previewData.html }} onClick={handleContentClick} />
+                    </Col>
                     <Col xs={0} md={8}>
                         {previewData.toc.length > 0 && (
                             <div style={{ position: 'sticky', top: 24, background: '#f8fafc', padding: '20px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
@@ -509,6 +538,29 @@ export default function ArticleEditorPage() {
                 <List.Item.Meta title={<Text strong style={{color: LUXURY_COLORS.ACCENT_RED}}>{voucher.code}</Text>} description={<Text type="secondary">{voucher.description}</Text>} />
               </List.Item>
             )} />
+      </Modal>
+      {/* 🔥 MODAL POPUP BẢN ĐỒ 🔥 */}
+      <Modal 
+        title={<span style={{ color: LUXURY_COLORS.NAVY, fontWeight: 800, fontSize: 18 }}>📍 Bản đồ địa điểm</span>} 
+        open={mapModalOpen} 
+        onCancel={() => setMapModalOpen(false)} 
+        footer={null} 
+        width={800} 
+        centered
+        destroyOnClose
+        styles={{ body: { padding: '16px 0 0 0' } }}
+      >
+        <div style={{ width: '100%', height: '450px', background: '#f1f5f9', borderRadius: 8, overflow: 'hidden' }}>
+          <iframe
+              src={currentMapUrl}
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              allowFullScreen=""
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+          ></iframe>
+        </div>
       </Modal>
     </div>
   );
