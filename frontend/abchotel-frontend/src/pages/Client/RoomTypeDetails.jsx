@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { 
-  Typography, Button, Row, Col, Space, Divider, Tag, Affix, Spin, Grid
+  Typography, Button, Row, Col, Space, Divider, Tag, Spin, Grid
 } from 'antd';
 import { 
   CaretLeft, CaretUp, Bed, Users, ArrowsOut, CheckCircle, MapPin
@@ -21,6 +21,108 @@ const THEME = {
   BORDER: '#E2E8F0'
 };
 
+// =========================================================================
+// COMPONENT PHỤ: QUẢN LÝ SLIDER ẢNH (GIAO DIỆN PREMIUM CAO CẤP)
+// =========================================================================
+const RoomImageGallery = ({ images, altText, viewDirection }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Hiệu ứng Chuyển ảnh vòng lặp khi click
+  const handleNextImage = () => {
+    if (images.length > 1) {
+      setCurrentIndex((prev) => (prev + 1) % images.length);
+    }
+  };
+
+  // Tự động chuyển ảnh
+  useEffect(() => {
+    if (images.length <= 1) return;
+    const timer = setTimeout(() => {
+      setCurrentIndex((prev) => (prev + 1) % images.length);
+    }, 4000); 
+    return () => clearTimeout(timer);
+  }, [currentIndex, images.length]);
+
+  return (
+    <div 
+      style={{ 
+        width: '100%', height: '100%', position: 'relative', 
+        cursor: images.length > 1 ? 'pointer' : 'default', 
+        overflow: 'hidden',
+        backgroundColor: THEME.GRAY_BG
+      }}
+      onClick={handleNextImage}
+      title={images.length > 1 ? "Click để xem ảnh tiếp theo" : ""}
+    >
+      {/* VÒNG LẶP RENDER ẢNH - Chuyển sang hiệu ứng Fade êm dịu, không nhức mắt */}
+      {images.map((imgUrl, index) => (
+        <img 
+          key={index}
+          src={imgUrl} 
+          alt={`${altText} - Hình ${index + 1}`} 
+          style={{ 
+            width: '100%', height: '100%', 
+            objectFit: 'cover',         
+            objectPosition: 'center',   
+            position: 'absolute', top: 0, left: 0,
+            opacity: currentIndex === index ? 1 : 0,
+            transition: 'opacity 0.6s ease-in-out', // Chỉ mờ dần/rõ dần êm ái
+            zIndex: currentIndex === index ? 1 : 0
+          }} 
+        />
+      ))}
+
+      {/* LỚP GRADIENT ĐÁY: Giúp chữ và dấu chấm điều hướng luôn đọc được dù ảnh nền sáng hay tối */}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0, height: '35%',
+        background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 100%)',
+        zIndex: 5, pointerEvents: 'none'
+      }} />
+
+      {/* TAG TẦM NHÌN (View Direction) */}
+      {viewDirection && (
+        <div style={{ 
+          position: 'absolute', top: 20, left: 20, zIndex: 10, 
+          backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+          padding: '8px 16px', borderRadius: 8, 
+          color: THEME.NAVY, display: 'flex', alignItems: 'center', gap: 6,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+        }}>
+          <MapPin size={16} color={THEME.DARK_RED} weight="fill" />
+          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>
+            Tầm nhìn: {viewDirection}
+          </span>
+        </div>
+      )}
+
+      {/* DẤU CHẤM ĐIỀU HƯỚNG ĐỘNG (Dynamic Dots) */}
+      {images.length > 1 && (
+        <div style={{ 
+          position: 'absolute', bottom: 20, left: 0, right: 0, zIndex: 10, 
+          display: 'flex', justifyContent: 'center', gap: 6 
+        }}>
+          {images.map((_, index) => (
+            <div 
+              key={index}
+              style={{
+                width: currentIndex === index ? 24 : 8, 
+                height: 8, 
+                borderRadius: 4,
+                backgroundColor: currentIndex === index ? THEME.WHITE : 'rgba(255, 255, 255, 0.4)',
+                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)', 
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// =========================================================================
+// COMPONENT CHÍNH
+// =========================================================================
 export default function RoomTypeDetails() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -74,7 +176,6 @@ export default function RoomTypeDetails() {
     if (targetElement) {
       setActiveId(mappedId);
       setTimeout(() => {
-        // Đã tăng offset lên 160 để bù cho 2 thanh Header (Header chính + Thanh danh sách)
         const headerOffset = 160;
         const elementPosition = targetElement.getBoundingClientRect().top;
         const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
@@ -110,7 +211,6 @@ export default function RoomTypeDetails() {
   const handleMenuClick = (id) => {
     const element = roomRefs.current[id];
     if (element) {
-      // Đã tăng offset lên 160
       const headerOffset = 160;
       const elementPosition = element.getBoundingClientRect().top;
       const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
@@ -132,7 +232,7 @@ export default function RoomTypeDetails() {
   return (
     <div style={{ backgroundColor: THEME.GRAY_BG, minHeight: '100vh', paddingBottom: 50, fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
       
-      {/* THANH ĐIỀU HƯỚNG TRANG (Đã thêm top: 80px để nằm ngay dưới mép Header chính) */}
+      {/* THANH ĐIỀU HƯỚNG TRANG */}
       <div style={{ position: 'sticky', top: 80, zIndex: 990, backgroundColor: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(10px)', borderBottom: `1px solid ${THEME.BORDER}`, padding: '16px 0', marginBottom: screens.md ? 40 : 20 }}>
         <div style={{ maxWidth: 1400, margin: '0 auto', padding: screens.md ? '0 30px' : '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
           <Button type="text" icon={<CaretLeft size={22} weight="bold" />} onClick={handleGoBack} style={{ display: 'flex', alignItems: 'center', fontWeight: 600, color: THEME.NAVY, padding: '0', fontSize: screens.md ? 16 : 14 }}>
@@ -148,11 +248,19 @@ export default function RoomTypeDetails() {
       <div style={{ maxWidth: 1400, margin: '0 auto', padding: screens.md ? '0 30px' : '0 16px' }}>
         <Row gutter={60}>
           
-          {/* MỤC LỤC BÊN TRÁI (Ẩn trên điện thoại) */}
+          {/* MỤC LỤC BÊN TRÁI */}
           <Col xs={0} lg={6}>
-            {/* Tăng offsetTop lên 160 để Mục lục không bị che bởi Thanh điều hướng */}
-            <Affix offsetTop={160}>
-              <div style={{ paddingRight: 20 }}>
+            <div style={{ 
+              position: 'sticky', 
+              top: 160, 
+              paddingRight: 20,
+              maxHeight: 'calc(100vh - 200px)', 
+              overflowY: 'auto', 
+              scrollbarWidth: 'none', 
+              msOverflowStyle: 'none' 
+            }}>
+              <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; }`}</style>
+              <div className="hide-scrollbar">
                 <Text strong style={{ fontSize: 13, color: THEME.TEXT, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 25, display: 'block', opacity: 0.7 }}>
                   <span>Chọn Hạng Phòng</span>
                 </Text>
@@ -180,10 +288,10 @@ export default function RoomTypeDetails() {
                   })}
                 </div>
               </div>
-            </Affix>
+            </div>
           </Col>
 
-          {/* CHI TIẾT TỪNG PHÒNG - BỐ CỤC ĐỒNG NHẤT, RESPONSIVE TỐT */}
+          {/* CHI TIẾT TỪNG PHÒNG */}
           <Col xs={24} lg={18}>
             {rooms.length === 0 ? (
                <div style={{ textAlign: 'center', padding: '100px 0' }}>
@@ -203,12 +311,13 @@ export default function RoomTypeDetails() {
               const rDesc = room.description || room.Description || 'Khám phá không gian nghỉ dưỡng tuyệt vời.';
               
               const rawImages = room.images?.$values || room.images || room.Images?.$values || room.Images || [];
-              const rawAmenities = room.amenities?.$values || room.amenities || room.Amenities?.$values || room.Amenities || [];
+              let imageUrls = rawImages.map(i => i.imageUrl || i.ImageUrl).filter(Boolean);
               
-              const primaryImg = rawImages.find(i => i.isPrimary || i.IsPrimary)?.imageUrl 
-                                 || rawImages[0]?.imageUrl 
-                                 || 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1200';
+              if (imageUrls.length === 0) {
+                imageUrls = ['https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1200'];
+              }
 
+              const rawAmenities = room.amenities?.$values || room.amenities || room.Amenities?.$values || room.Amenities || [];
               const priceStr = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(rPrice || 0);
               const capacityStr = `${rAdults} NL${rChildren > 0 ? `, ${rChildren} TE` : ''}`;
 
@@ -217,14 +326,8 @@ export default function RoomTypeDetails() {
                   <div style={{ backgroundColor: THEME.WHITE, borderRadius: screens.md ? 24 : 16, overflow: 'hidden', border: `1px solid ${THEME.BORDER}`, boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
                     
                     {/* Phần Ảnh Cover */}
-                    <div style={{ width: '100%', height: screens.md ? 450 : 250, position: 'relative' }}>
-                      <img src={primaryImg} alt={rName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      {rView && (
-                        <div style={{ position: 'absolute', top: 16, left: 16, backgroundColor: 'rgba(13,24,33,0.7)', backdropFilter: 'blur(4px)', padding: '4px 12px', borderRadius: 20, color: THEME.WHITE, display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <MapPin size={14} color={THEME.GOLD} />
-                          <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase' }}>Tầm nhìn: {rView}</span>
-                        </div>
-                      )}
+                    <div style={{ width: '100%', aspectRatio: screens.md ? '16/9' : '4/3', maxHeight: 500, position: 'relative' }}>
+                      <RoomImageGallery images={imageUrls} altText={rName} viewDirection={rView} />
                     </div>
 
                     {/* Phần Nội Dung Card */}
@@ -292,12 +395,12 @@ export default function RoomTypeDetails() {
         </Row>
       </div>
 
-      <Affix style={{ position: 'fixed', bottom: 20, right: 20 }}>
+      <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 999 }}>
         <Button 
           type="primary" shape="circle" icon={<CaretUp size={24} />} size="large" onClick={scrollToTop}
           style={{ width: screens.md ? 55 : 45, height: screens.md ? 55 : 45, backgroundColor: THEME.NAVY, border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}
         />
-      </Affix>
+      </div>
 
     </div>
   );

@@ -85,9 +85,9 @@ export default function FinalFixVoucherPage() {
         <div className="overlay-dark" />
         <div className="hero-content">
           <Crown size={60} color={THEME.GOLD} weight="fill" />
-          <Title className="main-title">SẢNH GAME ƯU ĐÃI</Title>
+          <Title className="main-title">ƯU ĐÃI HẤP DẪN</Title>
           <div style={{ height: 2, width: 60, background: THEME.GOLD, margin: '10px auto' }} />
-          <Text className="sub-title">TRẢI NGHIỆM ĐẶC QUYỀN THƯỢNG LƯU</Text>
+          <Text className="sub-title">ABC HOTEL</Text>
         </div>
       </div>
 

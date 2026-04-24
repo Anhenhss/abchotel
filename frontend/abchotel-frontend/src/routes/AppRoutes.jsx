@@ -43,6 +43,7 @@ import BookingsPage from '../pages/BookingsPage';
 import CreateBookingPage from "../pages/CreateBookingPage";
 import InvoicesPage from "../pages/InvoicesPage";
 import RevenueReportPage from '../pages/RevenueReportPage';
+import NotificationsPage from '../pages/NotificationsPage';
 // ================= CLIENT PAGES =================
 import AboutPage from '../pages/Client/AboutPage';
 import ContactPage from '../pages/Client/ContactPage';
@@ -94,7 +95,7 @@ export default function AppRoutes() {
         <Route path="/room-details" element={<RoomTypeDetails />} />
         <Route path="/services" element={<ClientServicesPage />} />
         <Route path="/offers" element={<ClientVoucherPage />} />
-        <Route path="/blog" element={<ClientArticlePage />} />
+        <Route path="/article" element={<ClientArticlePage />} />
         <Route path="/article/:slug" element={<ClientArticleDetailPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/contact" element={<ContactPage />} />
@@ -148,6 +149,7 @@ export default function AppRoutes() {
         
         <Route path="profile" element={<ProfilePage />} />
         <Route path="shifts" element={<ShiftsPage />} />
+        <Route path="notifications" element={<NotificationsPage />} />
         
         <Route path="audit-logs" element={
           <RequirePermission requiredPermissions={["VIEW_AUDIT_LOGS"]}>

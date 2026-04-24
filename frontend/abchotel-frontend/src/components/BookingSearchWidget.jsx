@@ -62,27 +62,37 @@ export default function BookingSearchWidget() {
     setRoomsConfig(prev => prev.filter(r => r.id !== id));
   };
 
+  // GIAO DIỆN POPOVER CHỌN KHÁCH (ĐÃ SỬA LỖI SCROLL & GHIM NÚT BẤM)
   const guestPickerContent = (
-    <div style={{ width: 300, padding: '8px 0', maxHeight: '60vh', overflowY: 'auto' }}>
-      {roomsConfig.map((room, index) => (
-        <div key={room.id} style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, backgroundColor: THEME.GRAY_LIGHT, padding: '6px 12px', borderRadius: 6 }}>
-            <Text strong style={{ color: THEME.NAVY_LIGHT }}><Bed size={16} style={{verticalAlign: 'sub', marginRight: 6}}/> Phòng {index + 1}</Text>
-            {roomsConfig.length > 1 && <Button type="text" danger size="small" icon={<Trash />} onClick={() => handleRemoveRoom(room.id)}>Xóa</Button>}
+    <div style={{ width: 300, display: 'flex', flexDirection: 'column' }}>
+      
+      {/* VÙNG 1: DANH SÁCH PHÒNG CÓ THỂ CUỘN */}
+      <div style={{ maxHeight: '45vh', overflowY: 'auto', paddingRight: 8 }}>
+        {roomsConfig.map((room, index) => (
+          <div key={room.id} style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, backgroundColor: THEME.GRAY_LIGHT, padding: '6px 12px', borderRadius: 6 }}>
+              <Text strong style={{ color: THEME.NAVY_LIGHT }}><Bed size={16} style={{verticalAlign: 'sub', marginRight: 6}}/> Phòng {index + 1}</Text>
+              {roomsConfig.length > 1 && <Button type="text" danger size="small" icon={<Trash />} onClick={() => handleRemoveRoom(room.id)}>Xóa</Button>}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, padding: '0 8px' }}>
+              <div><Text strong style={{ display: 'block' }}>Người lớn</Text><Text type="secondary" style={{ fontSize: 12 }}>Từ 13 tuổi</Text></div>
+              <Space><Button shape="circle" size="small" icon={<Minus />} onClick={() => handleUpdateRoom(room.id, 'adults', -1)} disabled={room.adults <= 1} /><Text strong style={{ width: 20, textAlign: 'center', display: 'inline-block' }}>{room.adults}</Text><Button shape="circle" size="small" icon={<Plus />} onClick={() => handleUpdateRoom(room.id, 'adults', 1)} disabled={room.adults >= 4} /></Space>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 8px' }}>
+              <div><Text strong style={{ display: 'block' }}>Trẻ em</Text><Text type="secondary" style={{ fontSize: 12 }}>Dưới 13 tuổi</Text></div>
+              <Space><Button shape="circle" size="small" icon={<Minus />} onClick={() => handleUpdateRoom(room.id, 'children', -1)} disabled={room.children <= 0} /><Text strong style={{ width: 20, textAlign: 'center', display: 'inline-block' }}>{room.children}</Text><Button shape="circle" size="small" icon={<Plus />} onClick={() => handleUpdateRoom(room.id, 'children', 1)} disabled={room.children >= 3} /></Space>
+            </div>
+            {index < roomsConfig.length - 1 && <Divider style={{ margin: '16px 0' }} />}
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, padding: '0 8px' }}>
-            <div><Text strong style={{ display: 'block' }}>Người lớn</Text><Text type="secondary" style={{ fontSize: 12 }}>Từ 13 tuổi</Text></div>
-            <Space><Button shape="circle" size="small" icon={<Minus />} onClick={() => handleUpdateRoom(room.id, 'adults', -1)} disabled={room.adults <= 1} /><Text strong style={{ width: 20, textAlign: 'center', display: 'inline-block' }}>{room.adults}</Text><Button shape="circle" size="small" icon={<Plus />} onClick={() => handleUpdateRoom(room.id, 'adults', 1)} disabled={room.adults >= 4} /></Space>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 8px' }}>
-            <div><Text strong style={{ display: 'block' }}>Trẻ em</Text><Text type="secondary" style={{ fontSize: 12 }}>Dưới 13 tuổi</Text></div>
-            <Space><Button shape="circle" size="small" icon={<Minus />} onClick={() => handleUpdateRoom(room.id, 'children', -1)} disabled={room.children <= 0} /><Text strong style={{ width: 20, textAlign: 'center', display: 'inline-block' }}>{room.children}</Text><Button shape="circle" size="small" icon={<Plus />} onClick={() => handleUpdateRoom(room.id, 'children', 1)} disabled={room.children >= 3} /></Space>
-          </div>
-          {index < roomsConfig.length - 1 && <Divider style={{ margin: '16px 0' }} />}
-        </div>
-      ))}
-      <Button type="dashed" block icon={<Plus />} onClick={handleAddRoom} style={{ borderColor: THEME.NAVY_LIGHT, color: THEME.NAVY_LIGHT, marginBottom: 16, height: 40 }}>Thêm phòng khác</Button>
-      <Button type="primary" block style={{ backgroundColor: THEME.NAVY_DARK, height: 40, fontWeight: 'bold' }} onClick={() => setGuestPopoverVisible(false)}>Hoàn tất</Button>
+        ))}
+      </div>
+
+      {/* VÙNG 2: NÚT BẤM ĐƯỢC GHIM CHẾT BÊN DƯỚI */}
+      <div style={{ paddingTop: 16, borderTop: '1px solid #e2e8f0', marginTop: 8 }}>
+        <Button type="dashed" block icon={<Plus />} onClick={handleAddRoom} style={{ borderColor: THEME.NAVY_LIGHT, color: THEME.NAVY_LIGHT, marginBottom: 12, height: 40 }}>Thêm phòng khác</Button>
+        <Button type="primary" block style={{ backgroundColor: THEME.NAVY_DARK, height: 40, fontWeight: 'bold' }} onClick={() => setGuestPopoverVisible(false)}>Hoàn tất</Button>
+      </div>
+
     </div>
   );
 

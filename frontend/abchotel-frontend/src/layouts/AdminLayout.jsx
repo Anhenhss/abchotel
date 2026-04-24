@@ -95,7 +95,7 @@ export default function AdminLayout() {
         />
       </div>
       <div style={{ padding: '8px 12px', textAlign: 'center', borderTop: '1px solid #f0f0f0', backgroundColor: '#fafafa', borderRadius: '0 0 8px 8px' }}>
-        <Button type="link" block onClick={() => { navigate('/admin/audit-logs'); setDrawerVisible(false); }} style={{ color: ACCENT_RED, fontWeight: 500 }}>Xem toàn bộ Lịch sử</Button>
+        <Button type="link" block onClick={() => { navigate('/admin/notifications'); setDrawerVisible(false); }} style={{ color: ACCENT_RED, fontWeight: 500 }}>Xem toàn bộ Lịch sử</Button>
       </div>
     </div>
   );

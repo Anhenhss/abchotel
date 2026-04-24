@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Typography, Skeleton, Tag, Breadcrumb, Button, Result, Space, Row, Col, Anchor, Card, notification } from 'antd';
+import { Typography, Skeleton, Tag, Breadcrumb, Button, Result, Space, Row, Col, Anchor, Card, notification, Modal } from 'antd';
 import { User, ArrowLeft, CalendarBlank, ListBullets, CaretDown, CaretUp, BellRinging } from '@phosphor-icons/react';
 import { articleApi } from '../../api/articleApi';
 import * as signalR from '@microsoft/signalr';
@@ -23,6 +23,23 @@ export default function ArticleDetailPage() {
     const [toc, setToc] = useState([]);
     const [isExpended, setIsExpended] = useState(true);
     const [processedContent, setProcessedContent] = useState('');
+
+    // 🔥 1. KHAI BÁO STATE CHO BẢN ĐỒ
+    const [mapModalOpen, setMapModalOpen] = useState(false);
+    const [currentMapUrl, setCurrentMapUrl] = useState('');
+
+    // 🔥 2. HÀM BẮT SỰ KIỆN CLICK MỞ BẢN ĐỒ
+    const handleContentClick = (e) => {
+        const trigger = e.target.closest('.hotel-map-trigger');
+        if (trigger) {
+            e.preventDefault(); 
+            const url = trigger.getAttribute('data-map-url');
+            if (url) {
+                setCurrentMapUrl(url);
+                setMapModalOpen(true);
+            }
+        }
+    };
 
     // 1. XỬ LÝ SIGNALR REALTIME
     useEffect(() => {
@@ -139,9 +156,11 @@ export default function ArticleDetailPage() {
                              </Card>
                         </Col>
 
+                        {/* 🔥 3. GẮN SỰ KIỆN CLICK BẢN ĐỒ VÀO NỘI DUNG */}
                         <div 
                             className="article-detail-content"
                             dangerouslySetInnerHTML={{ __html: processedContent }}
+                            onClick={handleContentClick}
                         />
                     </Col>
 
@@ -168,6 +187,30 @@ export default function ArticleDetailPage() {
                     </Col>
                 </Row>
             </div>
+
+            {/* 🔥 4. THÊM GIAO DIỆN HIỂN THỊ POPUP BẢN ĐỒ */}
+            <Modal 
+                title={<span style={{ color: LUXURY_THEME.NAVY, fontWeight: 800, fontSize: 18 }}>📍 Bản đồ địa điểm</span>} 
+                open={mapModalOpen} 
+                onCancel={() => setMapModalOpen(false)} 
+                footer={null} 
+                width={800} 
+                centered
+                destroyOnClose
+                styles={{ body: { padding: '16px 0 0 0' } }}
+            >
+                <div style={{ width: '100%', height: '450px', background: '#f1f5f9', borderRadius: 8, overflow: 'hidden' }}>
+                    <iframe
+                        src={currentMapUrl}
+                        width="100%"
+                        height="100%"
+                        style={{ border: 0 }}
+                        allowFullScreen=""
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                    ></iframe>
+                </div>
+            </Modal>
 
             <style>{`
                 html { scroll-behavior: smooth; }

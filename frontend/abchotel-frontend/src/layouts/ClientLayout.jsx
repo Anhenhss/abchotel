@@ -85,7 +85,7 @@ export default function ClientLayout() {
     { key: '/rooms', label: <Link to="/rooms" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Bed size={20} /> PHÒNG & SUITES</Link> },
     { key: '/services', label: <Link to="/services" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Coffee size={20} /> DỊCH VỤ</Link> },
     { key: '/offers', label: <Link to="/offers" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Ticket size={20} /> ƯU ĐÃI</Link> },
-    { key: '/blog', label: <Link to="/blog" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Article size={20} /> TIN TỨC</Link> },
+    { key: '/article', label: <Link to="/article" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Article size={20} /> TIN TỨC</Link> },
   ];
 
   const userDropdownItems = [
@@ -256,18 +256,18 @@ export default function ClientLayout() {
 
           <div style={{ flex: '1 1 150px' }}>
             <Title level={5} style={{ color: THEME.GOLD, letterSpacing: '1px', marginBottom: 20 }}>KHÁM PHÁ</Title>
-            <Space direction="vertical" size="middle">
+            <Space orientation="vertical" size="middle">
               <Link to="/rooms" style={{ color: '#A0AABF' }}>Phòng & Suites</Link>
               <Link to="/about" style={{ color: '#A0AABF' }}>Về chúng tôi</Link> 
               <Link to="/contact" style={{ color: '#A0AABF' }}>Liên hệ</Link>
               <Link to="/privacy-policy" style={{ color: '#A0AABF' }}>Chính sách & Điều khoản</Link>
-              <Link to="/blog" style={{ color: '#A0AABF' }}>Cẩm nang du lịch</Link>
+              <Link to="/article" style={{ color: '#A0AABF' }}>Cẩm nang du lịch</Link>
             </Space>
           </div>
 
           <div style={{ flex: '1 1 250px' }}>
             <Title level={5} style={{ color: THEME.GOLD, letterSpacing: '1px', marginBottom: 20 }}>LIÊN HỆ</Title>
-            <Space direction="vertical" size="middle" style={{ color: '#A0AABF' }}>
+            <Space orientation="vertical" size="middle" style={{ color: '#A0AABF' }}>
               <Space><MapPin size={20} color={THEME.DARK_RED}/> 123 Nguyễn Văn Linh, Đà Nẵng, VN</Space>
               <Space><Phone size={20} color={THEME.DARK_RED}/> +84 236 123 4567</Space>
               <Space><EnvelopeSimple size={20} color={THEME.DARK_RED}/> booking@abchotel.com</Space>
@@ -294,7 +294,7 @@ export default function ClientLayout() {
         closable={true}   // 🔥 Bật nút X có sẵn cho đẹp
         open={isBookingModalOpen}
         onClose={closeBookingModal}
-        width={screens.md ? 450 : '100%'} // 🔥 Độ rộng cố định vừa phải
+        // width={screens.md ? 450 : '100%'}
         styles={{ 
             body: { padding: '24px', backgroundColor: THEME.WHITE },
             header: { borderBottom: '1px solid #f0f0f0', padding: '20px 24px' },

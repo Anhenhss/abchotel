@@ -348,7 +348,7 @@ export default function HomePage() {
                 <Title level={2} style={{ margin: 0, fontFamily: '"Source Serif 4", serif', color: THEME.NAVY_DARK, fontSize: isMobile ? 32 : 40 }}>TIN TỨC & SỰ KIỆN</Title>
               </div>
               {!isMobile && (
-                <Button type="dashed" onClick={() => navigate('/blog')} style={{ borderColor: THEME.NAVY_DARK, color: THEME.NAVY_DARK, borderRadius: 30, letterSpacing: 1, padding: '0 24px', fontWeight: 'bold' }}>XEM TẤT CẢ</Button>
+                <Button type="dashed" onClick={() => navigate('/article')} style={{ borderColor: THEME.NAVY_DARK, color: THEME.NAVY_DARK, borderRadius: 30, letterSpacing: 1, padding: '0 24px', fontWeight: 'bold' }}>XEM TẤT CẢ</Button>
               )}
             </div>
 
@@ -359,7 +359,7 @@ export default function HomePage() {
                   <motion.div 
                     whileHover={{ y: -8, boxShadow: '0 30px 60px rgba(0,0,0,0.12)' }} transition={{ duration: 0.4 }}
                     style={{ cursor: 'pointer', position: 'relative', height: isMobile ? 380 : 560, borderRadius: 24, overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', background: '#fff' }} 
-                    onClick={() => navigate(`/blog/${articles[0].slug}`)}
+                    onClick={() => navigate(`/article/${articles[0].slug}`)}
                   >
                     <motion.img 
                       whileHover={{ scale: 1.05 }} transition={{ duration: 0.8 }}
@@ -392,7 +392,7 @@ export default function HomePage() {
                       whileHover={{ x: -8, boxShadow: '0 15px 30px rgba(0,0,0,0.08)' }} 
                       key={art.id} 
                       style={{ display: 'flex', gap: 24, cursor: 'pointer', padding: 20, borderRadius: 24, transition: 'all 0.3s ease', background: '#ffffff', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', border: '1px solid #f1f5f9', height: 'calc(33.333% - 13px)' }} 
-                      onClick={() => navigate(`/blog/${art.slug}`)}
+                      onClick={() => navigate(`/article/${art.slug}`)}
                     >
                       {/* Ảnh thu nhỏ bo cong mạnh */}
                       <div style={{ minWidth: 150, width: 150, height: '100%', borderRadius: 16, overflow: 'hidden', position: 'relative' }}>
@@ -416,7 +416,7 @@ export default function HomePage() {
                     </motion.div>
                   ))}
                 </div>
-                {isMobile && <Button block size="large" style={{ marginTop: 24, borderColor: THEME.NAVY_DARK, color: THEME.NAVY_DARK, borderRadius: 30, fontWeight: 'bold' }} onClick={() => navigate('/blog')}>XEM TẤT CẢ</Button>}
+                {isMobile && <Button block size="large" style={{ marginTop: 24, borderColor: THEME.NAVY_DARK, color: THEME.NAVY_DARK, borderRadius: 30, fontWeight: 'bold' }} onClick={() => navigate('/article')}>XEM TẤT CẢ</Button>}
               </Col>
             </Row>
 
