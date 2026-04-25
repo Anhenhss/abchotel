@@ -99,7 +99,7 @@ export default function NotificationsPage() {
                             description={
                                 <div>
                                     <Paragraph style={{ margin: '4px 0', color: item.isRead ? '#bfbfbf' : '#475569', fontSize: 14 }}>{item.content}</Paragraph>
-                                    <Text type="secondary" style={{ fontSize: 12 }}>{dayjs(item.createdAt).fromNow()}</Text>
+                                    <Text type="secondary" style={{ fontSize: 12 }}>{dayjs(item.createdAt).format('HH:mm - DD/MM/YYYY')}</Text>
                                 </div>
                             }
                         />

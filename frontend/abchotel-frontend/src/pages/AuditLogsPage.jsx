@@ -33,8 +33,11 @@ export default function AuditLogsPage() {
       if (!isSilent) setLoading(true);
       const res = await reportApi.getAuditLogs({ top: 500 }); 
       
+      // 🔥 FIX LỖI $VALUES TỪ .NET TRẢ VỀ
+      const rawData = res?.data?.$values || res?.$values || res || [];
+
       // Bóc tách chuỗi JSON
-      const parsedData = res.map(item => {
+      const parsedData = rawData.map(item => {
           let detailObj = { TotalEvents: 0, Events: [] };
           try {
               if (item.logData) detailObj = JSON.parse(item.logData);
