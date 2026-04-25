@@ -316,7 +316,8 @@ export default function HomePage() {
                             <Text strong style={{ color: THEME.DARK_RED, fontSize: 20 }}>{rt.basePrice.toLocaleString()}đ</Text>
                             <Text type="secondary" style={{ fontSize: 12 }}>/đêm</Text>
                           </div>
-                          <Button type="primary" style={{ backgroundColor: THEME.NAVY_DARK, borderRadius: 6 }} onClick={() => navigate(`/rooms/${rt.id}`)}>
+                          {/* <Button type="primary" style={{ backgroundColor: THEME.NAVY_DARK, borderRadius: 6 }} onClick={() => navigate(`/room-details/${rt.id}`)}> */}
+                          <Button type="primary" style={{ backgroundColor: THEME.NAVY_DARK, borderRadius: 6 }} onClick={() => navigate(`/room-details`)}>
                             Xem chi tiết
                           </Button>
                         </div>
