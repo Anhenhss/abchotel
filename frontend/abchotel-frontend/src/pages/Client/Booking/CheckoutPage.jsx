@@ -474,6 +474,19 @@ export default function CheckoutPage() {
           border-radius: 8px; 
         }
 
+        /* 🔥 CSS MỚI ĐƯỢC THÊM ĐỂ CHỐNG NHẢY CHỮ KHU VỰC NGÀY THÁNG */
+        .date-item {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .date-lbl, .date-val {
+          white-space: nowrap !important;
+          word-break: keep-all !important;
+        }
+        /* ======================================================= */
+
         .summary-row { 
           display: flex; 
           justify-content: space-between; 
