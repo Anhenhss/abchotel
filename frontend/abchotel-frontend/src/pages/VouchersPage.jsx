@@ -1,402 +1,348 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Button, Space, Typography, Tag, Modal, Form, Input, InputNumber, Select, DatePicker, notification, Tooltip, Popconfirm, Row, Col, Grid, Divider, Empty, Switch} from 'antd';
-import { Plus, PencilSimple, Ticket, MagnifyingGlass, PlayCircle, PauseCircle, LockKey } from '@phosphor-icons/react';
-import dayjs from 'dayjs';
-
+import { Typography, Row, Col, Spin, Button, message, Modal, Tabs, InputNumber, Tag } from 'antd';
+import { 
+  Crown, Gift, MagicWand, Cards, Quotes,
+  DiamondsFour, MusicNotes, HandWaving, LockKey, UserPlus, Percent, Coins, Ticket, Lock
+} from '@phosphor-icons/react';
+import { motion } from 'framer-motion';
 import { voucherApi } from '../api/voucherApi';
-import { useSignalR } from '../hooks/useSignalR';
-import { COLORS } from '../constants/theme';
 
-const { Title, Text } = Typography;
-const { useBreakpoint } = Grid;
-const { RangePicker } = DatePicker;
+const { Title, Text, Paragraph } = Typography;
 
-export default function VouchersPage() {
-  const screens = useBreakpoint();
-  const [api, contextHolder] = notification.useNotification({ placement: 'bottomRight' });
+const THEME = {
+  NAVY_DARK: '#0D1821', 
+  DARK_RED: '#8A1538',  
+  GOLD: '#D4AF37',      
+  BG_LIGHT: '#F8FAFC',
+};
 
+export default function ClientVoucherPage() {
   const [vouchers, setVouchers] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [searchText, setSearchText] = useState('');
-  const [filterType, setFilterType] = useState('ALL');
-
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingVoucher, setEditingVoucher] = useState(null);
-  const [form] = Form.useForm();
+  const [myVouchers, setMyVouchers] = useState([]); 
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('NEW');
   
-  const discountTypeWatch = Form.useWatch('discountType', form);
+  // Logic kiểm tra khách hàng mới & VIP cho hệ thống abchotel
+  const [isNewCustomer] = useState(true); 
+  const [isVipUser] = useState(false); // Giả lập trạng thái VIP
 
-  const fetchVouchers = async (isSilent = false) => {
-    try {
-      if (!isSilent) setLoading(true);
-      const res = await voucherApi.getAll();
-      setVouchers(res || []);
-    } catch (error) {
-      // 🔥 FIX ANTD WARNING: Đổi 'message' thành 'title'
-      if (!isSilent) api.error({ title: 'Lỗi tải dữ liệu', description: 'Không thể lấy danh sách mã khuyến mãi.' });
-    } finally {
-      if (!isSilent) setLoading(false);
-    }
-  };
+  // States Modals
+  const [isGridModalOpen, setIsGridModalOpen] = useState(false);
+  const [gridType, setGridType] = useState('BOX'); 
+  const [isScratchModalOpen, setIsScratchModalOpen] = useState(false);
+  const [isMusicModalOpen, setIsMusicModalOpen] = useState(false);
+  const [isResultModalOpen, setIsResultModalOpen] = useState(false);
+
+  // States Games
+  const [revealedVoucher, setRevealedVoucher] = useState(null);
+  const [isSpinning, setIsSpinning] = useState(false);
+  const [rotation, setRotation] = useState(0);
+  const [isDiceRolling, setIsDiceRolling] = useState(false);
+  const [scratchProgress, setScratchProgress] = useState(0);
 
   useEffect(() => {
-    fetchVouchers();
+    const fetchAllData = async () => {
+      try {
+        setLoading(true);
+        const res = await voucherApi.getAll(true);
+        setVouchers(res || []);
+
+        const saved = localStorage.getItem('my_vouchers');
+        if (saved) {
+          setMyVouchers(JSON.parse(saved));
+        }
+      } catch (error) {
+        console.error("Lỗi tải dữ liệu:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAllData();
   }, []);
 
-  useSignalR((notification) => {
-    if (notification.permission === "MANAGE_VOUCHERS") {
-      fetchVouchers(true); 
+  const collectVoucher = (v) => {
+    if (!v) return;
+    const isCollected = myVouchers.some(item => item.id === v.id);
+    
+    if (!isCollected) {
+      const updated = [v, ...myVouchers];
+      setMyVouchers(updated);
+      localStorage.setItem('my_vouchers', JSON.stringify(updated));
+      message.success('Đã lưu ưu đãi vào kho của bạn!');
     }
-  });
-
-  const handleOpenModal = (voucher = null) => {
-    setEditingVoucher(voucher);
-    if (voucher) {
-      form.setFieldsValue({
-        ...voucher,
-        dateRange: voucher.validFrom && voucher.validTo ? [dayjs(voucher.validFrom), dayjs(voucher.validTo)] : null
-      });
-    } else {
-      form.resetFields();
-      form.setFieldsValue({ discountType: 'PERCENT', maxUsesPerUser: 1 });
-    }
-    setIsModalOpen(true);
+    
+    navigator.clipboard.writeText(v.code);
+    setIsResultModalOpen(false);
   };
 
-  const handleSubmit = async (values) => {
-    try {
-      setLoading(true);
-      const payload = {
-        code: values.code,
-        discountType: values.discountType,
-        discountValue: values.discountValue,
-        minBookingValue: values.minBookingValue,
-        maxDiscountAmount: values.discountType === 'PERCENT' ? values.maxDiscountAmount : null,
-        roomTypeId: values.roomTypeId,
-        validFrom: values.dateRange ? values.dateRange[0].toISOString() : null,
-        validTo: values.dateRange ? values.dateRange[1].toISOString() : null,
-        usageLimit: values.usageLimit,
-        maxUsesPerUser: values.maxUsesPerUser
-      };
-
-      if (editingVoucher) {
-        await voucherApi.update(editingVoucher.id, payload);
-        api.success({ title: 'Thành công', description: 'Đã cập nhật mã khuyến mãi.' });
-      } else {
-        await voucherApi.create(payload);
-        api.success({ title: 'Thành công', description: 'Đã tạo mã khuyến mãi mới.' });
-      }
-      setIsModalOpen(false);
-      fetchVouchers();
-    } catch (error) {
-      api.error({ title: 'Lỗi', description: error.response?.data?.message || 'Có lỗi xảy ra.' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleToggleStatus = async (id) => {
-    try {
-      setLoading(true);
-      await voucherApi.toggleStatus(id);
-      api.success({ title: 'Thành công', description: 'Đã đổi trạng thái mã khuyến mãi.' });
-      fetchVouchers();
-    } catch (error) {
-      api.error({ title: 'Lỗi', description: 'Không thể đổi trạng thái lúc này.' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getVoucherStatus = (record) => {
-    const isExpired = record.validTo && dayjs().isAfter(dayjs(record.validTo));
-    if (isExpired) return 'EXPIRED'; 
-    if (!record.isActive) return 'PAUSED'; 
-    return 'ACTIVE'; 
-  };
-
-  const renderStatusTag = (status) => {
-    switch(status) {
-      case 'ACTIVE': return <Tag color="success" style={{ fontWeight: 'bold' }}>Đang diễn ra</Tag>;
-      case 'PAUSED': return <Tag color="default">Tạm ngưng</Tag>;
-      case 'EXPIRED': return <Tag color="error">Hết hạn</Tag>;
-      default: return null;
-    }
-  };
-
-  const processedVouchers = vouchers
-    .filter(v => {
-      const matchSearch = v.code?.toLowerCase().includes(searchText.toLowerCase());
-      const matchType = filterType === 'ALL' || v.discountType === filterType;
-      return matchSearch && matchType;
-    })
-    .sort((a, b) => {
-      const statusWeight = { 'ACTIVE': 1, 'PAUSED': 2, 'EXPIRED': 3 };
-      const weightA = statusWeight[getVoucherStatus(a)];
-      const weightB = statusWeight[getVoucherStatus(b)];
-      
-      if (weightA !== weightB) return weightA - weightB; 
-      return dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf(); 
+  const handleOpenGame = (type) => {
+    // 1. CẢI THIỆN LOGIC GAME: Lọc voucher hợp lệ (Khách mới vs Khách cũ)
+    const validVouchers = vouchers.filter(v => {
+        // Nếu voucher chỉ dành cho khách mới, nhưng user không phải khách mới -> loại
+        if (v.isForNewCustomer && !isNewCustomer) return false;
+        return true;
     });
 
-  const columns = [
-    {
-      title: 'Mã Khuyến Mãi', dataIndex: 'code', key: 'code',
-      render: (text, record) => {
-        const status = getVoucherStatus(record);
-        return (
-          <Space direction="vertical" size={2}>
-            <Text strong style={{ fontSize: 16, color: status === 'ACTIVE' ? COLORS.MIDNIGHT_BLUE : COLORS.MUTED }}>{text}</Text>
-            {renderStatusTag(status)}
-          </Space>
-        )
-      }
-    },
-    {
-      title: 'Mức Giảm', key: 'discount',
-      render: (_, record) => {
-        const isMuted = getVoucherStatus(record) !== 'ACTIVE';
-        return (
-          <Text strong style={{ color: isMuted ? COLORS.MUTED : COLORS.MIDNIGHT_BLUE, fontSize: 15 }}>
-            {record.discountType === 'PERCENT' ? `${record.discountValue}%` : `${new Intl.NumberFormat('vi-VN').format(record.discountValue)}đ`}
-          </Text>
-        )
-      }
-    },
-    {
-      title: 'Điều kiện', key: 'conditions',
-      render: (_, record) => (
-        <Space direction="vertical" size={0}>
-          <Text type="secondary" style={{ fontSize: 12 }}>Đơn tối thiểu: <Text strong>{record.minBookingValue ? `${new Intl.NumberFormat('vi-VN').format(record.minBookingValue)}đ` : '0đ'}</Text></Text>
-          {record.discountType === 'PERCENT' && record.maxDiscountAmount && (
-            <Text type="secondary" style={{ fontSize: 12 }}>Giảm tối đa: <Text strong>{new Intl.NumberFormat('vi-VN').format(record.maxDiscountAmount)}đ</Text></Text>
-          )}
-        </Space>
-      )
-    },
-    {
-      title: 'Hạn sử dụng', key: 'dates',
-      render: (_, record) => {
-        const isExpired = getVoucherStatus(record) === 'EXPIRED';
-        return (
-          <Text style={{ fontSize: 13, color: isExpired ? COLORS.ERROR : COLORS.DARKEST, textDecoration: isExpired ? 'line-through' : 'none' }}>
-            {record.validFrom ? dayjs(record.validFrom).format('DD/MM/YY') : '∞'} - {record.validTo ? dayjs(record.validTo).format('DD/MM/YY') : '∞'}
-          </Text>
-        )
-      }
-    },
-    {
-      title: 'Lượt dùng', key: 'usage', align: 'center',
-      render: (_, record) => {
-        const isDepleted = record.usageLimit && record.usedCount >= record.usageLimit;
-        return (
-          <Tag color={isDepleted ? 'error' : 'processing'} style={{ borderRadius: 12 }}>
-            {record.usedCount} / {record.usageLimit || '∞'}
-          </Tag>
-        );
-      }
-    },
-    {
-      title: 'Thao tác', key: 'actions', align: 'center', width: 120,
-      render: (_, record) => {
-        const status = getVoucherStatus(record);
-        const isExpired = status === 'EXPIRED';
-        const isPaused = status === 'PAUSED';
-
-        return (
-          <Space size="small">
-            <Tooltip title={isExpired ? "Không thể sửa mã đã hết hạn" : isPaused ? "Hãy kích hoạt lại mã trước khi sửa" : "Chỉnh sửa"}>
-              <Button 
-                type="text" 
-                disabled={isExpired || isPaused} 
-                icon={isExpired || isPaused ? <LockKey size={20} color={COLORS.MUTED}/> : <PencilSimple size={20} color={COLORS.MIDNIGHT_BLUE} />} 
-                onClick={() => handleOpenModal(record)} 
-              />
-            </Tooltip>
-            
-            <Tooltip title={isExpired ? "Mã đã hết hạn, không thể kích hoạt" : (record.isActive ? "Tạm ngưng" : "Kích hoạt")}>
-              <Popconfirm 
-                title={`Bạn có chắc muốn ${record.isActive ? "tạm ngưng" : "kích hoạt"} mã này?`} 
-                onConfirm={() => handleToggleStatus(record.id)} 
-                okText="Đồng ý" cancelText="Hủy"
-                disabled={isExpired}
-              >
-                <Button 
-                  type="text" 
-                  disabled={isExpired}
-                  danger={record.isActive} 
-                  icon={isExpired ? <LockKey size={20}/> : (record.isActive ? <PauseCircle size={20} /> : <PlayCircle size={20} color={COLORS.SUCCESS} />)} 
-                />
-              </Popconfirm>
-            </Tooltip>
-          </Space>
-        )
-      }
+    if (validVouchers.length === 0) {
+        message.warning("Hiện không có ưu đãi phù hợp với hạng phòng/thành viên của bạn.");
+        return;
     }
-  ];
+    
+    const rand = validVouchers[Math.floor(Math.random() * validVouchers.length)];
+    setRevealedVoucher(rand);
+
+    if (type === 'WHEEL') {
+      setIsSpinning(true);
+      setRotation(rotation + 1800 + Math.random() * 360);
+      setTimeout(() => { setIsSpinning(false); setIsResultModalOpen(true); }, 3000);
+    } else if (type === 'DICE') {
+      setIsDiceRolling(true);
+      setTimeout(() => { setIsDiceRolling(false); setIsResultModalOpen(true); }, 1500);
+    } else if (type === 'BOX' || type === 'CARD') {
+      setGridType(type); setIsGridModalOpen(true);
+    } else if (type === 'SCRATCH') {
+      setScratchProgress(0); setIsScratchModalOpen(true);
+    } else if (type === 'MUSIC') {
+      setIsMusicModalOpen(true);
+    }
+  };
+
+  const renderGameCard = (title, story, icon, color, bgColor, btnLabel, type) => (
+    <div className={`luxury-card ${color === THEME.DARK_RED ? 'br-red' : 'br-navy'}`}>
+      <div className="visual-part" style={{ backgroundColor: bgColor }}>
+        <div className="icon-main">{icon}</div>
+        <Button 
+          className={`btn-game ${color === THEME.DARK_RED ? 'btn-red' : 'btn-gold'}`} 
+          onClick={() => handleOpenGame(type)}
+          loading={type==='WHEEL' ? isSpinning : type==='DICE' ? isDiceRolling : false}
+        >
+          {btnLabel}
+        </Button>
+      </div>
+      <div className="story-part">
+        <Quotes size={24} color={THEME.GOLD} weight="fill" style={{ opacity: 0.2 }} />
+        <Title level={4} style={{ fontFamily: '"Source Serif 4", serif', margin: '5px 0' }}>{title}</Title>
+        <Paragraph style={{ fontSize: 12, color: '#64748b', fontStyle: 'italic', margin: 0 }}>{story}</Paragraph>
+      </div>
+    </div>
+  );
 
   return (
-    <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
-      {contextHolder}
-      <Title level={3} style={{ color: COLORS.MIDNIGHT_BLUE, fontFamily: '"Source Serif 4", serif', marginBottom: 24 }}>Quản lý Khuyến Mãi (Vouchers)</Title>
+    <div style={{ backgroundColor: THEME.BG_LIGHT, minHeight: '100vh', paddingBottom: 100 }}>
+      <div className="luxury-hero">
+        <div className="overlay-dark" />
+        <div className="hero-content">
+          <Crown size={60} color={THEME.GOLD} weight="fill" />
+          <Title className="main-title">ƯU ĐÃI HẤP DẪN</Title>
+          <Text className="sub-title">ABC HOTEL - ELEGANCE & LUXURY</Text>
+        </div>
+      </div>
 
-      <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.03)', padding: screens.md ? 0 : '16px 0' }}>
-        <div style={{ display: 'flex', flexDirection: screens.xs ? 'column' : 'row', justifyContent: 'space-between', marginBottom: 20, gap: 16, padding: screens.md ? '0' : '0 16px' }}>
-          
-          <Space direction={screens.xs ? 'vertical' : 'horizontal'} style={{ width: screens.xs ? '100%' : 'auto' }}>
-            <Input 
-              placeholder="Nhập mã khuyến mãi..." 
-              prefix={<MagnifyingGlass color={COLORS.MUTED} />} 
-              allowClear 
-              onChange={e => setSearchText(e.target.value)}
-              style={{ width: screens.xs ? '100%' : 250 }}
-              size="large"
-            />
-            <Select 
-              value={filterType} 
-              onChange={setFilterType} 
-              size="large" 
-              style={{ width: screens.xs ? '100%' : 150 }}
-              options={[
-                { value: 'ALL', label: 'Tất cả loại' },
-                { value: 'PERCENT', label: 'Giảm %' },
-                { value: 'FIXED_AMOUNT', label: 'Giảm Tiền mặt' }
-              ]}
-            />
-          </Space>
+      <div style={{ maxWidth: 1200, margin: '60px auto', padding: '0 20px' }}>
+        <Title level={3} className="label-section red-label">ƯU ĐÃI THỊNH VƯỢNG</Title>
+        <Row gutter={[32, 32]} style={{ marginBottom: 50 }}>
+          <Col xs={24} lg={12}>{renderGameCard("Vòng Quay Di Sản", "Xoay trục thời gian nhận quà.", <div className="wheel-wrap"><div className="wheel-body" style={{ transform: `rotate(${rotation}deg)` }} /><div className="wheel-pin" /></div>, THEME.DARK_RED, "#fff5f5", "QUAY THƯỞNG", "WHEEL")}</Col>
+          <Col xs={24} lg={12}>{renderGameCard("Hộp Quà Bí Mật", "Khám phá quà tri ân.", <Gift size={60} color={THEME.DARK_RED} weight="duotone" />, THEME.DARK_RED, "#fff5f5", "MỞ HỘP QUÀ", "BOX")}</Col>
+          <Col xs={24}>{renderGameCard("Cào Thẻ May Mắn", "Cào lớp phủ nhận ưu đãi.", <HandWaving size={60} color={THEME.DARK_RED} weight="fill" />, THEME.DARK_RED, "#fff5f5", "CÀO THẺ NGAY", "SCRATCH")}</Col>
+        </Row>
 
-          <Button 
-            type="primary" size="large" icon={<Plus size={18} />} onClick={() => handleOpenModal()} 
-            style={{ backgroundColor: COLORS.MIDNIGHT_BLUE, borderRadius: 8, fontWeight: 'bold', width: screens.xs ? '100%' : 'auto' }}
-          >
-            TẠO MÃ MỚI
-          </Button>
+        <Title level={3} className="label-section navy-label">KHO TÀNG DI SẢN</Title>
+        <Row gutter={[32, 32]} style={{ marginBottom: 80 }}>
+          <Col xs={24} lg={12}>{renderGameCard("Thẻ Bài Quý Tộc", "Quân bài dẫn lối may mắn.", <Cards size={60} color={THEME.GOLD} weight="duotone" />, THEME.NAVY_DARK, THEME.NAVY_DARK, "LẬT THẺ BÀI", "CARD")}</Col>
+          <Col xs={24} lg={12}>{renderGameCard("Xúc Xắc Tài Lộc", "Gieo vận may cùng súc xắc vàng.", <DiamondsFour size={60} color={THEME.GOLD} weight="fill" />, THEME.NAVY_DARK, THEME.NAVY_DARK, "GIEO XÚC XẮC", "DICE")}</Col>
+          <Col xs={24}>{renderGameCard("Giai Điệu Di Sản", "Mở két sắt theo nhịp điệu.", <MusicNotes size={60} color={THEME.GOLD} weight="fill" />, THEME.NAVY_DARK, THEME.NAVY_DARK, "MỞ KÉT SẮT", "MUSIC")}</Col>
+        </Row>
+
+        {/* 5. BỔ SUNG EMPTY STATE CHO VOUCHER ĐẶC BIỆT (VIP) */}
+        {!isVipUser && (
+           <div className="locked-vip-section">
+              <div className="locked-content">
+                <Lock size={40} color={THEME.GOLD} weight="fill" />
+                <Title level={4} style={{ color: '#fff', marginTop: 15 }}>ĐẶC QUYỀN VIP ĐANG KHÓA</Title>
+                <Text style={{ color: '#aab' }}>Thăng hạng thành viên để mở khóa kho voucher cao cấp và ưu đãi sinh nhật.</Text>
+                <Button className="btn-gold" style={{ marginTop: 15, width: 200 }}>NÂNG CẤP NGAY</Button>
+              </div>
+           </div>
+        )}
+
+        <div style={{ textAlign: 'center', marginBottom: 80, marginTop: 50 }}>
+          <Title level={2} style={{ fontFamily: '"Source Serif 4", serif' }}>KHO VOUCHER</Title>
+          <Tabs 
+            activeKey={activeTab} 
+            onChange={setActiveTab} 
+            centered 
+            className="luxury-tabs"
+            items={[
+              { key: 'NEW', label: <span className="tab-flex"><UserPlus size={20}/> Khách Mới</span> },
+              { key: 'PERCENT', label: <span className="tab-flex"><Percent size={20}/> Giảm %</span> },
+              { key: 'FIXED', label: <span className="tab-flex"><Coins size={20}/> Tiền Mặt</span> },
+            ]}
+          />
+          <Row gutter={[24, 24]} style={{ marginTop: 40 }}>
+            {loading ? <Spin size="large" /> : vouchers
+              .filter(v => {
+                if (activeTab === 'NEW') return v.isForNewCustomer;
+                if (activeTab === 'PERCENT') return v.discountType === 'PERCENT' && !v.isForNewCustomer;
+                if (activeTab === 'FIXED') return (v.discountType === 'FIXED_AMOUNT' || v.discountType === 'FIXED') && !v.isForNewCustomer;
+                return true;
+              })
+              .slice(0, 4) 
+              .map(v => {
+                const isCollected = myVouchers.some(mv => mv.id === v.id);
+                return (
+                  <Col xs={24} md={12} key={v.id}>
+                    <div className="real-ticket-ui">
+                      <div className="ticket-left-bg">
+                        <span className="discount-text">{v.discountValue}{v.discountType === 'PERCENT' ? '%' : 'K'}</span>
+                        <div className="cut-circle top"></div><div className="cut-circle bottom"></div>
+                      </div>
+                      <div className="ticket-right-bg">
+                        <div style={{ flex: 1, textAlign: 'left' }}>
+                          <Title level={4} style={{ margin: 0, color: THEME.NAVY_DARK }}>{v.code}</Title>
+                          {/* 4. HIỂN THỊ ĐIỀU KIỆN VOUCHER */}
+                          <Paragraph style={{ color: '#64748b', fontSize: 11, margin: 0 }}>
+                            Đơn từ {v.minOrderValue?.toLocaleString()}đ • Giảm tối đa {v.maxDiscount?.toLocaleString() || '---'}đ
+                          </Paragraph>
+                          <Text type="secondary" style={{ fontSize: 10 }}>Hạn dùng: {v.expiryDate || 'Vô thời hạn'}</Text>
+                        </div>
+                        <Button 
+                          className="btn-copy-ticket" 
+                          onClick={() => collectVoucher(v)}
+                          disabled={isCollected}
+                          style={isCollected ? {borderColor: '#d9d9d9', color: '#8c8c8c'} : {}}
+                        >
+                          {isCollected ? "ĐÃ NHẬN" : "COPY"}
+                        </Button>
+                      </div>
+                    </div>
+                  </Col>
+                )
+              })}
+          </Row>
         </div>
 
-        {screens.md ? (
-          <Table 
-            columns={columns} dataSource={processedVouchers} rowKey="id" loading={loading}
-            pagination={{ pageSize: 10 }} rowClassName={(record, index) => index % 2 === 0 ? 'table-row-light' : 'table-row-dark'}
-          />
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 16px' }}>
-            {processedVouchers.length === 0 ? <Empty description="Không tìm thấy mã khuyến mãi" /> : processedVouchers.map(record => {
-              const status = getVoucherStatus(record);
-              const isExpired = status === 'EXPIRED';
-              const isPaused = status === 'PAUSED';
-
-              return (
-                <div key={record.id} style={{ border: `1px solid ${COLORS.LIGHTEST}`, borderRadius: 8, padding: 16, backgroundColor: status === 'ACTIVE' ? '#fff' : '#fafafa', opacity: status === 'ACTIVE' ? 1 : 0.6 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                    <Space direction="vertical" size={2}>
-                      <Text strong style={{ fontSize: 16, color: COLORS.DARKEST }}>{record.code}</Text>
-                      {renderStatusTag(status)}
-                    </Space>
-                    <Text strong style={{ color: status === 'ACTIVE' ? COLORS.MIDNIGHT_BLUE : COLORS.MUTED, fontSize: 16 }}>
-                      {record.discountType === 'PERCENT' ? `${record.discountValue}%` : `${new Intl.NumberFormat('vi-VN').format(record.discountValue)}đ`}
-                    </Text>
-                  </div>
-                  <Space direction="vertical" size={2} style={{ width: '100%', marginBottom: 12 }}>
-                    <Text type="secondary" style={{ fontSize: 13 }}>Đơn tối thiểu: <Text strong>{record.minBookingValue ? `${new Intl.NumberFormat('vi-VN').format(record.minBookingValue)}đ` : '0đ'}</Text></Text>
-                    <Text type="secondary" style={{ fontSize: 13 }}>HSD: <Text strong style={{ textDecoration: isExpired ? 'line-through' : 'none' }}>{record.validFrom ? dayjs(record.validFrom).format('DD/MM/YY') : '∞'} - {record.validTo ? dayjs(record.validTo).format('DD/MM/YY') : '∞'}</Text></Text>
-                    <Text type="secondary" style={{ fontSize: 13 }}>Đã dùng: <Text strong>{record.usedCount} / {record.usageLimit || '∞'}</Text></Text>
-                  </Space>
-                  <Divider style={{ margin: '8px 0' }} />
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                    <Button size="small" icon={isExpired || isPaused ? <LockKey/> : <PencilSimple />} disabled={isExpired || isPaused} onClick={() => handleOpenModal(record)}>Sửa</Button>
-                    <Popconfirm title={`Bạn có chắc muốn ${record.isActive ? "tạm ngưng" : "kích hoạt"}?`} onConfirm={() => handleToggleStatus(record.id)} disabled={isExpired}>
-                      <Button size="small" danger={record.isActive} disabled={isExpired} icon={isExpired ? <LockKey/> : null}>{record.isActive ? 'Tạm ngưng' : 'Kích hoạt'}</Button>
-                    </Popconfirm>
-                  </div>
-                </div>
-              );
-            })}
+        <div style={{ padding: '40px 0', borderTop: '2px dashed #ddd' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 25 }}>
+            <div style={{ background: THEME.DARK_RED, padding: 8, borderRadius: 10 }}><Ticket size={28} color="#fff" weight="fill" /></div>
+            <Title level={3} style={{ margin: 0, fontFamily: '"Source Serif 4", serif' }}>VOUCHER CỦA TÔI ({myVouchers.length})</Title>
           </div>
-        )}
-      </Card>
-
-      <Modal 
-        title={<Title level={4} style={{ color: COLORS.MIDNIGHT_BLUE, margin: 0 }}><Ticket size={24} style={{verticalAlign: 'middle', marginRight: 8}}/> {editingVoucher ? 'Chỉnh sửa Mã Khuyến Mãi' : 'Tạo Mã Khuyến Mãi mới'}</Title>} 
-        open={isModalOpen} onCancel={() => setIsModalOpen(false)} footer={null} centered width={700}
-      >
-        <Form form={form} layout="vertical" onFinish={handleSubmit} style={{ marginTop: 24 }}>
-          <Row gutter={16}>
-            <Col xs={24} md={12}>
-              <Form.Item name="code" label={<Text strong>Mã Code</Text>}>
-                <Input size="large" placeholder="Bỏ trống để hệ thống tự sinh mã" style={{ textTransform: 'uppercase' }} disabled={!!editingVoucher} />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item name="discountType" label={<Text strong>Loại giảm giá</Text>} rules={[{ required: true }]}>
-                <Select size="large" options={[{ value: 'PERCENT', label: 'Giảm theo phần trăm (%)' }, { value: 'FIXED_AMOUNT', label: 'Giảm tiền mặt (VNĐ)' }]} />
-              </Form.Item>
-            </Col>
-            
-            <Col xs={24} md={discountTypeWatch === 'PERCENT' ? 8 : 12}>
-              <Form.Item name="discountValue" label={<Text strong>Mức giảm</Text>} rules={[{ required: true, message: 'Nhập mức giảm' }]}>
-                <InputNumber size="large" style={{ width: '100%' }} min={1} formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={discountTypeWatch === 'PERCENT' ? 8 : 12}>
-              <Form.Item name="minBookingValue" label={<Text strong>Đơn hàng tối thiểu</Text>}>
-                <InputNumber size="large" style={{ width: '100%' }} min={0} formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} />
-              </Form.Item>
-            </Col>
-            {discountTypeWatch === 'PERCENT' && (
-              <Col xs={24} md={8}>
-                <Form.Item name="maxDiscountAmount" label={<Text strong>Giảm tối đa</Text>}>
-                  <InputNumber size="large" style={{ width: '100%' }} min={0} formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} />
-                </Form.Item>
-              </Col>
-            )}
-
-            <Col xs={24}>
-              <Form.Item name="dateRange" label={<Text strong>Thời gian áp dụng</Text>}>
-                <RangePicker 
-                  size="large" 
-                  style={{ width: '100%' }} 
-                  format="DD/MM/YYYY HH:mm" 
-                  showTime 
-                  disabledDate={(current) => {
-                    return current && current < dayjs().startOf('day');
-                  }}
-                />
-              </Form.Item>
-            </Col>
-
-            <Col xs={24} md={12}>
-              <Form.Item name="usageLimit" label={<Text strong>Tổng giới hạn lượt dùng</Text>}>
-                <InputNumber size="large" style={{ width: '100%' }} min={1} placeholder="Bỏ trống nếu không giới hạn" />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item name="maxUsesPerUser" label={<Text strong>Lượt dùng mỗi khách hàng</Text>} rules={[{ required: true }]}>
-                <InputNumber size="large" style={{ width: '100%' }} min={1} />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item name="isForNewCustomer" label={<Text strong>Chỉ dành cho Khách mới</Text>} valuePropName="checked">
-                <Switch checkedChildren="Bật" unCheckedChildren="Tắt" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <div style={{ textAlign: 'right', marginTop: 16 }}>
-            <Space>
-              <Button size="large" onClick={() => setIsModalOpen(false)}>Hủy</Button>
-              <Button size="large" type="primary" htmlType="submit" loading={loading} style={{ backgroundColor: COLORS.MIDNIGHT_BLUE, fontWeight: 'bold' }}>
-                Lưu Khuyến Mãi
-              </Button>
-            </Space>
+          <div className="my-vouchers-scroll">
+            {myVouchers.length > 0 ? myVouchers.map(v => (
+               <div key={v.id} style={{ minWidth: 340 }}>
+                  <div className="real-ticket-ui small-ticket">
+                    <div className="ticket-left-bg"><span style={{fontSize: 18, fontWeight: 'bold'}}>{v.discountValue}{v.discountType === 'PERCENT' ? '%' : 'K'}</span></div>
+                    <div className="ticket-right-bg">
+                      <div style={{ flex: 1, textAlign: 'left' }}><Text strong style={{ fontSize: 13 }}>{v.code}</Text></div>
+                      <Tag color="gold">SẴN SÀNG</Tag>
+                    </div>
+                  </div>
+               </div>
+            )) : <div className="empty-box">Chưa có voucher nào. Hãy tham gia trò chơi để nhận ngay!</div>}
           </div>
-        </Form>
+        </div>
+      </div>
+
+      <Modal open={isGridModalOpen} onCancel={() => setIsGridModalOpen(false)} footer={null} width={750} centered title={`CHỌN ${gridType === 'BOX' ? 'HỘP QUÀ' : 'THẺ BÀI'}`}>
+        <div className="grid-15-layout">
+          {[...Array(15)].map((_, i) => (
+            <motion.div key={i} whileHover={{ scale: 1.05 }} className="card-15" style={{ background: gridType === 'BOX' ? '#fff' : THEME.NAVY_DARK }} onClick={() => { setIsGridModalOpen(false); setIsResultModalOpen(true); }}>
+              {gridType === 'BOX' ? <Gift size={32} color={THEME.DARK_RED} /> : <Crown size={32} color={THEME.GOLD} />}
+              <Text strong style={{ color: gridType === 'BOX' ? THEME.DARK_RED : THEME.GOLD }}>#{i + 1}</Text>
+            </motion.div>
+          ))}
+        </div>
+      </Modal>
+
+      <Modal open={isScratchModalOpen} onCancel={() => setIsScratchModalOpen(false)} footer={null} centered>
+        <div style={{ textAlign: 'center' }}>
+          <Title level={4}>CÀO LỚP PHỦ VÀNG</Title>
+          <div className="scratch-container" onMouseMove={() => setScratchProgress(p => Math.min(p + 2, 100))}>
+            <div className="scratch-result">{revealedVoucher?.code}</div>
+            <div className="scratch-cover" style={{ opacity: 1 - scratchProgress / 100 }}><HandWaving size={40} /></div>
+          </div>
+          {scratchProgress >= 100 && <Button type="primary" block className="btn-red" onClick={() => { setIsScratchModalOpen(false); setIsResultModalOpen(true); }}>NHẬN VOUCHER</Button>}
+        </div>
+      </Modal>
+
+      <Modal open={isMusicModalOpen} onCancel={() => setIsMusicModalOpen(false)} footer={null} centered width={350}>
+        <div style={{ textAlign: 'center', padding: 20 }}>
+          <LockKey size={60} color={THEME.NAVY_DARK} />
+          <Title level={4} style={{ margin: '20px 0' }}>MÃ KÉT SẮT</Title>
+          <InputNumber min={0} max={99} defaultValue={Math.floor(Math.random() * 100)} size="large" style={{ width: 100, marginBottom: 20 }} />
+          <Button type="primary" block className="btn-navy" onClick={() => { setIsMusicModalOpen(false); setIsResultModalOpen(true); }}>MỞ KÉT</Button>
+        </div>
+      </Modal>
+
+      <Modal open={isResultModalOpen} onCancel={() => setIsResultModalOpen(false)} footer={null} centered>
+        <div style={{ textAlign: 'center', padding: 40 }}>
+          <MagicWand size={64} color={THEME.GOLD} weight="fill" />
+          <Title level={2}>XIN CHÚC MỪNG!</Title>
+          <div className="result-box">{revealedVoucher?.code}</div>
+          <Paragraph type="secondary">
+            Đơn tối thiểu: {revealedVoucher?.minOrderValue?.toLocaleString()}đ | Giảm tối đa: {revealedVoucher?.maxDiscount?.toLocaleString()}đ
+          </Paragraph>
+          <Button type="primary" block onClick={() => collectVoucher(revealedVoucher)} className="btn-red" style={{height: 50}}>THU THẬP & SAO CHÉP</Button>
+        </div>
       </Modal>
 
       <style>{`
-        .ant-table-thead > tr > th { background-color: ${COLORS.LIGHTEST} !important; color: ${COLORS.MIDNIGHT_BLUE} !important; font-weight: 700 !important; border-bottom: 1px solid ${COLORS.LIGHT} !important; }
-        .table-row-light { background-color: #ffffff; }
-        .table-row-dark { background-color: #fcfcfc; }
-        .ant-table-tbody > tr:hover > td { background-color: ${COLORS.LIGHTEST} !important; }
+        .luxury-hero { height: 380px; display: flex; align-items: center; justify-content: center; background: url("https://i.pinimg.com/1200x/2c/16/33/2c1633b3d7f37db080958612ce2db2f9.jpg") center/cover; position: relative; }
+        .overlay-dark { position: absolute; inset: 0; background: rgba(13,24,33,0.85); }
+        .hero-content { position: relative; color: #fff; text-align: center; }
+        .main-title { color: #fff !important; font-size: 42px !important; font-family: "Source Serif 4", serif !important; letter-spacing: 4px; }
+        .sub-title { color: ${THEME.GOLD}; font-weight: bold; letter-spacing: 2px; }
+
+        .label-section { padding-left: 15px; margin-bottom: 25px !important; font-family: "Source Serif 4", serif !important; border-left: 5px solid; }
+        .red-label { border-color: ${THEME.DARK_RED}; color: ${THEME.DARK_RED} !important; }
+        .navy-label { border-color: ${THEME.NAVY_DARK}; color: ${THEME.NAVY_DARK} !important; }
+
+        .luxury-card { background: #fff; border-radius: 24px; height: 260px; display: flex; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        .br-red { border-bottom: 5px solid ${THEME.DARK_RED}; }
+        .br-navy { border-bottom: 5px solid ${THEME.NAVY_DARK}; }
+        .visual-part { width: 40%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 25px; border-right: 1px dashed #eee; }
+        .story-part { width: 60%; padding: 25px; display: flex; flex-direction: column; justify-content: center; }
+
+        .btn-game { border-radius: 12px; height: 42px; font-weight: 800; width: 100%; border: none; font-size: 11px; }
+        .btn-red { background: ${THEME.DARK_RED} !important; color: #fff !important; }
+        .btn-gold { background: ${THEME.GOLD} !important; color: ${THEME.NAVY_DARK} !important; }
+
+        .real-ticket-ui { display: flex; height: 110px; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.08); margin-bottom: 10px; }
+        .small-ticket { height: 80px; }
+        .ticket-left-bg { width: 110px; background: ${THEME.DARK_RED}; color: #fff; display: flex; align-items: center; justify-content: center; position: relative; }
+        .discount-text { font-size: 24px; font-weight: bold; }
+        .ticket-right-bg { flex: 1; display: flex; align-items: center; padding: 0 20px; border-left: 2px dashed #f0f0f0; }
+        .cut-circle { position: absolute; width: 20px; height: 20px; background: ${THEME.BG_LIGHT}; border-radius: 50%; right: -10px; }
+        .cut-circle.top { top: -10px; } .cut-circle.bottom { bottom: -10px; }
+        .btn-copy-ticket { border: 2px solid ${THEME.DARK_RED} !important; color: ${THEME.DARK_RED} !important; font-weight: bold; }
+
+        /* RESPONSIVE CSS CHO GRID 15 */
+        .grid-15-layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(85px, 1fr)); gap: 12px; padding: 20px 0; }
+        .card-15 { height: 90px; border-radius: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border: 2px solid ${THEME.GOLD}; }
+
+        /* LOCKED VIP SECTION */
+        .locked-vip-section { background: linear-gradient(rgba(13,24,33,0.9), rgba(13,24,33,0.9)), url('https://img.freepik.com/free-vector/abstract-dark-particles-background_23-2148385311.jpg'); border-radius: 30px; padding: 60px 20px; text-align: center; border: 1px solid ${THEME.GOLD}; position: relative; overflow: hidden; }
+        .locked-content { position: relative; z-index: 2; }
+
+        .my-vouchers-scroll { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 20px; scrollbar-width: none; }
+        .my-vouchers-scroll::-webkit-scrollbar { display: none; }
+        .empty-box { width: 100%; padding: 40px; background: #fff; border: 2px dashed #ddd; border-radius: 20px; text-align: center; color: #999; }
+
+        .wheel-wrap { position: relative; width: 110px; height: 110px; }
+        .wheel-body { width: 100%; height: 100%; border-radius: 50%; border: 3px solid ${THEME.GOLD}; background: conic-gradient(${THEME.NAVY_DARK} 0% 25%, ${THEME.DARK_RED} 25% 50%, ${THEME.NAVY_DARK} 50% 75%, ${THEME.DARK_RED} 75% 100%); transition: transform 3s cubic-bezier(0.1, 0, 0, 1); }
+        .wheel-pin { position: absolute; top: -5px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 12px solid ${THEME.GOLD}; }
+
+        .scratch-container { position: relative; width: 300px; height: 150px; margin: 20px auto; background: ${THEME.NAVY_DARK}; border-radius: 15px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 3px solid ${THEME.GOLD}; }
+        .scratch-result { color: ${THEME.GOLD}; font-size: 32px; font-weight: bold; }
+        .scratch-cover { position: absolute; inset: 0; background: ${THEME.GOLD}; color: #fff; display: flex; align-items: center; justify-content: center; }
+        
+        .result-box { background: ${THEME.NAVY_DARK}; color: ${THEME.GOLD}; font-size: 36px; font-weight: bold; padding: 25px; border-radius: 20px; margin: 20px 0; }
+        .tab-flex { display: flex; align-items: center; gap: 8px; font-weight: bold; }
+
+        @media (max-width: 768px) {
+          .luxury-card { flex-direction: column; height: auto; }
+          .visual-part, .story-part { width: 100%; border-right: none; }
+          .main-title { font-size: 28px !important; }
+        }
       `}</style>
     </div>
   );
