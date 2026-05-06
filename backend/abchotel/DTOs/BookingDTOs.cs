@@ -4,9 +4,6 @@ using System.ComponentModel.DataAnnotations;
 
 namespace abchotel.DTOs
 {
-    // ==========================================
-    // 1. NHÓM DTO CHO TÌM KIẾM PHÒNG (SEARCH)
-    // ==========================================
     public class SearchRoomRequest
     {
         [Required]
@@ -16,7 +13,7 @@ namespace abchotel.DTOs
         public int Adults { get; set; } = 1;
         public int Children { get; set; } = 0;
         public int RequestedRooms { get; set; } = 1;
-        public string PriceType { get; set; } = "NIGHTLY"; // HOURLY hoặc NIGHTLY
+        public string PriceType { get; set; } = "NIGHTLY"; 
         public decimal? MinPrice { get; set; }
         public decimal? MaxPrice { get; set; }
     }
@@ -25,14 +22,11 @@ namespace abchotel.DTOs
     {
         public int RoomTypeId { get; set; }
         public string RoomTypeName { get; set; }
-        public decimal PricePerUnit { get; set; }       // Giá sẽ áp dụng (tùy theo khách chọn Đêm hay Giờ)
-        
-        // CÁC THÔNG TIN HIỂN THỊ CHI TIẾT
-        public decimal BasePricePerNight { get; set; }  // Giá gốc theo Đêm
-        public decimal BasePricePerHour { get; set; }   // Giá gốc theo Giờ
+        public decimal PricePerUnit { get; set; }       
+        public decimal BasePricePerNight { get; set; }  
+        public decimal BasePricePerHour { get; set; }   
         public string ViewDirection { get; set; }
         public string Description { get; set; }
-        
         public int RemainingRooms { get; set; } 
         public decimal SubTotal { get; set; }   
         public bool IsUrgent { get; set; }      
@@ -44,14 +38,8 @@ namespace abchotel.DTOs
         public List<string> Amenities { get; set; }
     }
 
-    // ==========================================
-    // 2. NHÓM DTO CHO TẠO ĐƠN ĐẶT PHÒNG (CREATE)
-    // ==========================================
     public class CreateBookingRequest
     {
-        // 1. Thông tin khách hàng 
-        
-        // Cố tình thêm Required tiếng Việt để lỡ Lễ tân quên nhập thì báo lỗi đẹp
         [Required(ErrorMessage = "Vui lòng nhập tên khách hàng")]
         public string GuestName { get; set; }
 
@@ -63,16 +51,15 @@ namespace abchotel.DTOs
         public string? GuestEmail { get; set; }
         public string IdentityNumber { get; set; }
 
-        // 2. Mã giảm giá (Nếu có)
         public string? VoucherCode { get; set; }
-
-        // 3. Ghi chú của khách
         public string? SpecialRequests { get; set; }
 
-        // 4. Danh sách các phòng muốn đặt
         [Required(ErrorMessage = "Phải chọn ít nhất 1 phòng")]
         [MinLength(1, ErrorMessage = "Phải chọn ít nhất 1 phòng")]
         public List<BookingRoomItem> Rooms { get; set; }
+
+        // 🔥 THÊM THUỘC TÍNH NÀY ĐỂ NHẬN DỊCH VỤ TỪ REACT GỬI LÊN
+        public List<ServiceItemRequest> Services { get; set; } = new List<ServiceItemRequest>();
     }
 
     public class BookingRoomItem
@@ -81,7 +68,7 @@ namespace abchotel.DTOs
         public int RoomTypeId { get; set; }
         public int? RoomId { get; set; }
         [Required]
-        public int Quantity { get; set; } // Khách muốn đặt mấy phòng loại này?
+        public int Quantity { get; set; }
         [Required]
         public DateTime CheckInDate { get; set; }
         [Required]
@@ -90,20 +77,22 @@ namespace abchotel.DTOs
         public string PriceType { get; set; } = "NIGHTLY";
     }
 
-    // ==========================================
-    // 3. NHÓM DTO TRẢ VỀ (RESPONSE) SAU KHI ĐẶT XONG
-    // ==========================================
+    // 🔥 CLASS NÀY ĐỂ ĐỊNH NGHĨA ITEM DỊCH VỤ (id dịch vụ và số lượng)
+    public class ServiceItemRequest
+    {
+        public int ServiceId { get; set; }
+        public int Quantity { get; set; }
+    }
+
     public class BookingSuccessResponse
     {
         public int BookingId { get; set; }
         public string BookingCode { get; set; }
-        public decimal TotalAmount { get; set; } // Tổng tiền cần thanh toán
-        public DateTime ExpireAt { get; set; }   // Thời hạn 15 phút để thanh toán
+        public decimal TotalAmount { get; set; } 
+        public DateTime ExpireAt { get; set; }   
         public string Message { get; set; }
     }
-    // ==========================================
-    // 4. NHÓM DTO CHO QUẢN LÝ (CMS)
-    // ==========================================
+
     public class BookingListResponse
     {
         public int Id { get; set; }

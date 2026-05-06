@@ -11,5 +11,5 @@ export const invoiceApi = {
   
   addService: (invoiceId, data) => axiosClient.post(`/Invoices/${invoiceId}/add-service`, data),
   addDamage: (invoiceId, data) => axiosClient.post(`/Invoices/${invoiceId}/add-damage`, data),
-  getByBookingCode: (code) => axiosClient.get(`/Invoices/by-booking/${code}`),
+  getByBookingCode: (code) => axiosClient.get(`/Invoices/client-bill/${code}`),
 };

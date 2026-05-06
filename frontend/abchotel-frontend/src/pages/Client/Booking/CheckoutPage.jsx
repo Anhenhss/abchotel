@@ -8,6 +8,7 @@ import dayjs from 'dayjs';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { voucherApi } from '../../../api/voucherApi'; 
+import { bookingApi } from '../../../api/bookingApi'; 
 import { useSignalR } from '../../../hooks/useSignalR';
 
 const { Title, Text } = Typography;
@@ -52,11 +53,17 @@ export default function CheckoutPage() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [bookingResponse, setBookingResponse] = useState(null); 
 
+  // ==========================================
+  // TÍNH TOÁN TIỀN PHÒNG, DỊCH VỤ & THUẾ VAT 10%
+  // ==========================================
   const totalRoomPrice = bookingState?.totalRoomPrice || 0;
   const totalServicePrice = bookingState?.totalServicePrice || 0;
   const subTotal = totalRoomPrice + totalServicePrice; 
   const discountAmount = appliedVoucher ? appliedVoucher.discountAmount : 0;
-  const finalTotal = subTotal - discountAmount;
+  
+  // Tính thuế 10% giống hệt Backend
+  const taxAmount = (subTotal - discountAmount) * 0.1;
+  const finalTotal = subTotal - discountAmount + taxAmount;
 
   useSignalR((notif) => {
     if (notif.title?.toLowerCase().includes("khuyến mãi") || notif.title?.toLowerCase().includes("phòng")) {
@@ -105,6 +112,7 @@ export default function CheckoutPage() {
     try {
       setIsSubmitting(true);
       
+      // Đóng gói mảng phòng và mảng dịch vụ gửi cho C#
       const bookingPayload = {
         guestName: values.fullName,
         guestPhone: values.phone,
@@ -119,31 +127,39 @@ export default function CheckoutPage() {
           checkOutDate: dayjs(bookingState.checkOut).format('YYYY-MM-DDTHH:mm:ss'),
           priceType: bookingState.priceType,
           quantity: 1
-        }))
+        })),
+        // Chuyển object selectedServices thành mảng để C# đọc được
+        services: bookingState.selectedServices 
+          ? Object.keys(bookingState.selectedServices).map(key => ({
+              serviceId: parseInt(key),
+              quantity: parseInt(bookingState.selectedServices[key])
+            }))
+          : []
       };
 
-      const mockBackendResponse = {
-        bookingId: 999,
-        bookingCode: "BK-" + dayjs().format('YYYYMMDDHHmmss'), 
-        totalAmount: finalTotal,
-        expireAt: dayjs().add(15, 'minute').valueOf(), 
-        message: "Giữ chỗ thành công. Vui lòng thanh toán trong 15 phút."
-      };
+      const res = await bookingApi.createBooking(bookingPayload); 
+      const responseData = res?.data || res;
 
-      setTimeout(() => {
-        setIsSubmitting(false);
-        setBookingResponse(mockBackendResponse);
-        setIsModalVisible(true); 
-      }, 1500);
+      if (responseData && (responseData.isSuccess || responseData.bookingCode || responseData.data?.bookingCode)) {
+         const successData = responseData.data || responseData;
+         setBookingResponse(successData);
+         setIsModalVisible(true); 
+      } else {
+         api.error({ message: 'Thất bại', description: responseData?.message || 'Không thể tạo đơn đặt phòng.' });
+      }
 
     } catch (error) {
-      api.error({ message: 'Lỗi', description: 'Có lỗi xảy ra khi tạo yêu cầu đặt phòng.' });
+      console.error("Booking Error:", error);
+      api.error({ message: 'Lỗi', description: error.response?.data?.message || 'Có lỗi xảy ra khi gửi yêu cầu đặt phòng tới máy chủ.' });
+    } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleProceedPayment = async () => {
-     api.info({ message: 'Chuyển hướng', description: `Đang chuyển qua cổng ${paymentMethod}...` });
+     if(bookingResponse && bookingResponse.bookingCode) {
+         navigate(`/payment/${bookingResponse.bookingCode}`);
+     }
   };
 
   const handlePayLater = () => {
@@ -157,13 +173,11 @@ export default function CheckoutPage() {
   if (!bookingState) return null;
 
   return (
-    // 🔥 THÊM TRANSLATE="NO" ĐỂ CHỐNG LỖI "THANH THÂN" CỦA GOOGLE
     <div className="checkout-wrapper" translate="no">
       {contextHolder}
       
       <div className="booking-topbar">
         <div className="container-inner">
-            {/* 🔥 TẠO LOGIC ICON BỊ BÔI ĐEN KHI ĐANG Ở BƯỚC THANH TOÁN (CURRENT = 2) */}
             <Steps current={2} className="luxury-steps" items={[
                 { title: 'Chọn Hạng Phòng', icon: <Bed size={22} color={THEME.NAVY_DARK} /> },
                 { title: 'Dịch Vụ', icon: <SuitcaseRolling size={22} color={THEME.NAVY_DARK} /> },
@@ -282,10 +296,13 @@ export default function CheckoutPage() {
                           <Text>Tiền phòng</Text>
                           <Text strong>{new Intl.NumberFormat('vi-VN').format(totalRoomPrice)}₫</Text>
                       </div>
-                      <div className="summary-row mobile-hide">
-                          <Text>Dịch vụ thêm</Text>
-                          <Text strong>{new Intl.NumberFormat('vi-VN').format(totalServicePrice)}₫</Text>
-                      </div>
+                      
+                      {totalServicePrice > 0 && (
+                          <div className="summary-row mobile-hide">
+                              <Text>Dịch vụ thêm</Text>
+                              <Text strong>{new Intl.NumberFormat('vi-VN').format(totalServicePrice)}₫</Text>
+                          </div>
+                      )}
 
                       <div className="voucher-section mobile-hide">
                         <Text strong style={{ fontSize: 13, display: 'block', marginBottom: 8 }}><Ticket size={16}/> Voucher giảm giá</Text>
@@ -305,6 +322,11 @@ export default function CheckoutPage() {
                         {appliedVoucher && (
                            <div style={{ marginTop: 8 }}><Tag color="success">Đã giảm {new Intl.NumberFormat('vi-VN').format(discountAmount)}₫</Tag></div>
                         )}
+                      </div>
+
+                      <div className="summary-row mobile-hide" style={{ marginTop: 16 }}>
+                          <Text>Thuế VAT (10%)</Text>
+                          <Text strong>{new Intl.NumberFormat('vi-VN').format(taxAmount)}₫</Text>
                       </div>
 
                       <Divider style={{ margin: '16px 0' }} className="mobile-hide"/>
@@ -403,7 +425,6 @@ export default function CheckoutPage() {
           z-index: 100; 
         }
 
-        /* 🔥 CSS XỬ LÝ LÀM ĐẸP THANH STEPS GIỐNG Y HỆT ẢNH */
         .luxury-steps .ant-steps-item-icon { 
           background: transparent !important; 
           border: none !important; 
@@ -431,7 +452,6 @@ export default function CheckoutPage() {
         .luxury-steps .ant-steps-item-process .ant-steps-item-title {
           font-weight: 800 !important;
         }
-        /* ======================================================= */
 
         .main-title { 
           color: ${THEME.NAVY_DARK} !important; 
@@ -474,7 +494,6 @@ export default function CheckoutPage() {
           border-radius: 8px; 
         }
 
-        /* 🔥 CSS MỚI ĐƯỢC THÊM ĐỂ CHỐNG NHẢY CHỮ KHU VỰC NGÀY THÁNG */
         .date-item {
           display: flex;
           flex-direction: column;
@@ -485,7 +504,6 @@ export default function CheckoutPage() {
           white-space: nowrap !important;
           word-break: keep-all !important;
         }
-        /* ======================================================= */
 
         .summary-row { 
           display: flex; 
@@ -511,7 +529,6 @@ export default function CheckoutPage() {
           color: ${THEME.NAVY_DARK}; 
         }
 
-        /* 🔥 ĐÃ FIX CHỐNG LỖI CẮT CHỮ CHO NÚT BẤM DÀI */
         .btn-proceed { 
           min-height: 50px; 
           height: auto; 
@@ -526,7 +543,6 @@ export default function CheckoutPage() {
           border: none; 
         }
 
-        /* Modal Styles */
         .success-icon-wrapper { 
           width: 80px; 
           height: 80px; 
@@ -560,7 +576,6 @@ export default function CheckoutPage() {
           border: 1px solid #fecaca; 
         }
 
-        /* 🔥 MOBILE RESPONSIVE BOTTOM SHEET */
         @media (max-width: 992px) {
           .sticky-bill { 
             position: fixed; 

@@ -214,7 +214,9 @@ namespace abchotel.Services
                 return (false, null, ex.Message);
             }
 
+            // ==========================================================
             // 5. TÍNH TIỀN & XUẤT HÓA ĐƠN
+            // ==========================================================
             // Sau khi SP chạy xong, bảng Booking_Details đã có dữ liệu. Ta lôi lên để cộng tiền.
             var details = await _context.BookingDetails.Where(bd => bd.BookingId == booking.Id).ToListAsync();
 
@@ -227,6 +229,44 @@ namespace abchotel.Services
 
                 if (duration <= 0) duration = 1;
                 totalRoomAmount += (d.AppliedPrice * duration);
+            }
+
+            // =======================================================
+            // 🔥 ĐÃ THÊM LOGIC ĐỂ LƯU DỊCH VỤ VÀO DATABASE VÀ TÍNH TIỀN
+            // =======================================================
+            decimal totalServiceAmount = 0;
+            if (request.Services != null && request.Services.Any())
+            {
+                var firstDetail = details.FirstOrDefault(); // Gắn dịch vụ vào chi tiết phòng đầu tiên
+                if (firstDetail != null)
+                {
+                    var orderService = new OrderService {
+                        BookingDetailId = firstDetail.Id,
+                        OrderDate = DateTime.Now,
+                        Status = "Confirmed",
+                        TotalAmount = 0
+                    };
+                    _context.OrderServices.Add(orderService);
+                    await _context.SaveChangesAsync();
+
+                    foreach (var srv in request.Services)
+                    {
+                        var serviceInfo = await _context.Services.FindAsync(srv.ServiceId);
+                        if (serviceInfo != null)
+                        {
+                            var osDetail = new OrderServiceDetail {
+                                OrderServiceId = orderService.Id,
+                                ServiceId = serviceInfo.Id,
+                                Quantity = srv.Quantity,
+                                UnitPrice = serviceInfo.Price
+                            };
+                            _context.OrderServiceDetails.Add(osDetail);
+                            totalServiceAmount += (serviceInfo.Price * srv.Quantity);
+                        }
+                    }
+                    orderService.TotalAmount = totalServiceAmount;
+                    await _context.SaveChangesAsync();
+                }
             }
 
             // Áp dụng khuyến mãi
@@ -247,15 +287,15 @@ namespace abchotel.Services
             }
 
             // Tính Thuế VAT 10%
-            decimal taxAmount = (totalRoomAmount - discountAmount) * 0.10m;
-            decimal finalTotal = totalRoomAmount - discountAmount + taxAmount;
+            decimal taxAmount = (totalRoomAmount + totalServiceAmount - discountAmount) * 0.10m;
+            decimal finalTotal = totalRoomAmount + totalServiceAmount - discountAmount + taxAmount;
 
             // Tạo Hóa đơn (Invoice)
             var invoice = new Invoice
             {
                 BookingId = booking.Id,
                 TotalRoomAmount = totalRoomAmount,
-                TotalServiceAmount = 0,
+                TotalServiceAmount = totalServiceAmount, // 🔥 ĐÃ CẬP NHẬT TẠI ĐÂY
                 DiscountAmount = discountAmount,
                 TaxAmount = taxAmount,
                 FinalTotal = finalTotal,

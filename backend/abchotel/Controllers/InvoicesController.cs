@@ -167,6 +167,17 @@ namespace abchotel.Controllers
             return GenerateAutoCloseHtml(false, response.Message);
         }
 
+        // 🔥 API MỚI THÊM VÀO: DÀNH RIÊNG CHO KHÁCH HÀNG (TRANG PAYMENT)
+        // =======================================================
+        [HttpGet("client-bill/{bookingCode}")]
+        [AllowAnonymous] // Không bắt khách đăng nhập
+        public async Task<IActionResult> GetClientInvoiceByCode(string bookingCode)
+        {
+            var invoice = await _invoiceService.GetInvoiceByBookingCodeAsync(bookingCode);
+            if (invoice == null) return NotFound(new { message = "Không tìm thấy hóa đơn cho mã đặt phòng này." });
+            return Ok(invoice);
+        }
+
         // =========================================================
         // 🔥 HÀM PHỤ TRỢ: TẠO GIAO DIỆN TỰ ĐỘNG TẮT TAB SAU 3 GIÂY
         // =========================================================
