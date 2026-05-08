@@ -9,6 +9,7 @@ using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace abchotel.Data;
 
@@ -327,39 +328,38 @@ public partial class HotelDbContext : DbContext
 
         var today = DateTime.Now.Date;
         var entries = ChangeTracker.Entries()
-            .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified || e.State == EntityState.Deleted)
-            .ToList();
+        .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified || e.State == EntityState.Deleted)
+        .ToList();
 
         if (!entries.Any()) return await base.SaveChangesAsync(cancellationToken);
 
-        var newEvents = new List<object>();
+        // 🔥 NHẬN DIỆN GIAO DỊCH VẬT TƯ PHÒNG
+        bool isRoomInvTx = entries.Any(e => e.Entity.GetType().Name.Contains("RoomInventory") || e.Entity.GetType().Name.Contains("Room_Inventory"));
 
-        // 🔥 TÍNH NĂNG MỚI: NHẬN DIỆN "GIAO DỊCH CẦM ĐẦU" ĐỂ CHẶN LOG DÂY CHUYỀN
-        bool isLossDamageTx = entries.Any(e => e.Entity.GetType().Name == "LossAndDamage");
-        bool isBookingTx = entries.Any(e => e.Entity.GetType().Name == "Booking");
-        bool isOrderTx = entries.Any(e => e.Entity.GetType().Name == "OrderService");
-        bool isInvoiceTx = entries.Any(e => e.Entity.GetType().Name == "Invoice");
+        var newEvents = new List<object>();
 
         foreach (var entry in entries)
         {
             var entityType = entry.Entity.GetType().Name;
 
-            // 🛑 LỌC 1: KHÔNG BAO GIỜ LOG CÁC BẢNG HỆ THỐNG VÀ BẢNG RÁC TRUNG GIAN
-            string[] ignoredEntities = { "AuditLog", "Notification", "RefreshToken", "RolePermission", "RoomTypeAmenity", "RoomImage", "OrderServiceDetail", "BookingDetail", "PointHistory", "Payment" };
-            if (ignoredEntities.Contains(entityType)) continue;
+            // 🛑 BỘ LỌC CẢI TIẾN
+            string[] systemKeywords = { "Audit", "Notification", "Token", "Permission", "Image", "PointHistory", "Payment" };
+            if (systemKeywords.Any(k => entityType.Contains(k, StringComparison.OrdinalIgnoreCase))) continue;
 
-            // 🛑 LỌC 2: CHẶN LOG HIỆU ỨNG DÂY CHUYỀN (Chỉ giữ lại thằng cầm đầu)
-            if (isLossDamageTx && (entityType == "Equipment" || entityType == "RoomInventory" || entityType == "Invoice" || entityType == "Room")) continue;
-            if (isBookingTx && (entityType == "Room" || entityType == "Invoice")) continue;
-            if (isOrderTx && entityType == "Invoice") continue;
-            if (isInvoiceTx && entityType == "Booking") continue;
+            // 🛑 QUAN TRỌNG: Nếu đang cập nhật vật tư phòng, thì bỏ qua log của bảng Kho (Equipments) 
+            // để tránh bị "rác" log và gây hiểu lầm cho người xem.
+            if (isRoomInvTx && entityType.Contains("Equipment")) continue;
+
+            // 🛑 BỎ "RoomInventory" khỏi danh sách ignoredEntities để chúng ta bắt đầu ghi log nó
+            string[] ignoredEntities = { "RoomTypeAmenity", "OrderServiceDetail", "BookingDetail" };
+            if (ignoredEntities.Any(ie => entityType.Equals(ie, StringComparison.OrdinalIgnoreCase))) continue;
 
             // NẾU LỌT QUA ĐƯỢC 2 BỘ LỌC TRÊN -> CHÍNH THỨC LÀ LOG XỊN, CHO PHÉP GHI
             var actionType = entry.State == EntityState.Added ? "CREATE" : entry.State == EntityState.Modified ? "UPDATE" : "DELETE";
             var entityName = entry.Metadata.GetTableName() ?? entry.Metadata.DisplayName();
             var primaryKey = entry.Properties.FirstOrDefault(p => p.Metadata.IsPrimaryKey())?.CurrentValue;
 
-            string humanMessage = GenerateFriendlyMessage(entry, actionType, entityName);
+            string humanMessage = GenerateFriendlyMessage(this, entry, actionType, entityType);
 
             newEvents.Add(new
             {
@@ -419,37 +419,129 @@ public partial class HotelDbContext : DbContext
     // =========================================================================
     // 5. BỘ TỪ ĐIỂN DỊCH TIẾNG VIỆT (GỌN GÀNG, SẠCH SẼ)
     // =========================================================================
-    private string GenerateFriendlyMessage(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry, string action, string table)
+    private string GenerateFriendlyMessage(HotelDbContext db, Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry, string action, string table)
     {
-        string actionVn = action == "CREATE" ? "Thêm mới" : action == "UPDATE" ? "Cập nhật" : "Xóa";
-        string tableVn = table;
-        
-        switch (table) {
-            case "Rooms": tableVn = "Phòng"; break;
-            case "Room_Types": tableVn = "Hạng phòng"; break;
-            case "Roles": tableVn = "Nhóm quyền (Vai trò)"; break;
-            case "Bookings": return action == "CREATE" ? "Tạo đơn Đặt phòng mới." : action == "UPDATE" ? "Cập nhật trạng thái Đặt phòng." : "Hủy đơn Đặt phòng.";
-            case "Users": tableVn = "Tài khoản nhân sự/khách hàng"; break;
-            case "Loss_And_Damages": return action == "CREATE" ? "Ghi nhận báo cáo thất thoát/hư hỏng vật tư." : action == "DELETE" ? "Hủy báo cáo hư hỏng vật tư." : "Cập nhật trạng thái báo cáo đền bù.";
-            case "Articles": tableVn = "Bài viết/Tin tức"; break;
-            case "Services": tableVn = "Dịch vụ"; break;
-            case "Order_Services": return "Tiếp nhận Yêu cầu Dịch vụ từ khách hàng.";
-            case "Invoices": return action == "CREATE" ? "Khởi tạo Hóa đơn thanh toán." : "Cập nhật/Thanh toán Hóa đơn.";
-            case "Equipments": tableVn = "Kho vật tư"; break;
-            case "Vouchers": tableVn = "Mã khuyến mãi"; break;
-        }
+        var currentValues = entry.State == EntityState.Deleted ? entry.OriginalValues : entry.CurrentValues;
+        if (table.Contains("RoomInventory") || table.Contains("Room_Inventory"))
+        {
+            var qty = currentValues["Quantity"]?.ToString() ?? "1";
+            var equipmentId = currentValues["EquipmentId"] as int?;
+            var roomId = currentValues["RoomId"] as int?;
 
-        string detail = "";
-        try {
-            var props = action == "DELETE" ? entry.OriginalValues : entry.CurrentValues;
-            var nameProp = props.Properties.FirstOrDefault(p => p.Name == "Name" || p.Name == "FullName" || p.Name == "Title" || p.Name == "RoomNumber" || p.Name == "ItemCode" || p.Name == "Code");
-            
-            if (nameProp != null) {
-                var val = props[nameProp];
-                if (val != null) detail = $" '{val.ToString()}'";
+            string itemName = "vật tư";
+            string roomNum = "";
+
+            if (equipmentId.HasValue) {
+                itemName = db.Equipments.Where(e => e.Id == equipmentId).Select(e => e.Name).FirstOrDefault() ?? itemName;
             }
-        } catch {}
+            if (roomId.HasValue) {
+                roomNum = db.Rooms.Where(r => r.Id == roomId).Select(r => r.RoomNumber).FirstOrDefault() ?? "";
+            }
 
-        return $"{actionVn} {tableVn}{detail}.";
+            if (action == "CREATE") return $"Thêm mới {qty} '{itemName}' vào phòng {roomNum}.";
+            if (action == "DELETE") return $"Gỡ bỏ '{itemName}' khỏi phòng {roomNum}.";
+            return $"Cập nhật số lượng '{itemName}' tại phòng {roomNum} (Số lượng mới: {qty}).";
+        }
+        string actionVn = action == "CREATE" ? "Thêm mới" : action == "UPDATE" ? "Cập nhật" : "Xóa";
+
+        // Xử lý loại bỏ chữ "s" ở cuối tên bảng nếu có (để dễ viết switch case)
+        string normalizedTable = table.EndsWith("s") && table != "Loss_And_Damages" && table != "Rooms" && table != "Bookings" && table != "Invoices" && table != "Equipments" && table != "Services" && table != "Articles" && table != "Vouchers" 
+            ? table : table;
+
+        switch (normalizedTable)
+        {
+            case "LossAndDamage":
+            case "Loss_And_Damages":
+                {
+                    var qty = currentValues["Quantity"]?.ToString() ?? "1";
+                    
+                    // Trích xuất Khóa ngoại
+                    var inventoryId = currentValues["RoomInventoryId"] as int?;
+                    var bookingDetailId = currentValues["BookingDetailId"] as int?;
+
+                    string itemName = "vật tư";
+                    string roomNum = "";
+
+                    // Dùng Database Context (db) để Query Tên vật tư
+                    if (inventoryId.HasValue)
+                    {
+                        var equipmentName = db.RoomInventories
+                            .Where(ri => ri.Id == inventoryId.Value)
+                            .Select(ri => ri.Equipment.Name) // Lấy tên từ bảng Equipment
+                            .FirstOrDefault();
+                        if (!string.IsNullOrEmpty(equipmentName)) itemName = equipmentName;
+                    }
+
+                    // Dùng Database Context (db) để Query Số phòng
+                    if (bookingDetailId.HasValue)
+                    {
+                        var room = db.BookingDetails
+                            .Where(bd => bd.Id == bookingDetailId.Value)
+                            .Select(bd => bd.Room.RoomNumber) // Lấy số phòng từ bảng Room
+                            .FirstOrDefault();
+                        if (!string.IsNullOrEmpty(room)) roomNum = $" tại phòng {room}";
+                    }
+
+                    if (action == "CREATE") return $"Ghi nhận hỏng {qty} {itemName}{roomNum}.";
+                    if (action == "DELETE") return $"Hủy báo cáo đền bù {itemName}{roomNum}.";
+                    return $"Cập nhật trạng thái đền bù {itemName}{roomNum}.";
+                }
+
+            case "Bookings":
+                {
+                    var code = currentValues["BookingCode"]?.ToString() ?? "Chưa rõ";
+                    var guest = currentValues["GuestName"]?.ToString() ?? "khách";
+                    
+                    if (action == "CREATE") return $"Tạo mới đơn đặt phòng #{code} cho khách {guest}.";
+                    if (action == "UPDATE") {
+                        var status = currentValues["Status"]?.ToString() ?? "";
+                        return $"Cập nhật đơn đặt phòng #{code} (Trạng thái: {status}).";
+                    }
+                    return $"Hủy đơn đặt phòng #{code}.";
+                }
+
+            case "Rooms":
+                {
+                    var roomNum = currentValues["RoomNumber"]?.ToString() ?? "";
+                    if (action == "UPDATE") {
+                        var status = currentValues["Status"]?.ToString() ?? "phòng";
+                        var cleaning = currentValues["CleaningStatus"]?.ToString() ?? "";
+                        return $"Cập nhật trạng thái phòng {roomNum} ({status} - {cleaning}).";
+                    }
+                    return $"{actionVn} phòng {roomNum}.";
+                }
+
+            case "Invoices":
+                {
+                    var invoiceId = currentValues["Id"]?.ToString();
+                    var finalTotal = currentValues["FinalTotal"];
+                    string formattedTotal = finalTotal != null ? string.Format("{0:N0}", finalTotal) : "0";
+
+                    if (action == "CREATE") return $"Khởi tạo Hóa đơn #{invoiceId} (Tổng: {formattedTotal}đ).";
+                    return $"Thanh toán/Cập nhật Hóa đơn #{invoiceId} (Tổng: {formattedTotal}đ).";
+                }
+
+            default:
+                // Tự động tìm cột Name, Title, ItemCode để làm tên định danh
+                string detail = "";
+                var nameProp = entry.Metadata.FindProperty("Name") 
+                            ?? entry.Metadata.FindProperty("FullName") 
+                            ?? entry.Metadata.FindProperty("Title")
+                            ?? entry.Metadata.FindProperty("ItemCode");
+
+                if (nameProp != null) {
+                    var val = currentValues[nameProp.Name];
+                    if (val != null) detail = $" '{val.ToString()}'";
+                }
+                
+                // Dịch tên bảng cơ bản
+                string tableVn = table;
+                if (table.Contains("User")) tableVn = "Nhân sự/Khách hàng";
+                if (table.Contains("Article")) tableVn = "Bài viết";
+                if (table.Contains("Voucher")) tableVn = "Khuyến mãi";
+                if (table.Contains("Equipment")) tableVn = "Vật tư kho";
+
+                return $"{actionVn} {tableVn}{detail}.";
+        }
     }
 }

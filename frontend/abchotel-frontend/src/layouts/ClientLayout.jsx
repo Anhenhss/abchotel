@@ -3,7 +3,7 @@ import { Layout, Menu, Button, Space, Typography, Dropdown, Avatar, Badge, Popov
 import { 
   UserCircle, BellRinging, List as ListIcon, SignOut, CalendarCheck, 
   MapPin, Phone, EnvelopeSimple, FacebookLogo, InstagramLogo, TiktokLogo,
-  Bed, Coffee, Ticket, Article, House
+  Bed, Coffee, Ticket, Article, House, SquaresFour
 } from '@phosphor-icons/react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -88,7 +88,20 @@ export default function ClientLayout() {
     { key: '/article', label: <Link to="/article" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Article size={20} /> TIN TỨC</Link> },
   ];
 
+  // Kiểm tra bao phủ mọi trường hợp: Cả roleName và chữ hoa/chữ thường của RoleId
+  const isStaff = user && user.roleName !== 'Guest' && user.roleId !== 10 && user.RoleId !== 10;
+
   const userDropdownItems = [
+    // Chỉ chèn nút quay về CMS khi isStaff là true
+    ...(isStaff ? [
+      { 
+        key: 'admin-cms', 
+        icon: <SquaresFour size={18} color={THEME.NAVY_DARK} />, 
+        label: <Link to="/admin/dashboard" style={{ color: THEME.NAVY_DARK, fontWeight: 'bold' }}>Vào Trang Quản Trị</Link> 
+      },
+      { type: 'divider' },
+    ] : []),
+    
     { key: 'profile', icon: <UserCircle size={18} />, label: <Link to="/profile">Hồ sơ cá nhân</Link> },
     { key: 'my-bookings', icon: <CalendarCheck size={18} />, label: <Link to="/my-bookings">Lịch sử đặt phòng</Link> },
     { type: 'divider' },

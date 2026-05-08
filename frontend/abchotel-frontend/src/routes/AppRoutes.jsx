@@ -58,6 +58,8 @@ import ClientArticlePage from '../pages/Client/ArticlePage';
 import ClientArticleDetailPage from '../pages/Client/ArticleDetailPage';
 import ClientServicesPage from '../pages/Client/ClientServicesPage';
 import SelectRoomPage from '../pages/Client/Booking/SelectRoomPage';
+import SelectServicePage from "../pages/Client/Booking/SelectServicePage";
+import CheckoutPage from "../pages/Client/Booking/CheckoutPage";
 
 
 // COMPONENT TẠM THỜI ĐỂ XEM TEST GIAO DIỆN CLIENT
@@ -101,6 +103,8 @@ export default function AppRoutes() {
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/privacy-policy" element={<TermsPolicyPage />} />
         <Route path="/booking" element={<SelectRoomPage />} />
+        <Route path="/booking/services" element={<SelectServicePage />} />
+        <Route path="/booking/checkout" element={<CheckoutPage />} />
         
         {/* Route cho Khách hàng đăng nhập vào xem thông tin cá nhân */}
         <Route path="/profile" element={

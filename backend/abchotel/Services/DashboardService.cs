@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using abchotel.Data;
 using abchotel.DTOs;
 
@@ -16,14 +17,29 @@ namespace abchotel.Services
     public class DashboardService : IDashboardService
     {
         private readonly HotelDbContext _context;
+        private readonly IMemoryCache _cache; // Khai báo Memory Cache
 
-        public DashboardService(HotelDbContext context)
+        public DashboardService(HotelDbContext context, IMemoryCache cache)
         {
             _context = context;
+            _cache = cache;
         }
 
         public async Task<DashboardResponse> GetDashboardDataAsync()
         {
+            // Định nghĩa chìa khóa (key) để tìm dữ liệu trong RAM
+            const string cacheKey = "AdminDashboardData";
+
+            // 🔥 BƯỚC 1: KIỂM TRA RAM TRƯỚC
+            // Nếu dữ liệu Dashboard đã có sẵn trong RAM và chưa hết hạn, trả về ngay lập tức
+            if (_cache.TryGetValue(cacheKey, out DashboardResponse cachedResponse))
+            {
+                return cachedResponse;
+            }
+
+            // ====================================================================
+            // BƯỚC 2: NẾU RAM TRỐNG HOẶC DATA ĐÃ HẾT HẠN -> QUERY DATABASE (Ổ CỨNG)
+            // ====================================================================
             var response = new DashboardResponse();
             var today = DateTime.Today;
             var startOfMonth = new DateTime(today.Year, today.Month, 1);
@@ -62,18 +78,18 @@ namespace abchotel.Services
             {
                 decimal calculatedAmount = 0;
 
-                // 🔥 LOGIC MỚI: PHÂN BIỆT THEO GIỜ VÀ THEO ĐÊM
+                // LOGIC: PHÂN BIỆT THEO GIỜ VÀ THEO ĐÊM
                 if (bd.PriceType == "HOURLY")
                 {
                     int hours = (int)Math.Ceiling((bd.CheckOutDate - bd.CheckInDate).TotalMinutes / 60.0);
                     if (hours <= 0) hours = 1;
-                    calculatedAmount = bd.AppliedPrice * hours; // AppliedPrice bây giờ là Giá Theo Giờ
+                    calculatedAmount = bd.AppliedPrice * hours; 
                 }
                 else 
                 {
                     int nights = (bd.CheckOutDate.Date - bd.CheckInDate.Date).Days;
                     if (nights <= 0) nights = 1;
-                    calculatedAmount = bd.AppliedPrice * nights; // AppliedPrice bây giờ là Giá Qua Đêm
+                    calculatedAmount = bd.AppliedPrice * nights; 
                 }
 
                 response.RecentBookings.Add(new DashboardRecentBookingResponse
@@ -111,10 +127,10 @@ namespace abchotel.Services
                 });
             }
 
+            // 5. LẤY ĐÁNH GIÁ CHƯA DUYỆT
             var recentReviews = await _context.Reviews
                 .Include(r => r.User)
                 .Include(r => r.RoomType)
-                // CHỈ LẤY BÀI CHƯA DUYỆT (IsVisible == false) HOẶC CHƯA PHẢN HỒI (ReplyComment == null)
                 .Where(r => r.IsVisible == false || r.ReplyComment == null) 
                 .OrderByDescending(r => r.CreatedAt)
                 .Take(5)
@@ -132,6 +148,14 @@ namespace abchotel.Services
                     Date = rv.CreatedAt ?? DateTime.Now
                 });
             }
+
+            // ====================================================================
+            // 🔥 BƯỚC 3: LƯU KẾT QUẢ VÀO RAM VÀ HẸN GIỜ SỐNG (5 PHÚT)
+            // ====================================================================
+            var cacheEntryOptions = new MemoryCacheEntryOptions()
+                .SetAbsoluteExpiration(TimeSpan.FromMinutes(5)); // Dashboard sẽ tự làm mới (xuống DB lấy data) mỗi 5 phút
+
+            _cache.Set(cacheKey, response, cacheEntryOptions);
 
             return response;
         }

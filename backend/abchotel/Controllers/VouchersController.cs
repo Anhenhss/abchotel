@@ -22,7 +22,8 @@ namespace abchotel.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> GetAll()
         {
-            return Ok(await _voucherService.GetAllVouchersAsync());
+            // Truyền true để chỉ lấy các Voucher đang Active và phù hợp logic IsForNewCustomer
+            return Ok(await _voucherService.GetAllVouchersAsync(onlyActive: true));
         }
 
         [HttpGet("{id}")]
@@ -73,6 +74,28 @@ namespace abchotel.Controllers
             if (!result.IsValid) return BadRequest(new { message = result.Message });
 
             return Ok(result);
+        }
+
+        [HttpGet("birthday")]
+        [Authorize] // Bắt buộc đăng nhập để xác định ngày sinh
+        public async Task<IActionResult> GetBirthdayVouchers()
+        {
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(userIdStr, out int userId)) return Unauthorized();
+
+            var vouchers = await _voucherService.GetBirthdayVouchersAsync(userId);
+            return Ok(vouchers);
+        }
+
+        [HttpGet("vip")]
+        [Authorize] // Bắt buộc đăng nhập để xác định hạng thành viên
+        public async Task<IActionResult> GetVipVouchers()
+        {
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(userIdStr, out int userId)) return Unauthorized();
+
+            var vouchers = await _voucherService.GetVipVouchersAsync(userId);
+            return Ok(vouchers);
         }
     }
 }

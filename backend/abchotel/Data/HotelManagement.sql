@@ -951,83 +951,14 @@ GO
 -- Bài viết
 SET IDENTITY_INSERT [dbo].[Article_Categories] ON;
 INSERT INTO [dbo].[Article_Categories] ([id], [name], [slug]) VALUES 
-(1, N'Tin tức & Ưu đãi', 'tin-tuc-uu-dai'),
+(1, N'Tin tức', 'tin-tuc-uu-dai'),
 (2, N'Cẩm nang du lịch Đà Nẵng', 'cam-nang-du-lich-da-nang'),
 (3, N'Ẩm thực & Trải nghiệm', 'am-thuc-trai-nghiem'),
-(4, N'Hướng dẫn & Thông tin', 'huong-dan-thong-tin');
+(4, N'Hướng dẫn & Thông tin', 'huong-dan-thong-tin'),
+(5, N'Ưu đãi', 'uu-dai');
 SET IDENTITY_INSERT [dbo].[Article_Categories] OFF;
 GO
-SET IDENTITY_INSERT [dbo].[Articles] ON;
-INSERT INTO [dbo].[Articles] 
-([id], [category_id], [author_id], [title], [slug], [short_description], [content], [thumbnail_url], [published_at]) 
-VALUES 
 
--- 1. Tin tức & ưu đãi
-(1, 1, 1, N'Khai trương hồ bơi vô cực view biển Mỹ Khê', N'ho-boi-vo-cuc-my-khe',
-N'Đà Nẵng tiếp tục khẳng định vị thế là điểm đến du lịch hàng đầu khi một khách sạn ven biển vừa chính thức khai trương hồ bơi vô cực với tầm nhìn hướng trực diện ra biển Mỹ Khê. Không chỉ mang đến trải nghiệm nghỉ dưỡng đẳng cấp, nơi đây còn hứa hẹn trở thành địa điểm check-in gây sốt trong mùa hè 2026.',
-NULL,
-N'https://i.pinimg.com/1200x/b8/bd/39/b8bd39ad9d45228821a3db7f72ca438f.jpg',
-'2026-03-01'),
-
-(2, 1, 2, N'Ưu đãi mùa hè 2026 - Combo nghỉ dưỡng 3N2Đ', N'uu-dai-mua-he-2026',
-N'Mùa hè 2026, các khách sạn tại Đà Nẵng triển khai chương trình ưu đãi đặc biệt với combo nghỉ dưỡng 3 ngày 2 đêm. Đây là cơ hội lý tưởng để du khách tận hưởng kỳ nghỉ trọn vẹn với chi phí tiết kiệm nhưng vẫn đầy đủ tiện nghi và dịch vụ cao cấp.',
-NULL,
-N'https://i.pinimg.com/1200x/b2/e8/0d/b2e80deb0d9d984071aa9174f748d450.jpg',
-'2026-03-12'),
-
--- 2. Cẩm nang du lịch
-(3, 2, 2, N'Top 5 địa điểm gần khách sạn bạn nên ghé', N'top-dia-diem-da-nang',
-N'Khi lưu trú tại Đà Nẵng, bạn có thể dễ dàng tham quan nhiều địa điểm nổi tiếng gần khách sạn mà không cần di chuyển xa. Dưới đây là top 5 địa điểm hấp dẫn, thuận tiện và đáng để trải nghiệm.',
-NULL,
-N'https://i.pinimg.com/736x/61/d8/79/61d879b5d5dff6d266096bf138646ca5.jpg',
-'2026-04-03'),
-
-(4, 2, 3, N'Lịch trình 2 ngày 1 đêm tại Đà Nẵng', N'lich-trinh-2n1d-da-nang',
-N'Nếu bạn chỉ có thời gian ngắn nhưng vẫn muốn khám phá Đà Nẵng, lịch trình 2 ngày 1 đêm là lựa chọn hợp lý. Với kế hoạch hợp lý, bạn vẫn có thể trải nghiệm đầy đủ các điểm nổi bật của thành phố biển xinh đẹp này.',
-NULL,
-N'https://i.pinimg.com/736x/0d/84/2d/0d842d3b35b488001cce7406dbb78fb4.jpg',
-'2026-03-04'),
-
-(5, 2, 1, N'Khám phá bán đảo Sơn Trà từ A-Z', N'ban-dao-son-tra',
-N'Bán đảo Sơn Trà là một trong những điểm du lịch nổi bật nhất tại Đà Nẵng, nổi tiếng với cảnh quan thiên nhiên hoang sơ, không khí trong lành và nhiều địa điểm tham quan hấp dẫn. Đây là nơi lý tưởng cho những ai yêu thích khám phá và trải nghiệm thiên nhiên.',
-NULL,
-N'https://i.pinimg.com/1200x/11/48/db/1148db66ab2f6265bc71a995fdd13fcd.jpg',
-'2026-04-15'),
-
--- 3. Ẩm thực & trải nghiệm
-(6, 3, 3, N'Ăn gì ở Đà Nẵng? 7 món nhất định phải thử', N'am-thuc-da-nang',
-N'Đà Nẵng không chỉ nổi tiếng với cảnh đẹp mà còn hấp dẫn du khách bởi nền ẩm thực phong phú, đa dạng và giá cả phải chăng. Dưới đây là 7 món ăn đặc sản mà bạn nhất định phải thử khi đến đây.',
-NULL,
-N'https://i.pinimg.com/1200x/d3/9e/67/d39e67de44c63802b5db238b6d965e67.jpg',
-'2026-03-26'),
-
-(7, 3, 1, N'Trải nghiệm tiệc BBQ ngoài trời bên biển', N'bbq-ben-bien',
-N'Tiệc BBQ ngoài trời bên biển là một trong những trải nghiệm thú vị và đáng nhớ khi du lịch Đà Nẵng. Với không gian thoáng đãng, gió biển mát lành và những món nướng hấp dẫn, đây chắc chắn sẽ là hoạt động không thể bỏ qua.',
-NULL,
-N'https://i.pinimg.com/1200x/68/b8/4f/68b84f66e29f5a7d53948793b0a39bba.jpg',
-'2026-03-07'),
-
--- 4. Hướng dẫn & thông tin
-(8, 4, 2, N'Hướng dẫn đi từ sân bay Đà Nẵng về khách sạn', N'di-chuyen-san-bay',
-N'Sân bay Đà Nẵng nằm gần trung tâm thành phố nên việc di chuyển về khách sạn rất thuận tiện. Du khách có nhiều lựa chọn phương tiện phù hợp với nhu cầu và ngân sách.',
-NULL,
-N'https://i.pinimg.com/1200x/41/05/66/4105669309199d418ec4a20f0d9c461d.jpg',
-'2026-03-08'),
-
-(9, 4, 3, N'Giờ check-in và quy định khách sạn', N'checkin-checkout',
-N'Khi lưu trú tại khách sạn ở Đà Nẵng, việc nắm rõ giờ check-in, check-out và các quy định sẽ giúp bạn tránh những rắc rối không đáng có và có trải nghiệm nghỉ dưỡng thoải mái hơn.',
-NULL,
-N'https://i.pinimg.com/1200x/09/d8/d2/09d8d24f191ffdaa558c7e1515068cb0.jpg',
-'2026-03-09'),
-
-(10, 4, 1, N'Kinh nghiệm du lịch Đà Nẵng mùa mưa', N'du-lich-mua-mua',
-N'Du lịch Đà Nẵng vào mùa mưa có thể khiến nhiều người e ngại, nhưng nếu chuẩn bị kỹ càng, bạn vẫn có thể tận hưởng chuyến đi trọn vẹn với nhiều trải nghiệm thú vị và tiết kiệm chi phí.',
-NULL,
-N'https://i.pinimg.com/736x/05/03/0a/05030ab180e0ee5f580989fa37da1f1a.jpg',
-'2026-03-10');
-
-SET IDENTITY_INSERT [dbo].[Articles] OFF;
-GO
 -- Điểm du lịch
 SET IDENTITY_INSERT [dbo].[Attractions] ON;
 INSERT INTO [dbo].[Attractions] 

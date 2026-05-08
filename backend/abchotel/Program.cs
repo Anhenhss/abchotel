@@ -64,6 +64,10 @@ builder.Services.AddScoped<IMoMoService, MoMoService>();
 builder.Services.AddHostedService<RoomHoldCleanupService>();
 builder.Services.AddHostedService<LoyaltyDowngradeWorker>();
 builder.Services.AddHostedService<BirthdayVoucherWorker>();
+builder.Services.AddHostedService<AuditLogCleanupService>();
+
+//dùng MemoryCache cho dashboard
+builder.Services.AddMemoryCache();
 
 builder.Services.AddSignalR();
 // ==========================================
