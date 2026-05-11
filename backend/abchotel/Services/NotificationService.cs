@@ -13,6 +13,7 @@ namespace abchotel.Services
     public interface INotificationService
     {
         Task SendToPermissionAsync(string permission, string title, string content, string type = "Info", string link = null);
+        Task BroadcastGlobalAsync(string title, string content, string type = "Info");
     }
 
     public class NotificationService : INotificationService
@@ -62,5 +63,18 @@ namespace abchotel.Services
                 createdAt = DateTime.Now
             });
         }
+
+        public async Task BroadcastGlobalAsync(string title, string content, string type = "Info")
+    {
+        // Gửi đến TẤT CẢ các client đang kết nối SignalR
+        // Chúng ta gửi kèm field "type" để Frontend nhận biết đây là lệnh cần reload dữ liệu
+        await _hubContext.Clients.All.SendAsync("ReceiveNotification", new 
+        { 
+            title = title, 
+            content = content, 
+            type = type, // Ví dụ truyền "RELOAD_ARTICLES"
+            createdAt = DateTime.Now 
+        });
     }
 }
+        }

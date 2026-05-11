@@ -952,7 +952,7 @@ GO
 SET IDENTITY_INSERT [dbo].[Article_Categories] ON;
 INSERT INTO [dbo].[Article_Categories] ([id], [name], [slug]) VALUES 
 (1, N'Tin tức', 'tin-tuc-uu-dai'),
-(2, N'Cẩm nang du lịch Đà Nẵng', 'cam-nang-du-lich-da-nang'),
+(2, N'Cẩm nang du lịch', 'cam-nang-du-lich'),
 (3, N'Ẩm thực & Trải nghiệm', 'am-thuc-trai-nghiem'),
 (4, N'Hướng dẫn & Thông tin', 'huong-dan-thong-tin'),
 (5, N'Ưu đãi', 'uu-dai');

@@ -7,10 +7,10 @@ using System.Threading.Tasks;
 
 namespace abchotel.Hubs
 {
-    [Authorize]
-    public class NotificationHub : Hub
+[AllowAnonymous]        
+public class NotificationHub : Hub
     {
-        public override async Task OnConnectedAsync()
+    public override async Task OnConnectedAsync()
         {
             try 
             {
