@@ -5,45 +5,50 @@ export const useSignalR = (onReceiveNotification) => {
   const [connection, setConnection] = useState(null);
   const callbackRef = useRef(onReceiveNotification);
 
-  // Cập nhật callback mới nhất mà không gây re-render
   useEffect(() => {
     callbackRef.current = onReceiveNotification;
   }, [onReceiveNotification]);
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
-    if (!token) return;
+    const options = {
+      skipNegotiation: true,
+      transport: signalR.HttpTransportType.WebSockets
+    };
+
+    // Nếu có token thì gửi để xác thực Admin, không có vẫn cho Khách kết nối
+    if (token) {
+      options.accessTokenFactory = () => token;
+    }
 
     const newConnection = new signalR.HubConnectionBuilder()
-      .withUrl('http://localhost:5035/notificationHub', {
-        accessTokenFactory: () => token,
-        skipNegotiation: true,
-        transport: signalR.HttpTransportType.WebSockets
-      })
+      .withUrl('http://localhost:5035/notificationHub', options)
       .withAutomaticReconnect()
       .build();
 
     setConnection(newConnection);
 
-    // Dọn dẹp kết nối cũ nếu Component bị hủy
     return () => {
-      newConnection.stop();
+      if (newConnection) {
+        newConnection.stop().catch(() => {});
+      }
     };
   }, []);
 
   useEffect(() => {
-    if (connection) {
-      // Chỉ bắt đầu kết nối khi nó đang ở trạng thái Ngắt kết nối
-      if (connection.state === signalR.HubConnectionState.Disconnected) {
-        connection.start()
-          .then(() => {
-            console.log('Đã kết nối SignalR thành công!');
-            connection.on('ReceiveNotification', (notification) => {
-              if (callbackRef.current) callbackRef.current(notification);
-            });
-          })
-          .catch(e => console.log('Lỗi kết nối SignalR: ', e));
-      }
+    if (connection && connection.state === signalR.HubConnectionState.Disconnected) {
+      connection.start()
+        .then(() => {
+          console.log('✅ SignalR: Connected!');
+          connection.on('ReceiveNotification', (data) => {
+            if (callbackRef.current) callbackRef.current(data);
+          });
+        })
+        .catch(err => {
+          if (err.name !== 'AbortError') console.error('❌ SignalR Error:', err);
+        });
     }
   }, [connection]);
+
+  return connection;
 };

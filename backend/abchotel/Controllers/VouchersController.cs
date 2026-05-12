@@ -23,6 +23,7 @@ namespace abchotel.Controllers
         public async Task<IActionResult> GetAll()
         {
             // Truyền true để chỉ lấy các Voucher đang Active và phù hợp logic IsForNewCustomer
+            var vouchers = await _voucherService.GetAllVouchersAsync(onlyActive: true);
             return Ok(await _voucherService.GetAllVouchersAsync(onlyActive: true));
         }
 

@@ -94,54 +94,46 @@ namespace abchotel.Services
 
         public async Task<(bool IsSuccess, string Message)> CreateReviewAsync(int userId, CreateReviewRequest request)
         {
-            if (request.Rating < 1 || request.Rating > 5)
-                return (false, "Số sao đánh giá phải từ 1 đến 5.");
+            // 1. Kiểm tra đơn đặt phòng có tồn tại và thuộc về khách này không
+            var booking = await _context.Bookings
+                .Include(b => b.BookingDetails)
+                .FirstOrDefaultAsync(b => b.Id == request.BookingId && b.UserId == userId);
 
-            var roomType = await _context.RoomTypes.FindAsync(request.RoomTypeId);
-            if (roomType == null) return (false, "Loại phòng không tồn tại.");
+            if (booking == null) return (false, "Không tìm thấy kỳ nghỉ của bạn.");
+            
+            // 2. Chặn đánh giá 2 lần (Chỉ cho phép 1 đơn = 1 đánh giá)
+            bool alreadyReviewed = await _context.Reviews.AnyAsync(r => r.BookingId == request.BookingId);
+            if (alreadyReviewed) return (false, "Bạn đã gửi đánh giá cho kỳ nghỉ này rồi. Xin cảm ơn!");
 
-            // LOGIC CHECK CỰC CHUẨN: 
-            // 1. Booking này phải thuộc về User đang đăng nhập.
-            // 2. Booking này phải có trạng thái "Completed".
-            // 3. Trong Booking này phải có đặt đúng cái RoomTypeId đó.
-            var hasStayed = await _context.BookingDetails
-                .Include(bd => bd.Booking)
-                .AnyAsync(bd => bd.BookingId == request.BookingId
-                             && bd.Booking.UserId == userId
-                             && bd.RoomTypeId == request.RoomTypeId
-                             && bd.Booking.Status == "Completed");
+            // 3. Tự động tìm Loại phòng từ chi tiết Booking (Sửa lỗi "Loại phòng không tồn tại")
+            var roomTypeId = booking.BookingDetails.FirstOrDefault()?.RoomTypeId;
+            if (roomTypeId == null) return (false, "Không xác định được loại phòng đã lưu trú.");
 
-            if (!hasStayed)
-            {
-                return (false, "Hệ thống từ chối: Bạn chỉ có thể đánh giá loại phòng này sau khi đã hoàn tất kỳ nghỉ tại khách sạn.");
-            }
-
-            var user = await _context.Users.FindAsync(userId);
-            string guestName = user?.FullName ?? "Khách hàng";
-
+            // 4. Lưu đánh giá vào Database
             var review = new Review
             {
                 UserId = userId,
-                BookingId = request.BookingId,
-                RoomTypeId = request.RoomTypeId,
+                RoomTypeId = roomTypeId.Value,
+                BookingId = booking.Id,
                 Rating = request.Rating,
                 Comment = request.Comment,
-                IsVisible = false, // Mặc định là ẨN, chờ Admin duyệt
+                IsVisible = false, // Mặc định ẩn, chờ Admin duyệt mới được hiện lên web
                 IsActive = true,
                 CreatedAt = DateTime.Now
             };
-
             _context.Reviews.Add(review);
             await _context.SaveChangesAsync();
 
-            // 🔔 BẮN THÔNG BÁO CHO NHÓM CONTENT VÀO DUYỆT BÀI
+            // 5. 🔔 BẮN THÔNG BÁO REAL-TIME CHO ADMIN (LỄ TÂN)
+            var user = await _context.Users.FindAsync(userId);
+            string userName = user?.FullName ?? "Khách hàng";
             await _notificationService.SendToPermissionAsync(
-                "MANAGE_CONTENT",
-                "Có đánh giá mới chờ duyệt",
-                $"[{guestName}] vừa đánh giá {request.Rating} sao cho loại phòng {roomType.Name}. Vui lòng kiểm duyệt."
+                "MANAGE_CONTENT", 
+                "Đánh giá mới", 
+                $"{userName} vừa gửi đánh giá {request.Rating} sao cho đơn {booking.BookingCode}."
             );
 
-            return (true, "Gửi đánh giá thành công. Đánh giá của bạn đang chờ kiểm duyệt.");
+            return (true, "Gửi đánh giá thành công");
         }
 
         public async Task<bool> ApproveReviewAsync(int id)

@@ -46,6 +46,9 @@ export default function InvoicesPage() {
   // 🔥 THUẬT TOÁN LỌC VÀ SẮP XẾP
   const processedInvoices = invoices
     .filter(inv => {
+      // 0. LOẠI BỎ CÁC HÓA ĐƠN CỦA ĐƠN ĐẶT PHÒNG ĐÃ BỊ HỦY (Sửa lỗi hiển thị đơn "aaaaa")
+      if (inv.bookingStatus === 'Cancelled') return false;
+
       // 1. Lọc theo Tab (Unpaid / Paid / All)
       if (activeTab !== 'ALL' && inv.status !== activeTab) return false;
       
@@ -61,7 +64,6 @@ export default function InvoicesPage() {
       // Ưu tiên hóa đơn mới nhất lên đầu
       return dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf();
     });
-
   // Tính toán thống kê nhanh cho Thu ngân
   const totalUnpaid = invoices.filter(i => i.status === 'Unpaid').reduce((sum, i) => sum + (i.finalTotal - i.amountPaid), 0);
   const totalPaidToday = invoices.filter(i => i.status === 'Paid' && dayjs(i.updatedAt).isSame(dayjs(), 'day')).reduce((sum, i) => sum + i.amountPaid, 0);

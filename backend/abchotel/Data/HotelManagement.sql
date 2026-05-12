@@ -433,13 +433,11 @@ INSERT INTO [dbo].[Roles] ([id], [name], [description]) VALUES
 (3, N'Receptionist', N'Lễ tân'),
 (4, N'Accountant', N'Kế toán'), 
 (5, N'Housekeeping', N'Nhân viên Buồng phòng'), 
-(6, N'Security', N'Bảo vệ'),
-(7, N'Chef', N'Đầu bếp'), 
+(6, N'Inventory Manager', N'Thủ kho'),
+(7, N'Marketing', N'Nhân viên Truyền thông'), 
 (8, N'Waiter', N'Nhân viên phục vụ'), 
 (9, N'IT Support', N'Kỹ thuật viên IT'),
-(10, N'Guest', N'Khách hàng'),
-(11, N'Inventory Manager', N'Thủ kho'),
-(12, N'Marketing', N'Nhân viên Truyền thông');
+(10, N'Guest', N'Khách hàng');
 SET IDENTITY_INSERT [dbo].[Roles] OFF;
 GO
 SET IDENTITY_INSERT [dbo].[Permissions] ON;
@@ -465,30 +463,24 @@ SET IDENTITY_INSERT [dbo].[Permissions] OFF;
 GO
 INSERT INTO [dbo].[Role_Permissions] ([role_id], [permission_id]) VALUES 
 -- ROLE 1: ADMIN (Full quyền)
-(1, 1),(1, 2),(1, 3),(1, 4),(1, 5),(1, 6),(1, 7),(1, 8),(1, 9),
-(1,10),(1,11),(1,12),(1,13),(1,14),(1,15),(1,16),(1,17),
+(1, 1),(1, 2),(1, 3),(1, 4),(1, 5),(1, 6),(1, 7),(1, 8),(1, 9), (1,10),(1,11),(1,12),(1,13),(1,14),(1,15),(1,16),(1,17),
 -- ROLE 2: MANAGER
-(2, 1),(2, 4),(2, 5),(2, 6),(2, 7),(2, 8),(2, 9),
-(2,10),(2,11),(2,12),(2,13),(2,14),(2,15),(2,17),
+(2, 1),(2, 4),(2, 5),(2, 6),(2, 7),(2, 8),(2, 9), (2,10),(2,11),(2,12),(2,13),(2,14),(2,15),(2,17),
 -- ROLE 3: RECEPTIONIST
 (3, 1),(3, 7),(3,10),(3,11),(3,15),
 -- ROLE 4: ACCOUNTANT
 (4, 1),(4,11),(4,13),(4,15),
 -- ROLE 5: HOUSEKEEPING
 (5, 8),(5,15),
--- ROLE 6: SECURITY
-(6, 15),
--- ROLE 7: CHEF
-(7, 12),(7,15),
+-- ROLE 6: INVENTORY MANAGER
+(6, 1),(6, 9),(6,13),(6,15),
+-- ROLE 7: MARKETING
+(7, 1),(7,13),(7,14),(7,15),(7,17),
 -- ROLE 8: WAITER
 (8, 12),(8,15),
 -- ROLE 9: IT SUPPORT
-(9, 1),(9, 4),(9, 5),(9,15),(9,16),
--- ROLE 10: GUEST (không quyền)
--- ROLE 11: INVENTORY MANAGER
-(11, 1),(11, 9),(11,13),(11,15),
--- ROLE 12: MARKETING
-(12, 1),(12,13),(12,14),(12,15),(12,17);
+(9, 1),(9, 4),(9, 5),(9,15),(9,16);
+-- ROLE 10: GUEST (Không có quyền backend đặc biệt)
 GO
 SET IDENTITY_INSERT [dbo].[Memberships] ON;
 INSERT INTO [dbo].[Memberships] ([id], [tier_name], [min_points], [discount_percent]) VALUES 
@@ -506,12 +498,10 @@ INSERT INTO [dbo].[Users] ([id], [role_id], [membership_id], [full_name], [email
 (3, 3, NULL, N'Lê Thu Thảo', N'reception1@hotel.com', N'0901000003', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
 (4, 3, NULL, N'Phạm Văn Minh', N'reception2@hotel.com', N'0901000004', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
 (5, 4, NULL, N'Hoàng Thanh Tùng', N'accountant@hotel.com', N'0901000005', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(6, 12, NULL, N'Lý Mỹ Linh', N'marketing@hotel.com', N'0901000016', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(7, 11, NULL, N'Hồ Văn Khoa', N'inventory@hotel.com', N'0901000011', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(6, 7, NULL, N'Lý Mỹ Linh', N'marketing@hotel.com', N'0901000016', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
+(7, 6, NULL, N'Hồ Văn Khoa', N'inventory@hotel.com', N'0901000011', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
 (8, 5, NULL, N'Vũ Thị Lan', N'housekeeping@hotel.com', N'0901000012', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
 (9, 9, NULL, N'Ngô Minh Tuấn', N'it@hotel.com', N'0901000013', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(10, 6, NULL, N'Đặng Văn Thép', N'security@hotel.com', N'0901000014', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(11, 7, NULL, N'Bùi Tuấn Hải', N'chef@hotel.com', N'0901000015', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
 (12, 8, NULL, N'Đỗ Tuấn Anh', N'waiter@hotel.com', N'0901000017', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
 (13, 10, 1, N'Viên Xuân Quý', N'vienxuanquy82024@gmail.com', N'0901000006', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
 (14, 10, 2, N'Trương Thị Ánh', N'truongthianh23ct112@gmail.com', N'0901000007', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
@@ -524,7 +514,6 @@ INSERT INTO [dbo].[Users] ([id], [role_id], [membership_id], [full_name], [email
 (21, 10, NULL, N'Nguyễn Minh Anh', N'anh@gmail.com', N'0902000004', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
 (22, 10, NULL, N'Đỗ Quỳnh Chi', N'chi@gmail.com', N'0902000005', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1);
 SET IDENTITY_INSERT [dbo].[Users] OFF;
-GO
 GO
 -- Vật tư
 SET IDENTITY_INSERT [dbo].[Equipments] ON;

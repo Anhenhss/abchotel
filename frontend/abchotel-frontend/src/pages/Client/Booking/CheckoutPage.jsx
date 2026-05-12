@@ -1,330 +1,333 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Row, Col, Card, Typography, Button, Space, Steps, Divider, Form, Input, Radio, notification, Tag, Alert, Modal, Statistic } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Form, Input, Button, Typography, notification, Row, Col, Card, Steps, Divider, Radio, Space, Tag } from 'antd';
 import { 
-  Bed, SuitcaseRolling, ShieldCheck, ArrowRight, UserCircle, CreditCard, Ticket, CheckCircle, Info, Clock, Check
+  Bed, SuitcaseRolling, ShieldCheck, CreditCard, Ticket, CheckCircle, ArrowRight, User, Phone, Envelope, IdentificationCard
 } from '@phosphor-icons/react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { voucherApi } from '../../../api/voucherApi'; 
-import { useSignalR } from '../../../hooks/useSignalR';
+import { bookingApi } from '../../../api/bookingApi';
+import { invoiceApi } from '../../../api/invoiceApi';
+import { voucherApi } from '../../../api/voucherApi';
+import { useAuthStore } from '../../../store/authStore';
 
 const { Title, Text } = Typography;
-const { TextArea } = Input;
-const { Countdown } = Statistic;
 
 const THEME = {
-  NAVY_DARK: '#0A192F',      
-  DARK_RED: '#9E2A2B',       
-  GRAY_BG: '#F4F7F6',        
-  BORDER: '#E2E8F0',
-  TEXT_MUTED: '#64748B'
+  NAVY_DARK: '#0A192F', NAVY_LIGHT: '#172A45', DARK_RED: '#9E2A2B',
+  GOLD: '#D4AF37', GRAY_BG: '#F4F7F6', BORDER: '#E2E8F0', TEXT_MUTED: '#64748B'
 };
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [api, contextHolder] = notification.useNotification();
   const [form] = Form.useForm();
-
+  const [api, contextHolder] = notification.useNotification();
+  
+  const user = useAuthStore(state => state.user);
   const bookingState = location.state;
 
+  const [loading, setLoading] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('VNPAY');
+  
+  // Voucher States
+  const [voucherCode, setVoucherCode] = useState('');
+  const [appliedVoucher, setAppliedVoucher] = useState(null);
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [isApplyingVoucher, setIsApplyingVoucher] = useState(false);
+
   useEffect(() => {
-    if (!bookingState || !bookingState.selectedRooms) {
+    if (!bookingState || !bookingState.selectedRooms || bookingState.selectedRooms.length === 0) {
+      // Đã fix lỗi warning message của Antd
+      notification.warning({ message: 'Thiếu dữ liệu', description: 'Vui lòng chọn phòng trước.' });
       navigate('/booking/select-room');
     }
-  }, [bookingState, navigate]);
-
-  const duration = useMemo(() => {
-    if (!bookingState) return 1;
-    const start = dayjs(bookingState.checkIn);
-    const end = dayjs(bookingState.checkOut);
-    return bookingState.priceType === 'HOURLY' ? Math.max(1, end.diff(start, 'hour')) : Math.max(1, end.diff(start, 'day'));
-  }, [bookingState]);
-
-  const [voucherCode, setVoucherCode] = useState('');
-  const [appliedVoucher, setAppliedVoucher] = useState(null); 
-  const [isApplying, setIsApplying] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('VNPAY');
-
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [bookingResponse, setBookingResponse] = useState(null); 
-
-  const totalRoomPrice = bookingState?.totalRoomPrice || 0;
-  const totalServicePrice = bookingState?.totalServicePrice || 0;
-  const subTotal = totalRoomPrice + totalServicePrice; 
-  const discountAmount = appliedVoucher ? appliedVoucher.discountAmount : 0;
-  const finalTotal = subTotal - discountAmount;
-
-  useSignalR((notif) => {
-    if (notif.title?.toLowerCase().includes("khuyến mãi") || notif.title?.toLowerCase().includes("phòng")) {
-      api.info({
-        message: <Text strong style={{ color: THEME.DARK_RED }}>Thông báo từ hệ thống</Text>,
-        description: notif.content,
-        placement: 'bottomLeft',
+    // Tự động điền thông tin nếu đã đăng nhập
+    if (user) {
+      form.setFieldsValue({
+        guestName: user.fullName, guestEmail: user.email, guestPhone: user.phone
       });
     }
-  });
+  }, [bookingState, navigate, user, form]);
 
+  if (!bookingState) return null;
+
+  const { grandTotal, checkIn, checkOut, priceType, selectedRooms, selectedServices } = bookingState;
+
+  // Tính lại tổng tiền sau khi áp mã
+  const finalTotalToPay = grandTotal - discountAmount;
+
+  // ================= XỬ LÝ VOUCHER =================
   const handleApplyVoucher = async () => {
-    if (!voucherCode.trim()) {
-      api.warning({ message: 'Thông báo', description: 'Vui lòng nhập mã giảm giá.' });
-      return;
-    }
+    if (!voucherCode.trim()) return;
     try {
-      setIsApplying(true);
+      setIsApplyingVoucher(true);
       const res = await voucherApi.apply({
         code: voucherCode,
-        totalBookingValue: subTotal,
-        roomTypeId: bookingState.selectedRooms[0]?.roomTypeId || bookingState.selectedRooms[0]?.id
+        totalBookingValue: grandTotal,
+        roomTypeId: selectedRooms[0]?.roomTypeId || selectedRooms[0]?.id 
       });
       
-      if (res && res.isValid) {
-        setAppliedVoucher(res);
-        api.success({ message: 'Thành công', description: res.message || 'Mã giảm giá đã được áp dụng.' });
+      const data = res.data || res;
+      if (data.isValid || data.isSuccess) {
+        setAppliedVoucher(voucherCode.toUpperCase());
+        setDiscountAmount(data.discountAmount || 0);
+        api.success({ message: 'Thành công', description: `Đã giảm ${new Intl.NumberFormat('vi-VN').format(data.discountAmount)}đ` });
       } else {
-        setAppliedVoucher(null);
-        api.error({ message: 'Thất bại', description: res?.message || 'Mã không hợp lệ.' });
+        api.error({ message: 'Mã không hợp lệ', description: data.message });
       }
     } catch (error) {
-      setAppliedVoucher(null);
-      api.error({ message: 'Lỗi', description: error.response?.data?.message || 'Không thể kiểm tra mã.' });
+      api.error({ message: 'Lỗi', description: error.response?.data?.message || 'Không thể kiểm tra mã lúc này.' });
     } finally {
-      setIsApplying(false);
+      setIsApplyingVoucher(false);
     }
   };
 
   const handleRemoveVoucher = () => {
-    setAppliedVoucher(null);
-    setVoucherCode('');
+    setVoucherCode(''); setAppliedVoucher(null); setDiscountAmount(0);
   };
 
-  const onFinish = async (values) => {
+  // ================= XỬ LÝ ĐẶT PHÒNG & THANH TOÁN =================
+  const onFinishCheckout = async (values) => {
     try {
-      setIsSubmitting(true);
+      setLoading(true);
       
+      // 1. TẠO ĐƠN ĐẶT PHÒNG
       const bookingPayload = {
-        guestName: values.fullName,
-        guestPhone: values.phone,
-        guestEmail: values.email,
-        identityNumber: values.identityNumber, 
-        specialRequests: values.notes,
-        voucherCode: appliedVoucher ? voucherCode : null,
-        rooms: bookingState.selectedRooms.map(r => ({
+        guestName: values.guestName,
+        guestPhone: values.guestPhone,
+        guestEmail: values.guestEmail,
+        identityNumber: values.identityNumber,
+        specialRequests: values.specialRequests,
+        voucherCode: appliedVoucher,
+        priceType: priceType,
+        rooms: selectedRooms.map(r => ({
+          roomTypeId: r.roomTypeId || r.id,
           roomId: null, 
-          roomTypeId: r.roomTypeId || r.id, 
-          checkInDate: dayjs(bookingState.checkIn).format('YYYY-MM-DDTHH:mm:ss'),
-          checkOutDate: dayjs(bookingState.checkOut).format('YYYY-MM-DDTHH:mm:ss'),
-          priceType: bookingState.priceType,
-          quantity: 1
+          checkInDate: checkIn,
+          checkOutDate: checkOut,
+          quantity: 1,
+          priceType: priceType
         }))
       };
 
-      const mockBackendResponse = {
-        bookingId: 999,
-        bookingCode: "BK-" + dayjs().format('YYYYMMDDHHmmss'), 
-        totalAmount: finalTotal,
-        expireAt: dayjs().add(15, 'minute').valueOf(), 
-        message: "Giữ chỗ thành công. Vui lòng thanh toán trong 15 phút."
-      };
+      const bookingRes = await bookingApi.createBooking(bookingPayload);
+      const bData = bookingRes.data || bookingRes;
+      
+      if (!bData.bookingCode) throw new Error("Không lấy được mã đơn hàng từ hệ thống.");
 
-      setTimeout(() => {
-        setIsSubmitting(false);
-        setBookingResponse(mockBackendResponse);
-        setIsModalVisible(true); 
-      }, 1500);
+      // 2. LẤY INVOICE ID 
+      const invoiceRes = await invoiceApi.getByBookingCode(bData.bookingCode);
+      const invoiceId = invoiceRes?.data?.id || invoiceRes?.id;
+
+      if (!invoiceId) throw new Error("Không khởi tạo được hóa đơn.");
+
+      // 3. THÊM DỊCH VỤ VÀO HÓA ĐƠN
+      if (selectedServices && Object.keys(selectedServices).length > 0) {
+        const servicesPayload = Object.entries(selectedServices).map(([id, qty]) => ({
+          serviceId: parseInt(id), quantity: qty
+        }));
+        await invoiceApi.addService(invoiceId, servicesPayload);
+      }
+
+      // 4. GỌI API CỔNG THANH TOÁN & REDIRECT TRỰC TIẾP
+      let paymentUrl = '';
+      if (paymentMethod === 'VNPAY') {
+        const vnpRes = await invoiceApi.createVnPayUrl(invoiceId);
+        paymentUrl = typeof vnpRes === 'string' ? vnpRes : (vnpRes?.data?.url || vnpRes?.url || vnpRes);
+      } else if (paymentMethod === 'MOMO') {
+        const momoRes = await invoiceApi.createMoMoUrl(invoiceId);
+        paymentUrl = typeof momoRes === 'string' ? momoRes : (momoRes?.data?.url || momoRes?.url || momoRes);
+      }
+
+      // Chuyển hướng an toàn và chuẩn quốc tế
+      if (paymentUrl) {
+        window.location.href = paymentUrl;
+      } else {
+        throw new Error("Không lấy được đường dẫn thanh toán từ Cổng thanh toán.");
+      }
 
     } catch (error) {
-      api.error({ message: 'Lỗi', description: 'Có lỗi xảy ra khi tạo yêu cầu đặt phòng.' });
-      setIsSubmitting(false);
+      console.error(error);
+      // Nếu API trả về 403, báo lỗi chi tiết ra màn hình
+      if (error.response?.status === 403) {
+        api.error({ 
+            message: 'Bị từ chối truy cập (403)', 
+            description: 'Lỗi: Backend chặn quyền tạo Hóa đơn của khách hàng. Hãy kiểm tra lại InvoiceController.cs' 
+        });
+      } else {
+        api.error({ message: 'Lỗi thanh toán', description: error.message || 'Có lỗi xảy ra khi tạo đơn hàng.' });
+      }
+      setLoading(false);
     }
   };
 
-  const handleProceedPayment = async () => {
-     api.info({ message: 'Chuyển hướng', description: `Đang chuyển qua cổng ${paymentMethod}...` });
+  const renderFullDateLabel = (dateStr) => {
+    return priceType === 'HOURLY' ? dayjs(dateStr).format('HH:mm - DD/MM/YYYY') : dayjs(dateStr).format('DD/MM/YYYY');
   };
-
-  const handlePayLater = () => {
-     setIsModalVisible(false);
-     api.info({ 
-       message: 'Đã lưu đơn hàng', 
-       description: 'Thông tin đặt phòng của bạn đã được ghi nhận. Vui lòng bấm "Tiếp tục thanh toán" trước khi hết thời gian giữ chỗ nhé!' 
-     });
-  };
-
-  if (!bookingState) return null;
 
   return (
-    // 🔥 THÊM TRANSLATE="NO" ĐỂ CHỐNG LỖI "THANH THÂN" CỦA GOOGLE
     <div className="checkout-wrapper" translate="no">
       {contextHolder}
       
       <div className="booking-topbar">
         <div className="container-inner">
-            {/* 🔥 TẠO LOGIC ICON BỊ BÔI ĐEN KHI ĐANG Ở BƯỚC THANH TOÁN (CURRENT = 2) */}
             <Steps current={2} className="luxury-steps" items={[
-                { title: 'Chọn Hạng Phòng', icon: <Bed size={22} color={THEME.NAVY_DARK} /> },
-                { title: 'Dịch Vụ', icon: <SuitcaseRolling size={22} color={THEME.NAVY_DARK} /> },
-                { 
-                  title: 'Thanh Toán', 
-                  icon: (
-                    <div className="active-step-circle">
-                      <ShieldCheck size={18} color="#fff" weight="fill"/>
-                    </div>
-                  ) 
-                }
+                { title: 'Chọn Hạng Phòng', icon: <Bed size={22}/> },
+                { title: 'Dịch Vụ', icon: <SuitcaseRolling size={22}/> },
+                { title: 'Thanh Toán', icon: <ShieldCheck size={22}/> }
             ]} />
         </div>
       </div>
 
       <div className="container-inner" style={{ marginTop: 40 }}>
-        <Form form={form} layout="vertical" onFinish={onFinish} disabled={!!bookingResponse}>
+        <Form form={form} layout="vertical" onFinish={onFinishCheckout} requiredMark={false}>
           <Row gutter={[32, 32]}>
             
             <Col xs={24} xl={16}>
-              <Title level={2} className="main-title">Thông tin thanh toán</Title>
               
-              <Card className="form-card" bordered={false}>
-                <Space style={{ marginBottom: 16 }}>
-                  <UserCircle size={28} color={THEME.DARK_RED} weight="fill"/>
-                  <Title level={4} style={{ margin: 0, color: THEME.NAVY_DARK }}>Thông tin liên hệ</Title>
-                </Space>
-                
-                <Row gutter={16}>
-                  <Col xs={24} md={12}>
-                    <Form.Item name="fullName" label="Họ và tên khách hàng" rules={[{ required: true, message: 'Vui lòng nhập họ tên' }]}>
-                      <Input size="large" placeholder="Nguyễn Văn A" />
-                    </Form.Item>
-                  </Col>
-                  <Col xs={24} md={12}>
-                    <Form.Item name="phone" label="Số điện thoại" rules={[{ required: true, message: 'Vui lòng nhập số điện thoại' }]}>
-                      <Input size="large" placeholder="090xxxxxxx" />
-                    </Form.Item>
-                  </Col>
-                  <Col xs={24} md={12}>
-                    <Form.Item name="email" label="Email nhận mã đặt phòng" rules={[{ required: true, type: 'email', message: 'Vui lòng nhập email hợp lệ' }]}>
-                      <Input size="large" placeholder="example@gmail.com" />
-                    </Form.Item>
-                  </Col>
-                  <Col xs={24} md={12}>
-                    <Form.Item name="identityNumber" label="Số CMND/CCCD/Passport" rules={[{ required: true, message: 'Vui lòng nhập số CCCD' }]}>
-                      <Input size="large" placeholder="Nhập số CCCD/Passport" />
-                    </Form.Item>
-                  </Col>
-                  <Col xs={24}>
-                    <Form.Item name="notes" label="Ghi chú thêm">
-                      <TextArea rows={3} placeholder="Ví dụ: Tôi muốn nhận phòng sớm..." />
-                    </Form.Item>
-                  </Col>
-                </Row>
-              </Card>
+              <div className="section-block">
+                <Title level={4} className="section-title"><User size={24}/> Thông tin khách hàng</Title>
+                <Card variant="borderless" className="form-card">
+                  <Row gutter={16}>
+                    <Col xs={24} md={12}>
+                      <Form.Item name="guestName" label="Họ và tên" rules={[{ required: true, message: 'Vui lòng nhập họ tên' }]}>
+                        <Input size="large" prefix={<User color="#94a3b8"/>} placeholder="Ví dụ: Nguyễn Văn A" />
+                      </Form.Item>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Form.Item name="guestPhone" label="Số điện thoại" rules={[{ required: true, message: 'Vui lòng nhập SĐT' }, { pattern: /^0\d{9}$/, message: 'SĐT không hợp lệ' }]}>
+                        <Input size="large" prefix={<Phone color="#94a3b8"/>} placeholder="09xxxx..." />
+                      </Form.Item>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Form.Item name="guestEmail" label="Email" rules={[{ required: true, message: 'Vui lòng nhập Email' }, { type: 'email', message: 'Email không hợp lệ' }]}>
+                        <Input size="large" prefix={<Envelope color="#94a3b8"/>} placeholder="email@example.com" />
+                      </Form.Item>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Form.Item name="identityNumber" label="Số CCCD / Passport (Không bắt buộc)">
+                        <Input size="large" prefix={<IdentificationCard color="#94a3b8"/>} placeholder="Nhập số CCCD" />
+                      </Form.Item>
+                    </Col>
+                    <Col xs={24}>
+                      <Form.Item name="specialRequests" label="Yêu cầu đặc biệt (Không bắt buộc)">
+                        <Input.TextArea rows={3} placeholder="Ví dụ: Cần phòng tầng cao, giường phụ..." />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                </Card>
+              </div>
 
-              <Card className="form-card" bordered={false} style={{ marginTop: 24 }}>
-                <Space style={{ marginBottom: 16 }}>
-                  <CreditCard size={28} color={THEME.DARK_RED} weight="fill"/>
-                  <Title level={4} style={{ margin: 0, color: THEME.NAVY_DARK }}>Phương thức thanh toán điện tử</Title>
-                </Space>
-
-                <Alert 
-                  message="Lưu ý quan trọng" 
-                  description="Sau khi bấm xác nhận, hệ thống sẽ giữ chỗ cho bạn trong 15 phút. Vui lòng hoàn tất thanh toán VNPay/MoMo trong thời gian này để không bị hủy mã Booking." 
-                  type="info" showIcon icon={<Info size={20}/>} style={{ marginBottom: 20 }}
-                />
-
-                <Radio.Group onChange={(e) => setPaymentMethod(e.target.value)} value={paymentMethod} style={{ width: '100%' }}>
-                  <Space direction="vertical" style={{ width: '100%' }}>
+              <div className="section-block" style={{ marginTop: 32 }}>
+                <Title level={4} className="section-title"><CreditCard size={24}/> Phương thức thanh toán</Title>
+                <Card variant="borderless" className="form-card">
+                  <Radio.Group onChange={(e) => setPaymentMethod(e.target.value)} value={paymentMethod} style={{ width: '100%' }}>
+                    <div className={`payment-method-row ${paymentMethod === 'VNPAY' ? 'active' : ''}`} onClick={() => setPaymentMethod('VNPAY')}>
+                      <Radio value="VNPAY" />
+                      <img src="https://cdn.haitrieu.com/wp-content/uploads/2022/10/Icon-VNPAY-QR.png" alt="VNPay" className="payment-logo" />
+                      <div className="payment-text">
+                        <Text strong>Thanh toán qua VNPAY</Text>
+                        <Text type="secondary" style={{display:'block', fontSize: 12}}>Hỗ trợ thẻ ATM, Visa, MasterCard, QR Code</Text>
+                      </div>
+                    </div>
                     
-                    <div className={`payment-method-item ${paymentMethod === 'VNPAY' ? 'active' : ''}`} onClick={!bookingResponse ? () => setPaymentMethod('VNPAY') : undefined}>
-                      <Radio value="VNPAY">
-                        <Space align="center">
-                          <img src="https://vnpay.vn/s1/statics.vnpay.vn/2023/9/06ncktiwd6dc1694418189687.png" alt="VNPay" height={24} />
-                          <Text strong>Thanh toán qua cổng VNPAY</Text>
-                        </Space>
-                      </Radio>
+                    <div className={`payment-method-row ${paymentMethod === 'MOMO' ? 'active' : ''}`} onClick={() => setPaymentMethod('MOMO')}>
+                      <Radio value="MOMO" />
+                      <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRAvqtnrX-jan83zUzhldZsePVib6MTkkhXOQ&s" alt="MoMo" className="payment-logo" />
+                      <div className="payment-text">
+                        <Text strong>Thanh toán qua Ví MoMo</Text>
+                        <Text type="secondary" style={{display:'block', fontSize: 12}}>Thanh toán nhanh chóng bằng ứng dụng MoMo</Text>
+                      </div>
                     </div>
+                  </Radio.Group>
+                </Card>
+              </div>
 
-                    <div className={`payment-method-item ${paymentMethod === 'MOMO' ? 'active' : ''}`} onClick={!bookingResponse ? () => setPaymentMethod('MOMO') : undefined}>
-                      <Radio value="MOMO">
-                        <Space align="center">
-                          <img src="https://upload.wikimedia.org/wikipedia/vi/f/fe/MoMo_Logo.png" alt="MoMo" height={24} />
-                          <Text strong>Thanh toán qua Ví điện tử MoMo</Text>
-                        </Space>
-                      </Radio>
-                    </div>
-
-                  </Space>
-                </Radio.Group>
-              </Card>
             </Col>
 
             <Col xs={24} xl={8}>
               <div className="sticky-bill">
                   <Card variant="borderless" className="white-bill-card">
-                      <Title level={4} className="bill-title">Tóm tắt hóa đơn</Title>
+                      <Title level={4} className="bill-title">Chuyến đi của bạn</Title>
                       
                       <div className="bill-date-box">
                           <div className="date-item">
                               <Text className="date-lbl">Nhận phòng</Text>
-                              <Text className="date-val">{dayjs(bookingState.checkIn).format('DD/MM/YYYY')}</Text>
+                              <Text className="date-val">{renderFullDateLabel(checkIn)}</Text>
                           </div>
-                          <div className="date-divider"><ArrowRight/></div>
+                          <div className="date-divider"><ArrowRight color={THEME.TEXT_MUTED}/></div>
                           <div className="date-item" style={{textAlign: 'right'}}>
                               <Text className="date-lbl">Trả phòng</Text>
-                              <Text className="date-val">{dayjs(bookingState.checkOut).format('DD/MM/YYYY')}</Text>
+                              <Text className="date-val">{renderFullDateLabel(checkOut)}</Text>
                           </div>
                       </div>
 
                       <Divider style={{ margin: '16px 0' }} className="mobile-hide"/>
 
-                      <div className="summary-row mobile-hide">
-                          <Text>Tiền phòng</Text>
-                          <Text strong>{new Intl.NumberFormat('vi-VN').format(totalRoomPrice)}₫</Text>
-                      </div>
-                      <div className="summary-row mobile-hide">
-                          <Text>Dịch vụ thêm</Text>
-                          <Text strong>{new Intl.NumberFormat('vi-VN').format(totalServicePrice)}₫</Text>
-                      </div>
-
                       <div className="voucher-section mobile-hide">
-                        <Text strong style={{ fontSize: 13, display: 'block', marginBottom: 8 }}><Ticket size={16}/> Voucher giảm giá</Text>
-                        <Space.Compact style={{ width: '100%' }}>
-                          <Input 
-                            placeholder="Nhập mã ưu đãi..." 
-                            value={voucherCode} 
-                            onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
-                            disabled={!!appliedVoucher || !!bookingResponse}
-                          />
-                          {appliedVoucher ? (
-                            <Button danger onClick={handleRemoveVoucher} disabled={!!bookingResponse}>Hủy</Button>
-                          ) : (
-                            <Button style={{ background: THEME.NAVY_DARK, color: '#fff' }} onClick={handleApplyVoucher} loading={isApplying} disabled={!!bookingResponse}>Áp dụng</Button>
-                          )}
-                        </Space.Compact>
-                        {appliedVoucher && (
-                           <div style={{ marginTop: 8 }}><Tag color="success">Đã giảm {new Intl.NumberFormat('vi-VN').format(discountAmount)}₫</Tag></div>
+                        <Text strong style={{ fontSize: 14, color: THEME.NAVY_DARK, marginBottom: 8, display: 'block' }}>Mã giảm giá</Text>
+                        {!appliedVoucher ? (
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <Input 
+                              placeholder="Nhập mã voucher" 
+                              value={voucherCode} 
+                              onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
+                              prefix={<Ticket color={THEME.TEXT_MUTED} />}
+                            />
+                            <Button type="default" onClick={handleApplyVoucher} loading={isApplyingVoucher} disabled={!voucherCode.trim()}>Áp dụng</Button>
+                          </div>
+                        ) : (
+                          <div className="applied-voucher-box">
+                            <Space>
+                              <CheckCircle color="#10b981" weight="fill" size={20}/>
+                              <Text strong style={{color: '#10b981'}}>{appliedVoucher}</Text>
+                            </Space>
+                            <Button type="text" danger size="small" onClick={handleRemoveVoucher}>Bỏ mã</Button>
+                          </div>
                         )}
                       </div>
 
                       <Divider style={{ margin: '16px 0' }} className="mobile-hide"/>
 
-                      <div className="total-area">
-                          <Text className="total-label">Tổng thanh toán</Text>
-                          <div className="total-amount">
-                            {new Intl.NumberFormat('vi-VN').format(finalTotal)}<span style={{ fontSize: 18, verticalAlign: 'top' }}>₫</span>
+                      <div className="cart-area mobile-hide">
+                          <div className="cart-item-row">
+                              <Text className="cart-item-name" style={{ color: THEME.TEXT_MUTED }}>Tổng tiền phòng & dịch vụ</Text>
+                              <Text className="cart-item-price">{new Intl.NumberFormat('vi-VN').format(grandTotal)}₫</Text>
                           </div>
+                          
+                          <AnimatePresence>
+                            {discountAmount > 0 && (
+                              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="cart-item-row">
+                                <Text className="cart-item-name" style={{ color: '#10b981' }}>Giảm giá (Voucher)</Text>
+                                <Text className="cart-item-price" style={{ color: '#10b981' }}>-{new Intl.NumberFormat('vi-VN').format(discountAmount)}₫</Text>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                       </div>
 
-                      <Button block className="btn-proceed" htmlType={bookingResponse ? "button" : "submit"} onClick={bookingResponse ? () => setIsModalVisible(true) : undefined} loading={isSubmitting}>
-                          {bookingResponse ? 'TIẾP TỤC THANH TOÁN' : 'XÁC NHẬN GIỮ CHỖ'}
-                      </Button>
+                      <Divider style={{ margin: '16px 0' }} className="mobile-hide"/>
 
-                      {!bookingResponse && (
-                          <Button type="link" block style={{ marginTop: 12, color: THEME.TEXT_MUTED }} onClick={() => navigate(-1)}>
-                              Quay lại chỉnh sửa
+                      <div className="total-area-wrapper">
+                          <div className="total-area">
+                              <div className="total-label-box">
+                                  <Text className="total-label">Tổng thanh toán</Text>
+                                  <Text className="tax-info mobile-hide">(Đã bao gồm thuế/phí)</Text>
+                              </div>
+                              <div className="total-amount" style={{ color: THEME.DARK_RED }}>
+                                {new Intl.NumberFormat('vi-VN').format(finalTotalToPay)}<span style={{ fontSize: 20, verticalAlign: 'top' }}>₫</span>
+                              </div>
+                          </div>
+
+                          <Button block htmlType="submit" className="btn-proceed" loading={loading}>
+                              THANH TOÁN NGAY
                           </Button>
-                      )}
+                      </div>
+
+                      <div className="guarantee-box mobile-hide">
+                          <Space><ShieldCheck size={18} color="#10b981"/> <Text style={{fontSize: 12, color: '#10b981'}}>Thanh toán mã hóa bảo mật 100%</Text></Space>
+                      </div>
                   </Card>
               </div>
             </Col>
@@ -333,259 +336,77 @@ export default function CheckoutPage() {
         </Form>
       </div>
 
-      <Modal
-        open={isModalVisible}
-        footer={null}
-        closable={false}
-        maskClosable={false}
-        centered
-        width={450}
-      >
-        <div style={{ textAlign: 'center', padding: '10px 0' }}>
-            <div className="success-icon-wrapper">
-                <Check size={40} color="#fff" weight="bold" />
-            </div>
-            
-            <Title level={3} style={{ color: THEME.NAVY_DARK, marginTop: 16 }}>Giữ phòng thành công!</Title>
-            <Text style={{ fontSize: 15, color: THEME.TEXT_MUTED }}>
-                Mã đặt phòng của bạn là:
-            </Text>
-            
-            <div className="booking-code-box">
-                {bookingResponse?.bookingCode}
-            </div>
-
-            <div className="countdown-box">
-               <Text strong style={{ color: THEME.DARK_RED, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 15 }}>
-                  <Clock size={20} /> Vui lòng thanh toán trong:
-               </Text>
-               <Countdown 
-                  value={bookingResponse?.expireAt} 
-                  format="mm:ss" 
-                  onFinish={() => {
-                     api.error({ message: 'Hết giờ', description: 'Đơn đặt phòng đã bị hủy do quá thời gian thanh toán.' });
-                     setIsModalVisible(false);
-                     navigate('/'); 
-                  }}
-                  valueStyle={{ color: THEME.DARK_RED, fontSize: 32, fontWeight: 'bold' }} 
-               />
-            </div>
-
-            <Button block size="large" className="btn-proceed" style={{ marginTop: 24, height: 50 }} onClick={handleProceedPayment}>
-                THANH TOÁN QUA {paymentMethod} NGAY
-            </Button>
-            
-            <Button type="link" onClick={handlePayLater} style={{ marginTop: 12, color: THEME.TEXT_MUTED }}>
-                Tôi muốn thanh toán sau
-            </Button>
-        </div>
-      </Modal>
-
       <style>{`
-        .checkout-wrapper { 
-          background-color: ${THEME.GRAY_BG}; 
-          min-height: 100vh; 
-          padding-bottom: 80px; 
-        }
+        .checkout-wrapper { background-color: ${THEME.GRAY_BG}; min-height: 100vh; padding-bottom: 80px; font-family: 'Inter', sans-serif; }
+        .container-inner { max-width: 1200px; margin: 0 auto; padding: 0 24px; } 
+        
+        .booking-topbar { background: #fff; border-bottom: 1px solid ${THEME.BORDER}; padding: 20px 0; position: sticky; top: 0px; z-index: 100; }
+        .luxury-steps .ant-steps-item-process .ant-steps-item-icon { background: ${THEME.NAVY_DARK}; border-color: ${THEME.NAVY_DARK}; }
+        .luxury-steps .ant-steps-item-finish .ant-steps-item-icon { border-color: ${THEME.DARK_RED}; }
+        .luxury-steps .ant-steps-item-finish .ant-steps-icon { color: ${THEME.DARK_RED}; }
 
-        .container-inner { 
-          max-width: 1200px; 
-          margin: 0 auto; 
-          padding: 0 20px; 
-        }
+        .section-block { margin-bottom: 24px; }
+        .section-title { color: ${THEME.NAVY_DARK} !important; display: flex; align-items: center; gap: 8px; font-family: '"Source Serif 4", serif'; margin-bottom: 16px !important; }
+        
+        .form-card { border-radius: 16px; border: 1px solid ${THEME.BORDER}; box-shadow: 0 4px 15px rgba(0,0,0,0.02); background: #fff; }
+        .form-card .ant-card-body { padding: 24px; }
+        
+        .payment-method-row { display: flex; align-items: center; padding: 16px; border: 1px solid ${THEME.BORDER}; border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; background: #fafafa; }
+        .payment-method-row:hover { border-color: ${THEME.NAVY_DARK}; }
+        .payment-method-row.active { border-color: ${THEME.NAVY_DARK}; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .payment-logo { width: 40px; height: 40px; object-fit: contain; margin: 0 16px; }
+        .payment-text { flex: 1; }
 
-        .booking-topbar { 
-          background: #fff; 
-          border-bottom: 1px solid ${THEME.BORDER}; 
-          padding: 15px 0; 
-          position: sticky; 
-          top: 0; 
-          z-index: 100; 
-        }
+        .voucher-section { background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px dashed #cbd5e1; }
+        .applied-voucher-box { display: flex; justify-content: space-between; align-items: center; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 10px 16px; border-radius: 8px; }
 
-        /* 🔥 CSS XỬ LÝ LÀM ĐẸP THANH STEPS GIỐNG Y HỆT ẢNH */
-        .luxury-steps .ant-steps-item-icon { 
-          background: transparent !important; 
-          border: none !important; 
-          display: flex !important;
-          align-items: center;
-          justify-content: center;
-        }
+        .sticky-bill { position: sticky; top: 100px; }
+        .white-bill-card { background: #fff; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.05); border: 1px solid ${THEME.BORDER}; max-height: calc(100vh - 120px); overflow-y: auto; }
+        .white-bill-card .ant-card-body { padding: 24px; }
+        .white-bill-card::-webkit-scrollbar { width: 5px; }
+        .white-bill-card::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 
-        .active-step-circle { 
-          width: 32px; 
-          height: 32px; 
-          background-color: ${THEME.NAVY_DARK}; 
-          border-radius: 50%; 
-          display: flex; 
-          align-items: center; 
-          justify-content: center; 
-        }
+        .bill-title { color: ${THEME.NAVY_DARK} !important; font-family: '"Source Serif 4", serif'; margin-top: 0; margin-bottom: 20px; font-size: 20px; font-weight: 800 !important; text-align: center; }
+        .bill-date-box { display: flex; align-items: center; justify-content: space-between; background: ${THEME.GRAY_BG}; padding: 12px 16px; border-radius: 12px; border: 1px solid ${THEME.BORDER}; }
+        .date-item { display: flex; flex-direction: column; } 
+        .date-lbl { font-size: 11px; color: ${THEME.TEXT_MUTED}; text-transform: uppercase; font-weight: 600; margin-bottom: 2px; display: block; }
+        .date-val { font-size: 14px; font-weight: 700; color: ${THEME.NAVY_DARK}; display: block; }
+        
+        .cart-item-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed #f1f5f9; }
+        .cart-item-row:last-child { border-bottom: none; }
+        .cart-item-name { font-size: 14px; font-weight: 600; color: ${THEME.NAVY_DARK}; }
+        .cart-item-price { font-size: 15px; font-weight: 700; color: ${THEME.NAVY_DARK}; }
 
-        .luxury-steps .ant-steps-item-title {
-          color: ${THEME.NAVY_DARK} !important;
-          font-weight: 600 !important;
-          line-height: 32px !important;
-        }
+        .total-area { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; }
+        .total-label-box { display: flex; flex-direction: column; }
+        .total-label { font-size: 13px; text-transform: uppercase; color: ${THEME.TEXT_MUTED}; font-weight: 700; }
+        .total-amount { font-size: 32px; font-weight: 900; line-height: 1; margin-top: 4px; text-align: right; }
+        .tax-info { font-size: 12px; color: #94a3b8; margin-top: 4px; }
 
-        .luxury-steps .ant-steps-item-process .ant-steps-item-title {
-          font-weight: 800 !important;
-        }
-        /* ======================================================= */
+        .btn-proceed { min-height: 56px; border-radius: 12px; font-size: 16px; font-weight: 800; letter-spacing: 1px; background: ${THEME.DARK_RED}; color: #fff; border: none; box-shadow: 0 4px 15px rgba(158, 42, 43, 0.3); }
+        .btn-proceed:hover { background: #7A1A21 !important; color: #fff !important; transform: translateY(-2px); }
 
-        .main-title { 
-          color: ${THEME.NAVY_DARK} !important; 
-          margin-bottom: 24px !important; 
-          font-size: 26px !important; 
-        }
+        .guarantee-box { margin-top: 16px; text-align: center; }
 
-        .form-card { 
-          border-radius: 12px; 
-          box-shadow: 0 2px 10px rgba(0,0,0,0.05); 
-        }
-
-        .payment-method-item { 
-          border: 1px solid ${THEME.BORDER}; 
-          border-radius: 8px; 
-          padding: 15px; 
-          margin-bottom: 12px; 
-          cursor: pointer; 
-          background: #fff; 
-        }
-
-        .payment-method-item.active { 
-          border-color: ${THEME.DARK_RED}; 
-          background: #fff9f9; 
-        }
-
-        .white-bill-card { 
-          border-radius: 12px; 
-          padding: 20px; 
-          box-shadow: 0 4px 20px rgba(0,0,0,0.08); 
-          border: 1px solid ${THEME.BORDER}; 
-        }
-
-        .bill-date-box { 
-          display: flex; 
-          align-items: center; 
-          justify-content: space-between; 
-          background: #f8fafc; 
-          padding: 10px 15px; 
-          border-radius: 8px; 
-        }
-
-        .summary-row { 
-          display: flex; 
-          justify-content: space-between; 
-          margin-bottom: 10px; 
-        }
-
-        .voucher-section { 
-          margin-top: 15px; 
-          padding: 15px; 
-          background: #f0f4f8; 
-          border-radius: 8px; 
-        }
-
-        .total-area { 
-          text-align: right; 
-          margin-bottom: 20px; 
-        }
-
-        .total-amount { 
-          font-size: 30px; 
-          font-weight: 800; 
-          color: ${THEME.NAVY_DARK}; 
-        }
-
-        /* 🔥 ĐÃ FIX CHỐNG LỖI CẮT CHỮ CHO NÚT BẤM DÀI */
-        .btn-proceed { 
-          min-height: 50px; 
-          height: auto; 
-          padding: 12px 16px;
-          white-space: normal;
-          word-break: break-word;
-          line-height: 1.4;
-          border-radius: 8px; 
-          font-weight: 700; 
-          background: ${THEME.DARK_RED}; 
-          color: #fff; 
-          border: none; 
-        }
-
-        /* Modal Styles */
-        .success-icon-wrapper { 
-          width: 80px; 
-          height: 80px; 
-          background: #10b981; 
-          border-radius: 50%; 
-          display: flex; 
-          align-items: center; 
-          justify-content: center; 
-          margin: 0 auto; 
-          box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3); 
-        }
-
-        .booking-code-box { 
-          background: #f1f5f9; 
-          border: 2px dashed ${THEME.NAVY_DARK}; 
-          padding: 12px 24px; 
-          font-size: 24px; 
-          font-weight: 900; 
-          letter-spacing: 2px; 
-          color: ${THEME.NAVY_DARK}; 
-          border-radius: 12px; 
-          margin: 16px auto; 
-          display: inline-block; 
-        }
-
-        .countdown-box { 
-          background: #fef2f2; 
-          border-radius: 12px; 
-          padding: 16px; 
-          margin-top: 16px; 
-          border: 1px solid #fecaca; 
-        }
-
-        /* 🔥 MOBILE RESPONSIVE BOTTOM SHEET */
         @media (max-width: 992px) {
-          .sticky-bill { 
-            position: fixed; 
-            bottom: 0; 
-            left: 0; 
-            right: 0; 
-            z-index: 1000; 
-            box-shadow: 0 -10px 20px rgba(0,0,0,0.1); 
-          }
+            .checkout-wrapper { padding-bottom: 140px; } 
+            .sticky-bill { position: fixed !important; top: auto !important; bottom: 0 !important; left: 0; right: 0; z-index: 1000; }
+            .white-bill-card { border-radius: 24px 24px 0 0; padding: 12px 20px; box-shadow: 0 -5px 25px rgba(0,0,0,0.15); margin: 0; border: none; max-height: none; }
+            .white-bill-card .ant-card-body { padding: 0; display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 16px; }
+            
+            .mobile-hide, .bill-date-box, .cart-area, .bill-title { display: none; }
+            .total-area-wrapper { display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 16px; }
+            .total-area { margin: 0; align-items: center; }
+            .total-label { display: none; } 
+            .total-amount { font-size: 24px; margin-top: 0; text-align: left; }
+            .btn-proceed { height: 46px; min-height: unset; flex: 1; margin: 0; max-width: 180px; font-size: 14px; padding: 0 10px; }
+        }
 
-          .white-bill-card { 
-            border-radius: 20px 20px 0 0; 
-            padding: 16px 20px; 
-            border-bottom: none; 
-          }
-
-          .mobile-hide, 
-          .bill-title, 
-          .bill-date-box { 
-            display: none; 
-          }
-
-          .total-area { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            margin: 0 0 12px 0; 
-            text-align: left; 
-          }
-
-          .total-amount { 
-            font-size: 24px; 
-            margin-top: 0; 
-          }
-
-          .checkout-wrapper { 
-            padding-bottom: 140px; 
-          }
+        @media (max-width: 576px) {
+            .container-inner { padding: 0 12px; }
+            .form-card .ant-card-body { padding: 16px; }
+            .payment-logo { width: 32px; height: 32px; margin: 0 12px; }
+            .total-amount { font-size: 22px; }
         }
       `}</style>
     </div>

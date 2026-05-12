@@ -19,6 +19,7 @@ namespace abchotel.DTOs
         public decimal AmountPaid { get; set; } // Số tiền khách đã trả
         public decimal BalanceDue => FinalTotal - AmountPaid; // Số tiền còn nợ
         public string Status { get; set; }
+        public string BookingStatus { get; set; }
         public DateTime? CreatedAt { get; set; }
         public List<InvoiceRoomDetail> RoomDetails { get; set; } = new List<InvoiceRoomDetail>();
         public List<InvoiceServiceDetail> Services { get; set; } = new List<InvoiceServiceDetail>();

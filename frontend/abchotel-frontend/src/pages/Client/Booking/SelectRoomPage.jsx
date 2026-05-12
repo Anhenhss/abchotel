@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Row, Col, Card, Typography, Button, Space, Tag, notification, Steps, Tooltip, Carousel, Divider, Spin } from 'antd';
+import { Row, Col, Card, Typography, Button, Space, Tag, notification, Steps, Tooltip, Carousel, Divider } from 'antd';
 import { 
   Users, Bed, ArrowsOut, ArrowRight, CalendarBlank, 
   Sparkle, ShieldCheck, SuitcaseRolling, Mountains, CaretLeft, CaretRight, ArrowLeft, CheckCircle, WarningCircle
@@ -13,7 +13,7 @@ import { useSignalR } from '../../../hooks/useSignalR';
 
 const { Title, Text } = Typography;
 
-// 🔥 BẢNG MÀU MỚI: SÁNG SỦA, TINH TẾ, CHỈ NHẤN MÀU Ở CHI TIẾT QUAN TRỌNG
+// 🔥 BẢNG MÀU
 const THEME = {
   NAVY_DARK: '#0A192F',      
   NAVY_LIGHT: '#172A45',     
@@ -40,23 +40,50 @@ export default function SelectRoomPage() {
   const [api, contextHolder] = notification.useNotification();
 
   // =========================================================================
-  // 1. BỘ CHUYỂN ĐỔI (NORMALIZER) - CHỐNG SẬP WEB LỖI UNDEFINED
+  // 1. CHUẨN HÓA DỮ LIỆU TỪ URL
   // =========================================================================
   const searchParams = useMemo(() => {
     const state = location.state || {};
-    const checkIn = state.checkIn || dayjs().add(1, 'day').format('YYYY-MM-DD');
-    const checkOut = state.checkOut || dayjs().add(2, 'day').format('YYYY-MM-DD');
-    const priceType = state.priceType || 'NIGHTLY';
-    const requestedRooms = state.requestedRooms || 1;
-    const preSelectedRoomTypeId = state.preSelectedRoomTypeId || null;
+    const queryParams = new URLSearchParams(location.search); 
+    
+    let inD = queryParams.get('checkIn') || state.checkIn || state.startDate || state.arrival;
+    let outD = queryParams.get('checkOut') || state.checkOut || state.endDate || state.departure;
+    
+    if (!inD && state.dateRange?.length === 2) {
+      inD = state.dateRange[0];
+      outD = state.dateRange[1];
+    }
+
+    const checkIn = inD ? dayjs(inD).format('YYYY-MM-DDTHH:mm:ss') : dayjs().add(1, 'day').set('hour', 14).set('minute', 0).format('YYYY-MM-DDTHH:mm:ss');
+    const checkOut = outD ? dayjs(outD).format('YYYY-MM-DDTHH:mm:ss') : dayjs().add(2, 'day').set('hour', 12).set('minute', 0).format('YYYY-MM-DDTHH:mm:ss');
+    
+    let priceType = state.priceType || 'NIGHTLY';
+    if (queryParams.get('mode') === 'hourly') priceType = 'HOURLY';
+    else if (queryParams.get('mode') === 'daily') priceType = 'NIGHTLY';
+    
+    const preSelectedRoomTypeId = queryParams.get('preSelectedRoomTypeId') || state.preSelectedRoomTypeId || null;
 
     let config = state.roomsConfig;
 
-    // NẾU TỪ WIDGET CHỈ TRUYỀN TỔNG SỐ KHÁCH -> TỰ ĐỘNG CHIA KHÁCH VÀO TỪNG SLOT PHÒNG
+    if (!config || !Array.isArray(config) || config.length === 0) {
+      const roomsParam = queryParams.get('rooms');
+      if (roomsParam) {
+        try {
+          config = JSON.parse(decodeURIComponent(roomsParam));
+        } catch (error) {
+          console.error("Lỗi parse cấu hình phòng từ URL:", error);
+        }
+      }
+    }
+
+    const requestedRooms = config && Array.isArray(config) && config.length > 0 
+        ? config.length 
+        : parseInt(queryParams.get('requestedRooms') || state.requestedRooms || state.rooms || 1, 10);
+
     if (!config || !Array.isArray(config) || config.length === 0) {
       config = [];
-      let totalAdults = state.adults || 2;
-      let totalChildren = state.children || 0;
+      let totalAdults = parseInt(queryParams.get('adults') || state.adults || state.guests || 2, 10);
+      let totalChildren = parseInt(queryParams.get('children') || state.children || 0, 10);
 
       let baseAdults = Math.floor(totalAdults / requestedRooms);
       let extraAdults = totalAdults % requestedRooms;
@@ -66,52 +93,61 @@ export default function SelectRoomPage() {
       for (let i = 0; i < requestedRooms; i++) {
         config.push({
           id: Date.now() + i,
-          adults: baseAdults + (i < extraAdults ? 1 : 0) || 1, // Đảm bảo ít nhất 1 người lớn/phòng
+          adults: baseAdults + (i < extraAdults ? 1 : 0) || 1,
           children: baseChildren + (i < extraChildren ? 1 : 0)
         });
       }
     }
 
     return { checkIn, checkOut, priceType, requestedRooms, preSelectedRoomTypeId, roomsConfig: config };
-  }, [location.state]);
+  }, [location.search, location.state]);
 
   const duration = useMemo(() => {
     const start = dayjs(searchParams.checkIn);
     const end = dayjs(searchParams.checkOut);
-    return searchParams.priceType === 'HOURLY' ? Math.max(1, end.diff(start, 'hour')) : Math.max(1, end.diff(start, 'day'));
+    
+    if (searchParams.priceType === 'HOURLY') {
+        const mins = end.diff(start, 'minute');
+        return Math.max(1, Math.ceil(mins / 60));
+    } else {
+        const days = end.startOf('day').diff(start.startOf('day'), 'day');
+        return Math.max(1, days);
+    }
   }, [searchParams]);
 
   // =========================================================================
-  // 2. STATE CHO QUY TRÌNH CHỌN LẦN LƯỢT TỪNG PHÒNG
+  // 2. STATE VÀ XỬ LÝ LẤY GIÁ 
   // =========================================================================
   const [loading, setLoading] = useState(true);
   const [availableRooms, setAvailableRooms] = useState([]);
   const [currentSlotIndex, setCurrentSlotIndex] = useState(0); 
-  const [selectedRooms, setSelectedRooms] = useState([]); // [{ slotInfo, roomData }]
+  const [selectedRooms, setSelectedRooms] = useState([]); 
   const [autoSelected, setAutoSelected] = useState(false);
 
-  // Cấu hình số người của CÁI PHÒNG đang được chọn hiện tại
   const currentSlot = searchParams.roomsConfig[currentSlotIndex] || { adults: 2, children: 0 };
 
-  // =========================================================================
-  // 3. TÌM PHÒNG THEO SỨC CHỨA CỦA SLOT HIỆN TẠI
-  // =========================================================================
+  const getRoomPrice = (room) => {
+    if (searchParams.priceType === 'HOURLY') {
+        return room.basePricePerHour || 0;
+    }
+    return room.basePricePerNight || room.pricePerUnit || 0;
+  };
+
   const fetchRoomsForCurrentSlot = async () => {
     if (!currentSlot) return;
     try {
       setLoading(true);
       const res = await bookingApi.searchRooms({
-        checkIn: dayjs(searchParams.checkIn).format('YYYY-MM-DDTHH:mm:ss'),
-        checkOut: dayjs(searchParams.checkOut).format('YYYY-MM-DDTHH:mm:ss'),
+        checkIn: searchParams.checkIn,
+        checkOut: searchParams.checkOut,
         priceType: searchParams.priceType,
-        adults: currentSlot.adults,        // Lọc chính xác số người lớn của phòng này
-        children: currentSlot.children,    // Lọc chính xác số trẻ em của phòng này
-        requestedRooms: 1                  // API chỉ cần tìm đủ 1 phòng
+        adults: currentSlot.adults,        
+        children: currentSlot.children,    
+        requestedRooms: 1                  
       });
       const data = res?.data?.$values || res?.$values || res || [];
       setAvailableRooms(data);
 
-      // TỰ ĐỘNG CHỌN NẾU TRUYỀN ID TỪ TRANG CHI TIẾT
       if (currentSlotIndex === 0 && searchParams.preSelectedRoomTypeId && !autoSelected) {
         const targetRoom = data.find(r => r.roomTypeId === searchParams.preSelectedRoomTypeId || r.id === searchParams.preSelectedRoomTypeId);
         if (targetRoom && targetRoom.remainingRooms > 0) {
@@ -138,14 +174,10 @@ export default function SelectRoomPage() {
     }
   });
 
-  // =========================================================================
-  // 4. THAO TÁC NÚT BẤM (CHỌN PHÒNG, QUAY LẠI, TIẾP TỤC)
-  // =========================================================================
   const handleSelectRoom = (room) => {
     const newSelection = { slotInfo: currentSlot, roomData: room };
     setSelectedRooms(prev => [...prev, newSelection]);
 
-    // Nếu chưa chọn xong các phòng, tự động nhảy sang Slot tiếp theo
     if (currentSlotIndex < searchParams.requestedRooms - 1) {
         setCurrentSlotIndex(prev => prev + 1);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -160,18 +192,29 @@ export default function SelectRoomPage() {
   };
 
   const handleNextStep = () => {
-    // Truyền mảng selectedRooms sang trang Dịch vụ
     navigate('/booking/services', { state: { ...searchParams, selectedRooms: selectedRooms.map(s => s.roomData) } });
   };
 
   const isAllRoomsSelected = selectedRooms.length === searchParams.requestedRooms;
-  const totalPrice = selectedRooms.reduce((sum, item) => sum + ((item.roomData.basePricePerNight || item.roomData.pricePerUnit || item.roomData.basePricePerHour || 0) * duration), 0);
+  
+  const totalPrice = selectedRooms.reduce((sum, item) => sum + (getRoomPrice(item.roomData) * duration), 0);
+
+  const renderDateTag = (dateStr) => {
+     return searchParams.priceType === 'HOURLY' 
+        ? dayjs(dateStr).format('HH:mm DD/MM') 
+        : dayjs(dateStr).format('DD/MM');
+  };
+
+  const renderFullDateLabel = (dateStr) => {
+     return searchParams.priceType === 'HOURLY' 
+        ? dayjs(dateStr).format('HH:mm DD/MM/YYYY') 
+        : dayjs(dateStr).format('DD/MM/YYYY');
+  };
 
   return (
     <div className="select-room-wrapper">
       {contextHolder}
       
-      {/* THANH TIẾN TRÌNH */}
       <div className="booking-topbar">
         <div className="container-inner">
             <Steps current={0} className="luxury-steps" items={[
@@ -185,7 +228,6 @@ export default function SelectRoomPage() {
       <div className="container-inner" style={{ marginTop: 40 }}>
         <Row gutter={[32, 32]}>
           
-          {/* CỘT TRÁI: HIỂN THỊ DANH SÁCH LỌC THEO TỪNG SLOT */}
           <Col xs={24} xl={17}>
             <div className="section-header">
                 <div style={{ flex: 1 }}>
@@ -194,7 +236,7 @@ export default function SelectRoomPage() {
                     </Title>
                     <Space size="middle" className="search-summary-tags" wrap>
                         <Tag icon={<CalendarBlank/>} color="default" className="info-tag">
-                            {dayjs(searchParams.checkIn).format('DD/MM')} - {dayjs(searchParams.checkOut).format('DD/MM')}
+                            {renderDateTag(searchParams.checkIn)} - {renderDateTag(searchParams.checkOut)}
                         </Tag>
                         {!isAllRoomsSelected && (
                             <Tag icon={<Users/>} color="default" className="info-tag" style={{ color: THEME.DARK_RED, borderColor: THEME.DARK_RED }}>
@@ -231,14 +273,14 @@ export default function SelectRoomPage() {
                         const roomId = room.roomTypeId || room.id;
                         const images = room.images?.$values || room.images || ['https://via.placeholder.com/800x600?text=No+Image'];
                         const amenities = room.amenities?.$values || room.amenities || [];
-                        const displayPrice = searchParams.priceType === 'HOURLY' ? (room.basePricePerHour || 0) : (room.basePricePerNight || room.pricePerUnit || 0);
+                        
+                        const displayPrice = getRoomPrice(room);
 
                         return (
                             <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }} key={roomId}>
                                 <Card variant="borderless" className="horizontal-room-card">
                                     <div className="card-inner">
                                         
-                                        {/* PHẦN 1: ẢNH (BÊN TRÁI - KHÔNG ÉP CHIỀU CAO) */}
                                         <div className="room-image-section">
                                             <Carousel effect="fade" arrows prevArrow={<CustomArrow type="prev" />} nextArrow={<CustomArrow type="next" />} dots={false}>
                                                 {images.map((img, i) => (
@@ -250,7 +292,6 @@ export default function SelectRoomPage() {
                                             {room.isUrgent && <div className="urgent-badge">Chỉ còn {room.remainingRooms} phòng</div>}
                                         </div>
 
-                                        {/* PHẦN 2: THÔNG TIN (Ở GIỮA) */}
                                         <div className="room-details-section">
                                             <Title level={3} className="room-name">{room.roomTypeName || room.name}</Title>
                                             
@@ -274,14 +315,13 @@ export default function SelectRoomPage() {
                                             </div>
                                         </div>
 
-                                        {/* PHẦN 3: GIÁ & NÚT CHỌN (BÊN PHẢI) */}
                                         <div className="room-action-section">
                                             <div className="price-info">
-                                                <Text className="price-label">Giá cho {duration} {searchParams.priceType === 'HOURLY' ? 'giờ' : 'đêm'}</Text>
+                                                <Text className="price-label">Tổng {duration} {searchParams.priceType === 'HOURLY' ? 'giờ' : 'đêm'}</Text>
                                                 <div className="price-value">
                                                     {new Intl.NumberFormat('vi-VN').format(displayPrice * duration)}<span className="currency">VND</span>
                                                 </div>
-                                                <Text className="tax-info">Bao gồm thuế & phí</Text>
+                                                <Text className="tax-info">Giá 1 {searchParams.priceType === 'HOURLY' ? 'giờ' : 'đêm'}: {new Intl.NumberFormat('vi-VN').format(displayPrice)}đ</Text>
                                             </div>
 
                                             <div className="action-button-wrapper">
@@ -300,7 +340,7 @@ export default function SelectRoomPage() {
             )}
           </Col>
 
-          {/* CỘT PHẢI: HÓA ĐƠN TRẮNG SÁNG (STICKY) */}
+          {/* CỘT PHẢI: HÓA ĐƠN TRẮNG SÁNG */}
           <Col xs={24} xl={7}>
             <div className="sticky-bill">
                 <Card variant="borderless" className="white-bill-card">
@@ -309,16 +349,16 @@ export default function SelectRoomPage() {
                     <div className="bill-date-box">
                         <div className="date-item">
                             <Text className="date-lbl">Nhận phòng</Text>
-                            <Text className="date-val">{dayjs(searchParams.checkIn).format('DD/MM/YYYY')}</Text>
+                            <Text className="date-val">{renderFullDateLabel(searchParams.checkIn)}</Text>
                         </div>
                         <div className="date-divider"><ArrowRight color={THEME.TEXT_MUTED}/></div>
                         <div className="date-item" style={{textAlign: 'right'}}>
                             <Text className="date-lbl">Trả phòng</Text>
-                            <Text className="date-val">{dayjs(searchParams.checkOut).format('DD/MM/YYYY')}</Text>
+                            <Text className="date-val">{renderFullDateLabel(searchParams.checkOut)}</Text>
                         </div>
                     </div>
 
-                    <Divider style={{ margin: '20px 0' }} />
+                    <Divider style={{ margin: '20px 0' }} className="mobile-hide" />
 
                     <div className="cart-area">
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -341,7 +381,7 @@ export default function SelectRoomPage() {
                                             </Text>
                                         </div>
                                         <Text className="cart-item-price">
-                                            {new Intl.NumberFormat('vi-VN').format((item.roomData.basePricePerNight || item.roomData.pricePerUnit || item.roomData.basePricePerHour || 0) * duration)}₫
+                                            {new Intl.NumberFormat('vi-VN').format(getRoomPrice(item.roomData) * duration)}₫
                                         </Text>
                                     </motion.div>
                                 ))
@@ -368,23 +408,21 @@ export default function SelectRoomPage() {
         </Row>
       </div>
 
+      {/* 🔥 CSS CỐT LÕI ĐÃ ĐƯỢC CHUẨN HÓA */}
       <style>{`
         .select-room-wrapper { background-color: ${THEME.GRAY_BG}; min-height: 100vh; padding-bottom: 80px; font-family: 'Inter', sans-serif; }
         .container-inner { max-width: 1400px; margin: 0 auto; padding: 0 24px; } 
         
-        /* HEADER & STEPS */
         .booking-topbar { background: #fff; border-bottom: 1px solid ${THEME.BORDER}; padding: 20px 0; position: sticky; top: 80px; z-index: 100; }
         .luxury-steps .ant-steps-item-process .ant-steps-item-icon { background: ${THEME.NAVY_DARK}; border-color: ${THEME.NAVY_DARK}; }
         .luxury-steps .ant-steps-item-finish .ant-steps-item-icon { border-color: ${THEME.DARK_RED}; }
         .luxury-steps .ant-steps-item-finish .ant-steps-icon { color: ${THEME.DARK_RED}; }
 
-        /* TIEU DE & TAGS */
         .section-header { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px; }
         .main-title { color: ${THEME.NAVY_DARK} !important; font-family: '"Source Serif 4", serif'; font-size: 28px !important; margin-bottom: 12px !important; }
         .info-tag { padding: 6px 12px; font-size: 14px; border-radius: 8px; border: 1px solid ${THEME.BORDER}; background: #fff; color: ${THEME.NAVY_DARK}; display: inline-flex; align-items: center; gap: 6px; }
         .btn-undo { border-radius: 8px; height: 40px; font-weight: 600; color: ${THEME.NAVY_DARK}; }
 
-        /* HORIZONTAL ROOM CARD - KHÔNG BỊ CẮT ẢNH */
         .room-list { display: flex; flex-direction: column; gap: 24px; }
         .horizontal-room-card { 
             background: #fff; border-radius: 16px; overflow: hidden; 
@@ -393,24 +431,28 @@ export default function SelectRoomPage() {
         }
         .horizontal-room-card:hover { box-shadow: 0 12px 30px rgba(0,0,0,0.08); transform: translateY(-2px); border-color: #cbd5e1; }
         
-        .card-inner { display: flex; flex-direction: row; align-items: stretch; }
+        .card-inner { display: flex; flex-direction: row; align-items: stretch; min-height: 240px; }
 
-        /* 1. ẢNH BÊN TRÁI - TỰ ĐỘNG ÔM FULL CHIỀU CAO THẺ, XÓA VIỀN ĐEN */
-        .room-image-section { width: 360px; flex-shrink: 0; position: relative; background: ${THEME.GRAY_BG}; }
-        .ant-carousel, .slick-slider, .slick-list, .slick-track { height: 100% !important; }
-        .img-holder { width: 100%; height: 100%; outline: none; display: block; }
-        .img-holder img { width: 100%; height: 100%; min-height: 240px; object-fit: cover; }
+        .room-image-section { width: 360px; flex-shrink: 0; position: relative; background: ${THEME.GRAY_BG}; overflow: hidden; }
+        .room-image-section .ant-carousel { position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; }
+        .room-image-section .slick-slider, 
+        .room-image-section .slick-list, 
+        .room-image-section .slick-track, 
+        .room-image-section .slick-slide, 
+        .room-image-section .slick-slide > div { height: 100% !important; }
+        
+        .img-holder { width: 100%; height: 100% !important; outline: none; display: block; overflow: hidden; }
+        .img-holder img { width: 100%; height: 100% !important; object-fit: cover; display: block; }
+        
         .carousel-arrow { position: absolute; top: 50%; transform: translateY(-50%); z-index: 10; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.8); color: ${THEME.NAVY_DARK}; border-radius: 50%; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         .carousel-arrow:hover { background: ${THEME.WHITE}; color: ${THEME.DARK_RED}; }
         .carousel-arrow.prev { left: 12px; }
         .carousel-arrow.next { right: 12px; }
         .urgent-badge { position: absolute; top: 12px; left: 12px; background: ${THEME.DARK_RED}; color: #fff; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; z-index: 5; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
         
-        /* 2. THÔNG TIN Ở GIỮA */
         .room-details-section { flex: 1; padding: 24px; display: flex; flex-direction: column; }
         .room-name { margin: 0 0 8px 0 !important; color: ${THEME.NAVY_DARK} !important; font-family: '"Source Serif 4", serif'; font-size: 22px !important; font-weight: 700 !important; }
         
-        /* FIX LỖI WARNING VÀ CẮT CHỮ BẰNG CSS */
         .room-desc { font-size: 13px; color: ${THEME.TEXT_MUTED}; margin-bottom: 16px !important; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         
         .specs-row { margin-bottom: 16px; }
@@ -420,7 +462,6 @@ export default function SelectRoomPage() {
         .amenity-dot { font-size: 12px; color: ${THEME.TEXT_MUTED}; background: ${THEME.GRAY_BG}; padding: 4px 10px; border-radius: 12px; border: 1px solid ${THEME.BORDER}; }
         .amenity-dot.more { cursor: pointer; color: ${THEME.NAVY_DARK}; font-weight: bold; }
 
-        /* 3. GIÁ & NÚT BẤM BÊN PHẢI */
         .room-action-section { width: 260px; flex-shrink: 0; border-left: 1px dashed ${THEME.BORDER}; padding: 24px; display: flex; flex-direction: column; justify-content: space-between; background: #fafafa; }
         .price-info { text-align: right; margin-bottom: 20px; }
         .price-label { display: block; font-size: 12px; color: ${THEME.TEXT_MUTED}; font-weight: 600; text-transform: uppercase; margin-bottom: 4px; }
@@ -431,7 +472,6 @@ export default function SelectRoomPage() {
         .btn-book-now { height: 48px; width: 100%; border-radius: 8px; font-weight: 700; font-size: 14px; letter-spacing: 0.5px; background: ${THEME.NAVY_DARK}; border: none; box-shadow: 0 4px 12px rgba(10, 25, 47, 0.2); }
         .btn-book-now:hover { background: ${THEME.NAVY_LIGHT} !important; transform: translateY(-1px); }
 
-        /* HÓA ĐƠN TRẮNG SÁNG BÊN PHẢI (WHITE STICKY BILL) */
         .sticky-bill { position: sticky; top: 180px; }
         .white-bill-card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.05); border: 1px solid ${THEME.BORDER}; }
         .bill-title { color: ${THEME.NAVY_DARK} !important; font-family: '"Source Serif 4", serif'; margin-top: 0; margin-bottom: 20px; font-size: 20px; font-weight: 800 !important; text-align: center; }
@@ -456,7 +496,6 @@ export default function SelectRoomPage() {
 
         .guarantee-box { margin-top: 16px; text-align: center; color: ${THEME.TEXT_MUTED}; }
 
-        /* LOADING & EMPTY STATES */
         .loading-box { text-align: center; padding: 80px 0; display: flex; flex-direction: column; align-items: center; gap: 16px; color: ${THEME.TEXT_MUTED}; font-weight: 600; }
         .loader { width: 40px; height: 40px; border: 4px solid ${THEME.BORDER}; border-top-color: ${THEME.DARK_RED}; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -464,25 +503,68 @@ export default function SelectRoomPage() {
         .empty-box, .success-box { text-align: center; padding: 60px 20px; background: #fff; border-radius: 16px; border: 1px dashed #cbd5e1; }
         .btn-return { margin-top: 20px; background: white; color: ${THEME.NAVY_DARK}; border-color: ${THEME.NAVY_DARK}; font-weight: bold; }
 
-        /* RESPONSIVE */
+        /* ========================================= */
+        /* 🔥 BẢN VÁ LỖI RESPONSIVE MOBILE CHUẨN XÁC  */
+        /* ========================================= */
+        
         @media (max-width: 1200px) {
             .card-inner { flex-direction: column; }
-            .room-image-section { width: 100%; }
-            .room-action-section { width: 100%; border-left: none; border-top: 1px solid ${THEME.BORDER}; flex-direction: row; align-items: center; padding: 20px 24px; }
-            .action-button-wrapper { margin-top: 0; width: 200px; }
+            .room-image-section { width: 100%; height: 260px; } 
+            .room-action-section { width: 100%; border-left: none; border-top: 1px solid ${THEME.BORDER}; flex-direction: row; align-items: center; justify-content: space-between; padding: 20px 24px; }
+            .action-button-wrapper { margin-top: 0; width: 220px; }
             .price-info { text-align: left; margin-bottom: 0; }
         }
+
         @media (max-width: 992px) {
-            .sticky-bill { position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000; }
-            .white-bill-card { border-radius: 24px 24px 0 0; padding: 20px; box-shadow: 0 -10px 40px rgba(0,0,0,0.1); }
-            .bill-date-box, .cart-area, .guarantee-box { display: none; }
-            .total-area { display: flex; justify-content: space-between; align-items: center; margin: 0 0 16px 0; text-align: left; }
-            .total-amount { font-size: 28px; }
-            .select-room-wrapper { padding-bottom: 160px; } 
+            /* Tăng khoảng không để cuộn không bị vướng tay */
+            .select-room-wrapper { padding-bottom: 120px; } 
+
+            /* 🌟 ĐÃ FIX LỖI "BỨC TƯỜNG TÀNG HÌNH" 🌟 */
+            .sticky-bill { 
+                position: fixed !important; 
+                top: auto !important; /* HỦY BỎ LỆNH KÉO DÃN TỪ TRÊN XUỐNG */
+                bottom: 0 !important; 
+                left: 0; 
+                right: 0; 
+                z-index: 9999; 
+            }
+            
+            .white-bill-card { 
+                border-radius: 20px 20px 0 0; 
+                padding: 12px 20px; 
+                box-shadow: 0 -5px 25px rgba(0,0,0,0.15); 
+                margin: 0; border: none;
+                display: flex; justify-content: space-between; align-items: center; gap: 16px; 
+                background: #ffffff; /* Cứng nền trắng để không bị đè */
+            }
+
+            .bill-title, .bill-date-box, .cart-area, .guarantee-box, .total-label, .mobile-hide { display: none; }
+            
+            .total-area { margin: 0; display: flex; align-items: center; }
+            .total-amount { font-size: 24px; margin-top: 0; }
+            
+            .btn-proceed { height: 46px; flex: 1; margin: 0; max-width: 180px; font-size: 14px; }
         }
+
         @media (max-width: 576px) {
-            .room-action-section { flex-direction: column; align-items: stretch; gap: 16px; }
+            .container-inner { padding: 0 12px; }
+            .room-list { gap: 16px; }
+            .room-image-section { height: 220px; }
+            .room-details-section { padding: 16px; }
+            .room-name { font-size: 18px !important; margin-bottom: 8px !important;}
+            .specs-row { margin-bottom: 12px; }
+            
+            .room-action-section { flex-direction: column; align-items: stretch; gap: 12px; padding: 16px; background: #fafafa; }
             .action-button-wrapper { width: 100%; }
+            .price-info { display: flex; flex-direction: column; text-align: left; width: 100%; margin-bottom: 0; }
+            .price-label { margin-bottom: 4px; }
+            .price-value { font-size: 22px; }
+            
+            .main-title { font-size: 20px !important; }
+            
+            .white-bill-card { padding: 12px 16px; gap: 12px; }
+            .total-amount { font-size: 20px; }
+            .btn-proceed { max-width: 140px; font-size: 13px; height: 44px; padding: 0 10px; }
         }
       `}</style>
     </div>

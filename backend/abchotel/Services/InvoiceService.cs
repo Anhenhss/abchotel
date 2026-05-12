@@ -73,6 +73,7 @@ namespace abchotel.Services
                 FinalTotal = i.FinalTotal ?? 0,
                 AmountPaid = i.Payments != null ? i.Payments.Sum(p => p.AmountPaid) : 0, 
                 Status = i.Status, 
+                BookingStatus = i.Booking != null ? i.Booking.Status : "N/A", // Bạn đã thêm đúng chỗ này!
                 CreatedAt = i.CreatedAt
                 // Các List chi tiết bên dưới tự động rỗng, không bị lỗi EF Core nữa
             }).ToList();
@@ -81,7 +82,6 @@ namespace abchotel.Services
         public async Task<InvoiceResponse> GetInvoiceByIdAsync(int id)
         {
             // BƯỚC 1: Dùng Include để móc sâu xuống đáy Database
-            // Chú ý: Đã sửa lại đường dẫn Include cho đúng với OrderServiceDetails
             var invoice = await _context.Invoices
                 .Include(i => i.Payments)
                 .Include(i => i.Booking)
@@ -92,7 +92,6 @@ namespace abchotel.Services
                         .ThenInclude(bd => bd.Room)
                 .Include(i => i.Booking)
                     .ThenInclude(b => b.BookingDetails)
-                        // 🔥 ĐÃ VÁ LỖI: Đi qua OrderServices, rồi móc xuống OrderServiceDetails, rồi móc lấy Service (Tên món)
                         .ThenInclude(bd => bd.OrderServices)
                             .ThenInclude(os => os.OrderServiceDetails)
                                 .ThenInclude(osd => osd.Service)
@@ -117,6 +116,10 @@ namespace abchotel.Services
                 FinalTotal = invoice.FinalTotal ?? 0,
                 AmountPaid = invoice.Payments.Sum(p => p.AmountPaid),
                 Status = invoice.Status,
+                
+                // 🔥 ĐÃ BỔ SUNG TRƯỜNG NÀY ĐỂ FRONTEND LỌC ĐƯỢC:
+                BookingStatus = invoice.Booking?.Status ?? "N/A",
+                
                 CreatedAt = invoice.CreatedAt
             };
 
@@ -147,7 +150,6 @@ namespace abchotel.Services
                     {
                         foreach (var os in detail.OrderServices.Where(o => o.Status != "Cancelled"))
                         {
-                            // 🔥 ĐÃ VÁ LỖI: Lặp qua từng món trong OrderServiceDetails để lấy Quantity và ServiceName
                             if (os.OrderServiceDetails != null)
                             {
                                 foreach (var item in os.OrderServiceDetails)
@@ -156,7 +158,7 @@ namespace abchotel.Services
                                     {
                                         ServiceName = item.Service?.Name ?? "Dịch vụ phòng", 
                                         Quantity = item.Quantity,
-                                        TotalAmount = item.Quantity * item.UnitPrice, // Hoặc lấy trực tiếp os.TotalAmount nếu em muốn
+                                        TotalAmount = item.Quantity * item.UnitPrice,
                                         Date = os.OrderDate ?? DateTime.Now
                                     });
                                 }
@@ -182,17 +184,14 @@ namespace abchotel.Services
             return response;
         }
 
-        //  HÀM LẤY HÓA ĐƠN THEO MÃ BOOKING
         public async Task<InvoiceResponse> GetInvoiceByBookingCodeAsync(string bookingCode)
         {
-            // 1. Tìm ID của Hóa đơn dựa vào mã Booking
             var invoice = await _context.Invoices
                 .Include(i => i.Booking)
                 .FirstOrDefaultAsync(x => x.Booking != null && x.Booking.BookingCode == bookingCode);
                 
             if (invoice == null) return null;
 
-            // 2. 🔥 Tái sử dụng ngay hàm GetInvoiceByIdAsync đã được viết Include rất đầy đủ bên trên!
             return await GetInvoiceByIdAsync(invoice.Id);
         }
 
@@ -248,27 +247,24 @@ namespace abchotel.Services
             return true;
         }
 
-        // 🔥 ĐÃ VÁ LỖI THIẾU LOGIC NGHIỆP VỤ Ở ĐÂY
         public async Task<(bool IsSuccess, string Message)> ProcessPaymentAsync(PaymentRequest request)
         {
             var invoice = await _context.Invoices.Include(i => i.Payments).Include(i => i.Booking).FirstOrDefaultAsync(i => i.Id == request.InvoiceId);
             if (invoice == null) return (false, "Không tìm thấy hóa đơn.");
             if (invoice.Status == "Paid") return (false, "Hóa đơn này đã được thanh toán xong.");
 
-            // Tính số tiền khách còn nợ
             decimal currentPaid = invoice.Payments.Sum(p => p.AmountPaid);
             decimal balanceDue = (invoice.FinalTotal ?? 0) - currentPaid;
 
             decimal actualAmountToLog = request.AmountPaid;
-            decimal changeAmount = 0; // Tiền thối lại
+            decimal changeAmount = 0; 
 
-            // VÁ LỖI 1: KHÁCH ĐƯA DƯ TIỀN THÌ PHẢI TÍNH TIỀN THỐI LẠI
             if (request.AmountPaid > balanceDue)
             {
                 if (request.PaymentMethod == "Cash")
                 {
-                    actualAmountToLog = balanceDue; // Chỉ ghi nhận vào DB đúng số tiền đang nợ
-                    changeAmount = request.AmountPaid - balanceDue; // Báo Lễ tân thối lại
+                    actualAmountToLog = balanceDue; 
+                    changeAmount = request.AmountPaid - balanceDue; 
                 }
                 else
                 {
@@ -299,7 +295,6 @@ namespace abchotel.Services
                 if (invoice.Booking != null && invoice.Booking.Status == "Pending")
                     invoice.Booking.Status = "Confirmed";
 
-                // VÁ LỖI 2: CỘNG ĐIỂM TÍCH LŨY (Tỷ lệ 1% giá trị hóa đơn)
                 if (invoice.Booking != null && invoice.Booking.UserId.HasValue)
                 {
                     var user = await _context.Users.FindAsync(invoice.Booking.UserId.Value);
@@ -326,7 +321,6 @@ namespace abchotel.Services
 
             await _context.SaveChangesAsync();
 
-            // Soạn câu thông báo trả về cho Lễ tân
             string resultMsg = $"Ghi nhận thành công {actualAmountToLog:N0}đ.";
             if (changeAmount > 0) resultMsg += $" Vui lòng thối lại cho khách {changeAmount:N0}đ.";
 

@@ -39,6 +39,12 @@ axiosClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // 🌟 THÊM ĐOẠN NÀY: Bỏ qua interceptor nếu là API đăng nhập
+    // Nếu URL có chứa '/Auth/login', không xử lý refresh token mà ném lỗi thẳng ra AuthPage
+    if (originalRequest.url.includes('/Auth/login')) {
+      return Promise.reject(error);
+    }
+
     // Nếu mã lỗi là 401 (Hết hạn Token) và request này chưa từng được thử lại
     if (error.response && error.response.status === 401 && !originalRequest._retry) {
       

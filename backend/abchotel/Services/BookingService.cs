@@ -349,18 +349,19 @@ namespace abchotel.Services
             if (booking == null) return false;
 
             booking.Status = status;
+            booking.CancellationReason = reason;
 
-            // Lưu lại lý do hủy nếu có
-            if (!string.IsNullOrEmpty(reason))
+            // 🔥 LOGIC MỚI: Nếu hủy Booking thì hủy luôn Hóa đơn liên quan
+            if (status == "Cancelled")
             {
-                booking.CancellationReason = reason;
+                var invoice = await _context.Invoices.FirstOrDefaultAsync(i => i.BookingId == id);
+                if (invoice != null && invoice.Status == "Unpaid")
+                {
+                    invoice.Status = "Cancelled";
+                }
             }
 
-            booking.UpdatedAt = DateTime.Now;
             await _context.SaveChangesAsync();
-
-            // Nếu muốn, có thể gọi _notificationService ở đây để báo cho Quản lý biết có đơn vừa bị hủy
-
             return true;
         }
         // ==========================================================

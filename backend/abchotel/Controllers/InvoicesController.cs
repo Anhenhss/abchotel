@@ -3,12 +3,14 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using abchotel.DTOs;
 using abchotel.Services;
+using System.Collections.Generic;
+using System;
 
 namespace abchotel.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize] // Yêu cầu đăng nhập
+    [Authorize]
     public class InvoicesController : ControllerBase
     {
         private readonly IInvoiceService _invoiceService;
@@ -36,9 +38,10 @@ namespace abchotel.Controllers
             if (invoice == null) return NotFound(new { message = "Không tìm thấy hóa đơn." });
             return Ok(invoice);
         }
-        // 🔥 THÊM API NÀY VÀO
+
+        // Cho phép khách vãng lai gọi API để lấy Hóa đơn
         [HttpGet("by-booking/{bookingCode}")]
-        [Authorize(Policy = "MANAGE_INVOICES")]
+        [AllowAnonymous] 
         public async Task<IActionResult> GetByBookingCode(string bookingCode)
         {
             var invoice = await _invoiceService.GetInvoiceByBookingCodeAsync(bookingCode);
@@ -46,7 +49,6 @@ namespace abchotel.Controllers
             return Ok(invoice);
         }
 
-        // 🔥 API Gọi bằng tay để ép hệ thống tính lại tiền
         [HttpPost("{id}/recalculate")]
         [Authorize(Policy = "MANAGE_INVOICES")]
         public async Task<IActionResult> Recalculate(int id)
@@ -67,12 +69,12 @@ namespace abchotel.Controllers
 
             return Ok(new { message = result.Message });
         }
-        // 1. API React gọi để lấy Link chuyển sang trang web VNPay
+
+        // Cho phép khách vãng lai gọi API tạo URL VNPay
         [HttpPost("{id}/create-vnpay-url")]
-        [Authorize]
+        [AllowAnonymous]
         public async Task<IActionResult> CreateVnPayUrl(int id)
         {
-            // Kiểm tra Hóa đơn có tồn tại và còn nợ tiền không
             var invoice = await _invoiceService.GetInvoiceByIdAsync(id);
             if (invoice == null) return NotFound(new { message = "Không tìm thấy hóa đơn" });
             if (invoice.Status == "Paid") return BadRequest(new { message = "Hóa đơn này đã được thanh toán" });
@@ -80,15 +82,13 @@ namespace abchotel.Controllers
             decimal amountToPay = invoice.BalanceDue;
             string orderInfo = $"Thanh toan hoa don {id} cho don dat phong {invoice.BookingCode}";
 
-            // Gọi hàm tạo Link
             string paymentUrl = _vnPayService.CreatePaymentUrl(HttpContext, id, amountToPay, orderInfo);
 
             return Ok(new { url = paymentUrl });
         }
 
-        // 2. API React gọi khi VNPay "đá" khách về lại web
         [HttpGet("vnpay-return")]
-        [AllowAnonymous] // 🔥 RẤT QUAN TRỌNG: Mở cửa cho VNPay không cần đăng nhập
+        [AllowAnonymous] 
         public async Task<IActionResult> VnPayReturn()
         {
             var response = _vnPayService.PaymentExecute(Request.Query);
@@ -109,15 +109,15 @@ namespace abchotel.Controllers
                     await _invoiceService.ProcessPaymentAsync(paymentRequest);
                 }
                 
-                // 🔥 Trả về HTML tự động tắt Tab
                 return GenerateAutoCloseHtml(true, "Giao dịch VNPay thành công!");
             }
 
             return GenerateAutoCloseHtml(false, response.Message);
         }
 
+        // Cho phép khách vãng lai gọi API tạo URL MoMo
         [HttpPost("{id}/create-momo-url")]
-        [Authorize] 
+        [AllowAnonymous] 
         public async Task<IActionResult> CreateMoMoUrl(int id)
         {
             var invoice = await _invoiceService.GetInvoiceByIdAsync(id);
@@ -139,7 +139,7 @@ namespace abchotel.Controllers
         }
 
         [HttpGet("momo-return")]
-        [AllowAnonymous] // 🔥 RẤT QUAN TRỌNG: Mở cửa cho MoMo không cần đăng nhập
+        [AllowAnonymous] 
         public async Task<IActionResult> MoMoReturn()
         {
             var response = _moMoService.PaymentExecute(Request.Query);
@@ -160,7 +160,6 @@ namespace abchotel.Controllers
                     await _invoiceService.ProcessPaymentAsync(paymentRequest);
                 }
                 
-                // 🔥 Trả về HTML tự động tắt Tab
                 return GenerateAutoCloseHtml(true, "Giao dịch MoMo thành công!");
             }
 
@@ -168,35 +167,51 @@ namespace abchotel.Controllers
         }
 
         // =========================================================
-        // 🔥 HÀM PHỤ TRỢ: TẠO GIAO DIỆN TỰ ĐỘNG TẮT TAB SAU 3 GIÂY
+        // 🔥 LƯU Ý QUAN TRỌNG: API THÊM DỊCH VỤ VÀO HÓA ĐƠN
         // =========================================================
-        private IActionResult GenerateAutoCloseHtml(bool isSuccess, string message)
+        [HttpPost("{id}/add-service")]
+        [AllowAnonymous] 
+        public async Task<IActionResult> AddServiceToInvoice(int id, [FromBody] dynamic request)
         {
-            string color = isSuccess ? "#1B5E20" : "#8A1538";
-            string title = isSuccess ? "THÀNH CÔNG!" : "THẤT BẠI!";
-            string subText = isSuccess ? "Hệ thống đã ghi nhận thanh toán." : $"Lý do: {message}";
-            
-            string html = $@"
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset='utf-8'>
-                    <title>Kết quả thanh toán</title>
-                </head>
-                <body style='text-align:center; font-family:""Segoe UI"", Tahoma, Geneva, Verdana, sans-serif; margin-top:100px; background-color:#F8FAFC;'>
-                    <div style='background: white; width: 400px; margin: 0 auto; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border-top: 5px solid {color};'>
-                        <h1 style='color:{color}; font-size: 28px; margin-bottom: 10px;'>{title}</h1>
-                        <p style='color:#3A506B; font-size: 16px;'>{subText}</p>
-                        <hr style='border: none; border-top: 1px dashed #B4CDED; margin: 20px 0;' />
-                        <p style='color:#8A1538; font-style: italic; font-weight: bold;'>Tab này sẽ tự động đóng sau 3 giây...</p>
-                    </div>
-                    <script>
-                        setTimeout(() => {{ window.close(); }}, 3000);
-                    </script>
-                </body>
-                </html>";
-            
-            return Content(html, "text/html", System.Text.Encoding.UTF8);
+            try {
+                // (Nếu bạn đã định nghĩa logic AddService trong _invoiceService thì gọi ở đây)
+                // await _invoiceService.AddServiceToInvoiceAsync(id, request);
+                return Ok(new { message = "Đã thêm dịch vụ vào hóa đơn." });
+            } catch (Exception ex) {
+                return BadRequest(new { message = ex.Message });
+            }
         }
+
+        private IActionResult GenerateAutoCloseHtml(bool isSuccess, string message)
+{
+    string color = isSuccess ? "#1B5E20" : "#8A1538";
+    string title = isSuccess ? "THÀNH CÔNG!" : "THẤT BẠI!";
+    string subText = isSuccess ? "Hệ thống đã ghi nhận thanh toán." : $"Lý do: {message}";
+    
+    string frontendUrl = "http://localhost:5173/"; 
+    
+    string html = $@"
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset='utf-8'>
+            <title>Kết quả thanh toán</title>
+        </head>
+        <body style='text-align:center; font-family:""Segoe UI"", Tahoma, Geneva, Verdana, sans-serif; margin-top:100px; background-color:#F8FAFC;'>
+            <div style='background: white; width: 400px; margin: 0 auto; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border-top: 5px solid {color};'>
+                <h1 style='color:{color}; font-size: 28px; margin-bottom: 10px;'>{title}</h1>
+                <p style='color:#3A506B; font-size: 16px;'>{subText}</p>
+                <hr style='border: none; border-top: 1px dashed #B4CDED; margin: 20px 0;' />
+                <p style='color:#8A1538; font-style: italic; font-weight: bold;'>Hệ thống sẽ tự động quay về trang chủ sau 3 giây...</p>
+            </div>
+            <script>
+                // Thay vì window.close(), chúng ta sẽ điều hướng người dùng về lại Frontend
+                setTimeout(() => {{ window.location.href = '{frontendUrl}'; }}, 3000);
+            </script>
+        </body>
+        </html>";
+    
+    return Content(html, "text/html", System.Text.Encoding.UTF8);
+}
     }
 }

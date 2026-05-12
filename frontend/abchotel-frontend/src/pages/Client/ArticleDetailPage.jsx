@@ -88,7 +88,7 @@ export default function ArticleDetailPage() {
     }, [slug, fetchDetail]);
 
     if (loading) return <div style={{ maxWidth: 900, margin: '100px auto', padding: '0 20px' }}><Skeleton active paragraph={{ rows: 15 }} /></div>;
-    if (!article) return <Result status="404" title="Không tìm thấy bài viết" extra={<Button onClick={() => navigate('/articles')}>Quay lại</Button>} />;
+    if (!article) return <Result status="404" title="Không tìm thấy bài viết" extra={<Button onClick={() => navigate('/article')}>Quay lại</Button>} />;
 
     const rawDesc = article.shortDescription || "";
     const cleanShortDesc = rawDesc.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
@@ -97,7 +97,7 @@ export default function ArticleDetailPage() {
         <div style={{ backgroundColor: '#fff', minHeight: '100vh', padding: '10px 0' }}>
             <div className="article-container">
                 
-                <Button type="link" icon={<ArrowLeft />} onClick={() => navigate('/articles')} style={{ color: LUXURY_THEME.PRIMARY, padding: 0, marginBottom: 15 }}>
+                <Button type="link" icon={<ArrowLeft />} onClick={() => navigate('/article')} style={{ color: LUXURY_THEME.PRIMARY, padding: 0, marginBottom: 15 }}>
                     Quay lại danh sách
                 </Button>
 

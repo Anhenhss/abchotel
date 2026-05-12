@@ -20,10 +20,7 @@ namespace abchotel.Services
         Task<bool> ToggleSoftDeleteAsync(int id);
         Task<List<VoucherResponse>> GetBirthdayVouchersAsync(int userId);
         Task<List<VoucherResponse>> GetVipVouchersAsync(int userId);
-        
-        // 🔥 Tính năng kiểm tra và tính toán giảm giá
         Task<ValidateVoucherResponse> ValidateAndCalculateDiscountAsync(int userId, ValidateVoucherRequest request);
-        
     }
 
     public class VoucherService : IVoucherService
@@ -52,23 +49,35 @@ namespace abchotel.Services
 
         public async Task<List<VoucherResponse>> GetAllVouchersAsync(bool onlyActive = false)
         {
-            var userIdStr = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            int? currentUserId = int.TryParse(userIdStr, out int id) ? id : null;
-            
             var query = _context.Vouchers.Include(v => v.RoomType).Include(v => v.Bookings).AsQueryable();
 
-            if (onlyActive) query = query.Where(v => v.IsActive);
+            if (onlyActive)
+            {
+                var now = DateTime.Now;
+                query = query.Where(v => v.IsActive
+                                    && (v.ValidFrom == null || v.ValidFrom <= now)
+                                    && (v.ValidTo == null || v.ValidTo >= now)
+                                    && (v.UsageLimit == null || v.Bookings.Count(b => b.Status != "Cancelled") < v.UsageLimit));
+            }
 
-            // 🔥 Nếu khách hàng đã đăng nhập và đã có đơn hàng thành công, ẩn voucher "Lần đầu"[cite: 2]
+            var claims = _httpContextAccessor.HttpContext?.User?.Claims;
+            var userIdStr = claims?.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value
+                         ?? claims?.FirstOrDefault(c => c.Type == "sub")?.Value;
+
+            int? currentUserId = int.TryParse(userIdStr, out int id) ? id : null;
+
             if (currentUserId.HasValue)
             {
-                bool hasPreviousBooking = await _context.Bookings
-                    .AnyAsync(b => b.UserId == currentUserId.Value && b.Status != "Cancelled");
-                
-                if (hasPreviousBooking)
-                {
-                    query = query.Where(v => !v.IsForNewCustomer);
-                }
+                var user = await _context.Users.Include(u => u.Membership).FirstOrDefaultAsync(u => u.Id == currentUserId.Value);
+                bool isVip = user?.Membership?.TierName?.ToUpper() == "VIP";
+                bool hasPreviousBooking = await _context.Bookings.AnyAsync(b => b.UserId == currentUserId.Value && b.Status != "Cancelled");
+
+                if (hasPreviousBooking) query = query.Where(v => !v.IsForNewCustomer);
+                if (!isVip) query = query.Where(v => v.DiscountType != "VIP_ONLY");
+            }
+            else
+            {
+                query = query.Where(v => v.DiscountType != "VIP_ONLY" && v.DiscountType != "BIRTHDAY");
             }
 
             return await query.OrderByDescending(v => v.CreatedAt).Select(v => new VoucherResponse
@@ -80,11 +89,13 @@ namespace abchotel.Services
                 MinBookingValue = v.MinBookingValue,
                 MaxDiscountAmount = v.MaxDiscountAmount,
                 RoomTypeId = v.RoomTypeId,
-                RoomTypeName = v.RoomType != null ? v.RoomType.Name : "Tất cả hạng phòng",
+                RoomTypeName = v.RoomType != null ? v.RoomType.Name :
+                            (v.DiscountType == "VIP_ONLY" ? "Đặc quyền VIP" :
+                            (v.DiscountType == "BIRTHDAY" ? "Quà tặng sinh nhật" : "Tất cả hạng phòng")),
                 ValidFrom = v.ValidFrom,
                 ValidTo = v.ValidTo,
                 UsageLimit = v.UsageLimit,
-                UsedCount = v.Bookings.Count(b => b.Status != "Cancelled"), // Đếm số lần mã đã được dùng
+                UsedCount = v.Bookings.Count(b => b.Status != "Cancelled"),
                 MaxUsesPerUser = v.MaxUsesPerUser,
                 IsForNewCustomer = v.IsForNewCustomer,
                 IsActive = v.IsActive
@@ -98,89 +109,85 @@ namespace abchotel.Services
 
             return new VoucherResponse
             {
-                Id = v.Id, Code = v.Code, DiscountType = v.DiscountType, DiscountValue = v.DiscountValue,
-                MinBookingValue = v.MinBookingValue, MaxDiscountAmount = v.MaxDiscountAmount,
-                RoomTypeId = v.RoomTypeId, RoomTypeName = v.RoomType != null ? v.RoomType.Name : "Tất cả",
-                ValidFrom = v.ValidFrom, ValidTo = v.ValidTo, UsageLimit = v.UsageLimit,
-                UsedCount = v.Bookings.Count(b => b.Status != "Cancelled"), MaxUsesPerUser = v.MaxUsesPerUser, IsActive = v.IsActive,
-                IsForNewCustomer = v.IsForNewCustomer,
+                Id = v.Id,
+                Code = v.Code,
+                DiscountType = v.DiscountType,
+                DiscountValue = v.DiscountValue,
+                MinBookingValue = v.MinBookingValue,
+                MaxDiscountAmount = v.MaxDiscountAmount,
+                RoomTypeId = v.RoomTypeId,
+                RoomTypeName = v.RoomType != null ? v.RoomType.Name : "Tất cả",
+                ValidFrom = v.ValidFrom,
+                ValidTo = v.ValidTo,
+                UsageLimit = v.UsageLimit,
+                UsedCount = v.Bookings.Count(b => b.Status != "Cancelled"),
+                MaxUsesPerUser = v.MaxUsesPerUser,
+                IsActive = v.IsActive,
+                IsForNewCustomer = v.IsForNewCustomer
             };
         }
 
         public async Task<(bool IsSuccess, string Message)> CreateVoucherAsync(CreateVoucherRequest request)
         {
-            // 🔥 THUẬT TOÁN XỬ LÝ MÃ CODE TỰ ĐỘNG
             string finalCode = request.Code?.Trim().ToUpper();
-
             if (string.IsNullOrWhiteSpace(finalCode))
             {
-                // Nếu không nhập, tự động sinh mã
-                // Ví dụ giảm 50.000 -> "V50K", giảm 15% -> "P15"
-                string prefix = request.DiscountType == "PERCENT" 
-                    ? $"P{request.DiscountValue:0}" 
-                    : $"V{request.DiscountValue / 1000:0}K";
-                
-                // Nối với 6 ký tự ngẫu nhiên
+                string prefix = request.DiscountType == "PERCENT" ? $"P{request.DiscountValue:0}" : $"V{request.DiscountValue / 1000:0}K";
                 string randomStr = Guid.NewGuid().ToString("N").Substring(0, 6).ToUpper();
-                finalCode = $"{prefix}-{randomStr}"; // Kết quả VD: P15-A8B9C2 hoặc V50K-112233
+                finalCode = $"{prefix}-{randomStr}";
             }
 
-            // Kiểm tra xem mã (gõ tay hoặc tự sinh) có bị trùng với mã cũ trong Database không
             if (await _context.Vouchers.AnyAsync(v => v.Code.ToUpper() == finalCode))
-                return (false, "Mã khuyến mãi này đã tồn tại trong hệ thống. Vui lòng chọn mã khác.");
+                return (false, "Mã khuyến mãi này đã tồn tại.");
 
             var voucher = new Voucher
             {
-                Code = finalCode, 
-                DiscountType = request.DiscountType, 
+                Code = finalCode,
+                DiscountType = request.DiscountType,
                 DiscountValue = request.DiscountValue,
-                MinBookingValue = request.MinBookingValue, 
+                MinBookingValue = request.MinBookingValue,
                 MaxDiscountAmount = request.MaxDiscountAmount,
-                RoomTypeId = request.RoomTypeId, 
-                ValidFrom = request.ValidFrom, 
+                RoomTypeId = request.RoomTypeId,
+                ValidFrom = request.ValidFrom,
                 ValidTo = request.ValidTo,
-                UsageLimit = request.UsageLimit, 
-                MaxUsesPerUser = request.MaxUsesPerUser, 
+                UsageLimit = request.UsageLimit,
+                MaxUsesPerUser = request.MaxUsesPerUser,
                 IsForNewCustomer = request.IsForNewCustomer,
-                IsActive = true, 
+                IsActive = true,
                 CreatedAt = DateTime.Now
             };
 
             _context.Vouchers.Add(voucher);
             await _context.SaveChangesAsync();
-
             string userName = await GetCurrentUserNameAsync();
-            await _notificationService.SendToPermissionAsync("MANAGE_VOUCHERS", "Tạo Mã Khuyến Mãi", $"[{userName}] vừa tạo mã giảm giá mới: {voucher.Code}.");
-
-            return (true, "Tạo mã khuyến mãi thành công.");
+            await _notificationService.SendToPermissionAsync("MANAGE_VOUCHERS", "Tạo Mã Khuyến Mãi", $"[{userName}] vừa tạo mã: {voucher.Code}.");
+            return (true, "Tạo thành công.");
         }
 
         public async Task<(bool IsSuccess, string Message)> UpdateVoucherAsync(int id, UpdateVoucherRequest request)
         {
             var voucher = await _context.Vouchers.FindAsync(id);
-            if (voucher == null) return (false, "Không tìm thấy mã khuyến mãi.");
+            if (voucher == null) return (false, "Không tìm thấy.");
 
-            if (voucher.Code.ToUpper() != request.Code.ToUpper())
-            {
-                if (await _context.Vouchers.AnyAsync(v => v.Code.ToUpper() == request.Code.ToUpper()))
-                    return (false, "Mã khuyến mãi này đã tồn tại.");
+            if (voucher.Code.ToUpper() != request.Code.ToUpper() && await _context.Vouchers.AnyAsync(v => v.Code.ToUpper() == request.Code.ToUpper()))
+                return (false, "Mã này đã tồn tại.");
 
-                voucher.Code = request.Code.ToUpper();
-            }
-
-            voucher.Code = request.Code.ToUpper(); voucher.DiscountType = request.DiscountType;
-            voucher.DiscountValue = request.DiscountValue; voucher.MinBookingValue = request.MinBookingValue;
-            voucher.MaxDiscountAmount = request.MaxDiscountAmount; voucher.RoomTypeId = request.RoomTypeId;
-            voucher.ValidFrom = request.ValidFrom; voucher.ValidTo = request.ValidTo;
-            voucher.UsageLimit = request.UsageLimit; voucher.MaxUsesPerUser = request.MaxUsesPerUser;
+            voucher.Code = request.Code.ToUpper();
+            voucher.DiscountType = request.DiscountType;
+            voucher.DiscountValue = request.DiscountValue;
+            voucher.MinBookingValue = request.MinBookingValue;
+            voucher.MaxDiscountAmount = request.MaxDiscountAmount;
+            voucher.RoomTypeId = request.RoomTypeId;
+            voucher.ValidFrom = request.ValidFrom;
+            voucher.ValidTo = request.ValidTo;
+            voucher.UsageLimit = request.UsageLimit;
+            voucher.MaxUsesPerUser = request.MaxUsesPerUser;
             voucher.IsForNewCustomer = request.IsForNewCustomer;
             voucher.UpdatedAt = DateTime.Now;
 
             await _context.SaveChangesAsync();
-
             string userName = await GetCurrentUserNameAsync();
-            await _notificationService.SendToPermissionAsync("MANAGE_VOUCHERS", "Cập nhật Mã Khuyến Mãi", $"[{userName}] vừa cập nhật thông tin mã: {voucher.Code}.");
-
+            await _notificationService.SendToPermissionAsync("MANAGE_VOUCHERS", "Cập nhật Mã", $"[{userName}] vừa sửa mã: {voucher.Code}.");
             return (true, "Cập nhật thành công.");
         }
 
@@ -188,175 +195,93 @@ namespace abchotel.Services
         {
             var voucher = await _context.Vouchers.FindAsync(id);
             if (voucher == null) return false;
-
             voucher.IsActive = !voucher.IsActive;
             await _context.SaveChangesAsync();
-
             string action = voucher.IsActive ? "kích hoạt lại" : "tạm ngưng";
             string userName = await GetCurrentUserNameAsync();
-            await _notificationService.SendToPermissionAsync("MANAGE_VOUCHERS", "Trạng thái Khuyến Mãi", $"[{userName}] vừa {action} mã: {voucher.Code}.");
-
+            await _notificationService.SendToPermissionAsync("MANAGE_VOUCHERS", "Trạng thái", $"[{userName}] vừa {action} mã: {voucher.Code}.");
             return true;
         }
 
-        // 🔥 THUẬT TOÁN KIỂM TRA MÃ VÀ TÍNH TIỀN
         public async Task<ValidateVoucherResponse> ValidateAndCalculateDiscountAsync(int userId, ValidateVoucherRequest request)
         {
             var voucher = await _context.Vouchers.Include(v => v.Bookings).FirstOrDefaultAsync(v => v.Code.ToUpper() == request.Code.ToUpper());
 
             if (voucher == null || !voucher.IsActive)
-                return new ValidateVoucherResponse { IsValid = false, Message = "Mã khuyến mãi không tồn tại hoặc đã hết hạn." };
+                return new ValidateVoucherResponse { IsValid = false, Message = "Mã không khả dụng." };
 
             if (voucher.ValidFrom.HasValue && DateTime.Now < voucher.ValidFrom.Value)
-                return new ValidateVoucherResponse { IsValid = false, Message = $"Mã này chỉ có hiệu lực từ ngày {voucher.ValidFrom.Value:dd/MM/yyyy}." };
+                return new ValidateVoucherResponse { IsValid = false, Message = $"Mã có hiệu lực từ {voucher.ValidFrom.Value:dd/MM/yyyy}." };
 
             if (voucher.ValidTo.HasValue && DateTime.Now > voucher.ValidTo.Value)
-                return new ValidateVoucherResponse { IsValid = false, Message = "Mã khuyến mãi đã hết hạn." };
+                return new ValidateVoucherResponse { IsValid = false, Message = "Mã hết hạn." };
 
             if (voucher.MinBookingValue.HasValue && request.TotalBookingValue < voucher.MinBookingValue.Value)
-                return new ValidateVoucherResponse { IsValid = false, Message = $"Đơn hàng phải từ {voucher.MinBookingValue.Value:N0}đ để áp dụng mã này." };
+                return new ValidateVoucherResponse { IsValid = false, Message = $"Đơn phải từ {voucher.MinBookingValue.Value:N0}đ." };
 
             if (voucher.RoomTypeId.HasValue && voucher.RoomTypeId != request.RoomTypeId)
-                return new ValidateVoucherResponse { IsValid = false, Message = "Mã này không áp dụng cho hạng phòng bạn đang chọn." };
+                return new ValidateVoucherResponse { IsValid = false, Message = "Không áp dụng cho hạng phòng này." };
 
-            if (voucher.UsageLimit.HasValue)
-            {
-                int totalUsed = voucher.Bookings.Count(b => b.Status != "Cancelled");
-                if (totalUsed >= voucher.UsageLimit.Value)
-                    return new ValidateVoucherResponse { IsValid = false, Message = "Mã khuyến mãi đã hết lượt sử dụng." };
-            }
+            int usedCount = voucher.Bookings.Count(b => b.Status != "Cancelled");
+            if (voucher.UsageLimit.HasValue && usedCount >= voucher.UsageLimit.Value)
+                return new ValidateVoucherResponse { IsValid = false, Message = "Hết lượt sử dụng." };
 
             int usedByUser = voucher.Bookings.Count(b => b.UserId == userId && b.Status != "Cancelled");
             if (usedByUser >= voucher.MaxUsesPerUser)
-                return new ValidateVoucherResponse { IsValid = false, Message = "Bạn đã dùng hết số lượt cho phép của mã này." };
+                return new ValidateVoucherResponse { IsValid = false, Message = "Bạn đã hết lượt dùng mã này." };
 
-            if (voucher.IsForNewCustomer)
-            {
-                // Đếm xem ông khách này đã từng đặt phòng nào chưa (loại trừ các đơn bị Hủy)
-                int totalPastBookings = await _context.Bookings
-                    .CountAsync(b => b.UserId == userId && b.Status != "Cancelled");
+            if (voucher.IsForNewCustomer && await _context.Bookings.AnyAsync(b => b.UserId == userId && b.Status != "Cancelled"))
+                return new ValidateVoucherResponse { IsValid = false, Message = "Chỉ dành cho khách hàng mới." };
 
-                if (totalPastBookings > 0)
-                {
-                    return new ValidateVoucherResponse 
-                    { 
-                        IsValid = false, 
-                        Message = "Rất tiếc! Mã giảm giá này chỉ dành riêng cho khách hàng đặt phòng lần đầu." 
-                    };
-                }
-            }
+            decimal discountAmount = voucher.DiscountType == "PERCENT" 
+                ? Math.Min(request.TotalBookingValue * (voucher.DiscountValue / 100), voucher.MaxDiscountAmount ?? decimal.MaxValue)
+                : voucher.DiscountValue;
 
-            // Tính toán số tiền được giảm
-            decimal discountAmount = 0;
-            if (voucher.DiscountType == "PERCENT")
-            {
-                discountAmount = request.TotalBookingValue * (voucher.DiscountValue / 100);
-                if (voucher.MaxDiscountAmount.HasValue && discountAmount > voucher.MaxDiscountAmount.Value)
-                    discountAmount = voucher.MaxDiscountAmount.Value;
-            }
-            else if (voucher.DiscountType == "FIXED_AMOUNT")
-            {
-                discountAmount = voucher.DiscountValue;
-            }
-
-            // Nếu tiền giảm lớn hơn tổng đơn thì chỉ giảm tối đa bằng tổng đơn
-            if (discountAmount > request.TotalBookingValue) discountAmount = request.TotalBookingValue;
+            discountAmount = Math.Min(discountAmount, request.TotalBookingValue);
 
             return new ValidateVoucherResponse
             {
                 IsValid = true,
-                Message = "Áp dụng mã giảm giá thành công!",
+                Message = "Áp dụng thành công!",
                 DiscountAmount = discountAmount,
                 FinalTotal = request.TotalBookingValue - discountAmount
             };
-
-            
         }
 
-        // 🔥 THUẬT TOÁN LẤY VOUCHER SINH NHẬT DÀNH RIÊNG CHO USER
         public async Task<List<VoucherResponse>> GetBirthdayVouchersAsync(int userId)
         {
-            // 1. Lấy thông tin ngày sinh của User
             var user = await _context.Users.FindAsync(userId);
-            if (user == null || !user.DateOfBirth.HasValue) 
-                return new List<VoucherResponse>();
+            if (user == null || !user.DateOfBirth.HasValue) return new List<VoucherResponse>();
 
             var today = DateTime.Now;
-            
-            // 2. Kiểm tra xem hôm nay có phải sinh nhật khách không (Trùng Ngày và Tháng)
-            bool isBirthdayToday = user.DateOfBirth.Value.Day == today.Day && user.DateOfBirth.Value.Month == today.Month;
-
-            if (!isBirthdayToday) 
+            if (user.DateOfBirth.Value.Day != today.Day || user.DateOfBirth.Value.Month != today.Month)
                 return new List<VoucherResponse>();
 
-            // 3. Truy vấn các Voucher có loại là 'BIRTHDAY' và đang hoạt động
-            // Lưu ý: Cần đảm bảo trong DB của bạn có các bản ghi Voucher với DiscountType hoặc một trường phân loại là 'BIRTHDAY'
-            var query = _context.Vouchers
-                .Include(v => v.RoomType)
-                .Include(v => v.Bookings)
-                .Where(v => v.IsActive && v.DiscountType == "BIRTHDAY");
-
-            return await query.Select(v => new VoucherResponse
-            {
-                Id = v.Id,
-                Code = v.Code,
-                DiscountType = v.DiscountType,
-                DiscountValue = v.DiscountValue,
-                MinBookingValue = v.MinBookingValue,
-                MaxDiscountAmount = v.MaxDiscountAmount,
-                RoomTypeId = v.RoomTypeId,
-                RoomTypeName = v.RoomType != null ? v.RoomType.Name : "Quà tặng sinh nhật",
-                ValidFrom = v.ValidFrom,
-                ValidTo = v.ValidTo,
-                UsageLimit = v.UsageLimit,
-                UsedCount = v.Bookings.Count(b => b.Status != "Cancelled"),
-                MaxUsesPerUser = v.MaxUsesPerUser,
-                IsForNewCustomer = v.IsForNewCustomer,
-                IsActive = v.IsActive
-            }).ToListAsync();
+            return await _context.Vouchers.Include(v => v.RoomType).Include(v => v.Bookings)
+                .Where(v => v.IsActive && v.DiscountType == "BIRTHDAY" && (v.ValidTo == null || v.ValidTo >= today))
+                .Select(v => new VoucherResponse
+                {
+                    Id = v.Id, Code = v.Code, DiscountType = v.DiscountType, DiscountValue = v.DiscountValue,
+                    MinBookingValue = v.MinBookingValue, MaxDiscountAmount = v.MaxDiscountAmount,
+                    RoomTypeId = v.RoomTypeId, RoomTypeName = "Quà tặng sinh nhật",
+                    ValidFrom = v.ValidFrom, ValidTo = v.ValidTo, IsActive = v.IsActive
+                }).ToListAsync();
         }
 
-        // 🔥 THUẬT TOÁN LẤY VOUCHER DÀNH RIÊNG CHO KHÁCH HÀNG VIP
         public async Task<List<VoucherResponse>> GetVipVouchersAsync(int userId)
         {
-            // 1. Kiểm tra hạng của User (Dựa trên bảng Users và Roles/Rank trong hệ thống của bạn)
-            // Giả sử bạn quản lý VIP qua trường RankName hoặc kiểm tra tổng tiền đã chi tiêu
-            var user = await _context.Users.FindAsync(userId);
-            
-            // Ở đây tôi giả định logic: Nếu User có thuộc tính IsVip hoặc Rank là 'VIP'
-            // Bạn có thể thay đổi điều kiện này tùy theo cách bạn định nghĩa khách VIP
-            if (user == null || user.Membership?.TierName != "VIP") 
-            {
-                return new List<VoucherResponse>();
-            }
+            var user = await _context.Users.Include(u => u.Membership).FirstOrDefaultAsync(u => u.Id == userId);
+            if (user == null || user.Membership?.TierName?.ToUpper() != "VIP") return new List<VoucherResponse>();
 
-            // 2. Truy vấn các Voucher có loại là 'VIP_ONLY'
-            var query = _context.Vouchers
-                .Include(v => v.RoomType)
-                .Include(v => v.Bookings)
-                .Where(v => v.IsActive 
-                            && v.DiscountType == "VIP_ONLY" // Phân loại voucher VIP
-                            && (v.ValidTo == null || v.ValidTo >= DateTime.Now));
-
-            return await query.OrderByDescending(v => v.DiscountValue).Select(v => new VoucherResponse
-            {
-                Id = v.Id,
-                Code = v.Code,
-                DiscountType = v.DiscountType,
-                DiscountValue = v.DiscountValue,
-                MinBookingValue = v.MinBookingValue,
-                MaxDiscountAmount = v.MaxDiscountAmount,
-                RoomTypeId = v.RoomTypeId,
-                RoomTypeName = v.RoomType != null ? v.RoomType.Name : "Đặc quyền VIP",
-                ValidFrom = v.ValidFrom,
-                ValidTo = v.ValidTo,
-                UsageLimit = v.UsageLimit,
-                UsedCount = v.Bookings.Count(b => b.Status != "Cancelled"),
-                MaxUsesPerUser = v.MaxUsesPerUser,
-                IsForNewCustomer = v.IsForNewCustomer,
-                IsActive = v.IsActive
-            }).ToListAsync();
+            return await _context.Vouchers.Include(v => v.RoomType).Include(v => v.Bookings)
+                .Where(v => v.IsActive && v.DiscountType == "VIP_ONLY" && (v.ValidTo == null || v.ValidTo >= DateTime.Now))
+                .Select(v => new VoucherResponse
+                {
+                    Id = v.Id, Code = v.Code, DiscountType = v.DiscountType, DiscountValue = v.DiscountValue,
+                    MinBookingValue = v.MinBookingValue, MaxDiscountAmount = v.MaxDiscountAmount,
+                    RoomTypeId = v.RoomTypeId, RoomTypeName = "Đặc quyền VIP",
+                    ValidFrom = v.ValidFrom, ValidTo = v.ValidTo, IsActive = v.IsActive
+                }).ToListAsync();
         }
-    } 
-
+    }
 }

@@ -13,6 +13,8 @@ using Microsoft.OpenApi.Models;
 using abchotel.Data;
 using abchotel.Services;
 
+System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ==========================================

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Row, Col, Card, Typography, Button, Space, Steps, Divider, Spin, notification, Empty } from 'antd';
 import { 
-  Bed, SuitcaseRolling, ShieldCheck, ArrowRight, Minus, Plus, WarningCircle, Sparkle
+  Bed, SuitcaseRolling, ShieldCheck, ArrowRight, Minus, Plus, Sparkle
 } from '@phosphor-icons/react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -41,7 +41,9 @@ export default function SelectServicePage() {
     if (!bookingState) return 1;
     const start = dayjs(bookingState.checkIn);
     const end = dayjs(bookingState.checkOut);
-    return bookingState.priceType === 'HOURLY' ? Math.max(1, end.diff(start, 'hour')) : Math.max(1, end.diff(start, 'day'));
+    return bookingState.priceType === 'HOURLY' 
+        ? Math.max(1, Math.ceil(end.diff(start, 'minute') / 60)) 
+        : Math.max(1, end.startOf('day').diff(start.startOf('day'), 'day'));
   }, [bookingState]);
 
   const totalRoomPrice = useMemo(() => {
@@ -113,7 +115,9 @@ export default function SelectServicePage() {
     }, 0);
   }, [cart, services]);
 
-  const grandTotal = totalRoomPrice + totalServicePrice;
+  const subTotal = totalRoomPrice + totalServicePrice;
+  const taxAmount = subTotal * 0.10; // Thuế VAT 10%
+  const grandTotal = subTotal + taxAmount;
 
   const handleNextStep = () => {
     navigate('/booking/checkout', { 
@@ -122,15 +126,21 @@ export default function SelectServicePage() {
         selectedServices: cart,
         totalRoomPrice,
         totalServicePrice,
-        grandTotal
+        grandTotal 
       } 
     });
+  };
+
+  // 🔥 Hàm hiển thị thời gian đã được căn chỉnh lại cách điệu cho thoáng mắt
+  const renderFullDateLabel = (dateStr) => {
+    return bookingState?.priceType === 'HOURLY' 
+       ? dayjs(dateStr).format('HH:mm - DD/MM/YYYY') 
+       : dayjs(dateStr).format('DD/MM/YYYY');
   };
 
   if (!bookingState) return null;
 
   return (
-    // 🔥 THUỘC TÍNH translate="no" BẢO VỆ GIAO DIỆN
     <div className="select-service-wrapper" translate="no">
       {contextHolder}
       
@@ -220,21 +230,21 @@ export default function SelectServicePage() {
                     <div className="bill-date-box">
                         <div className="date-item">
                             <Text className="date-lbl">Nhận phòng</Text>
-                            <Text className="date-val">{dayjs(bookingState.checkIn).format('DD/MM/YYYY')}</Text>
+                            <Text className="date-val">{renderFullDateLabel(bookingState.checkIn)}</Text>
                         </div>
                         <div className="date-divider"><ArrowRight color={THEME.TEXT_MUTED}/></div>
                         <div className="date-item" style={{textAlign: 'right'}}>
                             <Text className="date-lbl">Trả phòng</Text>
-                            <Text className="date-val">{dayjs(bookingState.checkOut).format('DD/MM/YYYY')}</Text>
+                            <Text className="date-val">{renderFullDateLabel(bookingState.checkOut)}</Text>
                         </div>
                     </div>
                     <div style={{ textAlign: 'center', marginTop: 8 }}>
                        <Text type="secondary" style={{fontSize: 12}}>Tổng: {duration} {bookingState.priceType === 'HOURLY' ? 'giờ' : 'đêm'}</Text>
                     </div>
 
-                    <Divider style={{ margin: '16px 0' }} />
+                    <Divider style={{ margin: '16px 0' }} className="mobile-hide"/>
 
-                    <div className="cart-area">
+                    <div className="cart-area mobile-hide">
                         <Text strong style={{ fontSize: 14, color: THEME.NAVY_DARK, textTransform: 'uppercase' }}>1. Tiền Phòng</Text>
                         {bookingState.selectedRooms.map((room, idx) => {
                             const price = bookingState.priceType === 'HOURLY' ? (room.basePricePerHour || 0) : (room.basePricePerNight || room.pricePerUnit || 0);
@@ -251,8 +261,9 @@ export default function SelectServicePage() {
                         })}
                     </div>
 
-                    <Divider style={{ margin: '16px 0' }} />
-                    <div className="cart-area">
+                    <Divider style={{ margin: '16px 0' }} className="mobile-hide"/>
+                    
+                    <div className="cart-area mobile-hide">
                         <Text strong style={{ fontSize: 14, color: THEME.NAVY_DARK, textTransform: 'uppercase' }}>2. Dịch Vụ Mua Thêm</Text>
                         <AnimatePresence>
                             {Object.keys(cart).length === 0 ? (
@@ -279,19 +290,36 @@ export default function SelectServicePage() {
                         </AnimatePresence>
                     </div>
 
-                    <Divider style={{ margin: '16px 0' }} />
+                    <Divider style={{ margin: '16px 0' }} className="mobile-hide"/>
 
-                    <div className="total-area">
-                        <Text className="total-label">Tổng cộng</Text>
-                        <div className="total-amount">{new Intl.NumberFormat('vi-VN').format(grandTotal)}<span style={{ fontSize: 20, verticalAlign: 'top' }}>₫</span></div>
-                        <Text className="tax-info">(Đã bao gồm thuế/phí)</Text>
+                    <div className="cart-area mobile-hide">
+                        <div className="cart-item-row" style={{ borderBottom: 'none', padding: '4px 0' }}>
+                            <Text className="cart-item-name" style={{ color: THEME.TEXT_MUTED }}>Tạm tính</Text>
+                            <Text className="cart-item-price">{new Intl.NumberFormat('vi-VN').format(subTotal)}₫</Text>
+                        </div>
+                        <div className="cart-item-row" style={{ borderBottom: 'none', padding: '4px 0' }}>
+                            <Text className="cart-item-name" style={{ color: THEME.TEXT_MUTED }}>Thuế GTGT / VAT (10%)</Text>
+                            <Text className="cart-item-price">{new Intl.NumberFormat('vi-VN').format(taxAmount)}₫</Text>
+                        </div>
                     </div>
 
-                    <Button block className="btn-proceed" onClick={handleNextStep}>
-                        BƯỚC TIẾP THEO
-                    </Button>
+                    <Divider style={{ margin: '16px 0' }} className="mobile-hide"/>
 
-                    <Button type="link" block style={{ marginTop: 8, color: THEME.TEXT_MUTED }} onClick={() => navigate(-1)}>
+                    <div className="total-area-wrapper">
+                        <div className="total-area">
+                            <div className="total-label-box">
+                                <Text className="total-label">Tổng cộng</Text>
+                                <Text className="tax-info mobile-hide">(Đã bao gồm thuế/phí)</Text>
+                            </div>
+                            <div className="total-amount">{new Intl.NumberFormat('vi-VN').format(grandTotal)}<span style={{ fontSize: 20, verticalAlign: 'top' }}>₫</span></div>
+                        </div>
+
+                        <Button block className="btn-proceed" onClick={handleNextStep}>
+                            BƯỚC TIẾP THEO
+                        </Button>
+                    </div>
+
+                    <Button className="btn-back mobile-hide" type="link" block style={{ marginTop: 8, color: THEME.TEXT_MUTED }} onClick={() => navigate(-1)}>
                         Quay lại chọn phòng
                     </Button>
                 </Card>
@@ -305,7 +333,7 @@ export default function SelectServicePage() {
         .select-service-wrapper { background-color: ${THEME.GRAY_BG}; min-height: 100vh; padding-bottom: 80px; font-family: 'Inter', sans-serif; }
         .container-inner { max-width: 1400px; margin: 0 auto; padding: 0 24px; } 
         
-        .booking-topbar { background: #fff; border-bottom: 1px solid ${THEME.BORDER}; padding: 20px 0; position: sticky; top: 80px; z-index: 100; }
+        .booking-topbar { background: #fff; border-bottom: 1px solid ${THEME.BORDER}; padding: 20px 0; position: sticky; top: 0px; z-index: 100; }
         .luxury-steps .ant-steps-item-process .ant-steps-item-icon { background: ${THEME.NAVY_DARK}; border-color: ${THEME.NAVY_DARK}; }
         .luxury-steps .ant-steps-item-finish .ant-steps-item-icon { border-color: ${THEME.DARK_RED}; }
         .luxury-steps .ant-steps-item-finish .ant-steps-icon { color: ${THEME.DARK_RED}; }
@@ -316,7 +344,6 @@ export default function SelectServicePage() {
         .service-category-section { margin-bottom: 40px; }
         .category-title { font-size: 18px !important; color: ${THEME.NAVY_DARK} !important; border-bottom: 2px solid ${THEME.BORDER}; padding-bottom: 8px; margin-bottom: 20px !important; }
         
-        /* CARD DỊCH VỤ DẠNG TEXT */
         .service-card-no-img { border-radius: 12px; border: 1px solid ${THEME.BORDER}; transition: all 0.3s ease; background: #fff; position: relative; height: 100%; display: flex; flex-direction: column; }
         .service-card-no-img .ant-card-body { padding: 20px; display: flex; flex-direction: column; height: 100%; flex: 1; }
         .service-card-no-img.selected { border-color: ${THEME.DARK_RED}; box-shadow: 0 0 0 1px ${THEME.DARK_RED}; background: #fffcfc; }
@@ -328,7 +355,6 @@ export default function SelectServicePage() {
         .service-price { font-size: 18px; font-weight: 700; color: ${THEME.DARK_RED}; display: block; }
         .service-unit { font-size: 13px; font-weight: normal; color: ${THEME.TEXT_MUTED}; }
 
-        /* 🔥 FIX NÚT ĐỂ CHỮ TỰ ĐỘNG GIÃN NẾU GG DỊCH LÀM DÀI CHỮ RA */
         .service-action-bottom { margin-top: auto; }
         .btn-add-service { min-height: 40px; height: auto; padding: 6px 12px; white-space: normal; word-break: break-word; border-radius: 8px; border-color: ${THEME.BORDER}; color: ${THEME.NAVY_DARK}; display: flex; align-items: center; justify-content: center; gap: 6px; font-weight: 600; }
         .btn-add-service:hover { border-color: ${THEME.NAVY_DARK}; color: ${THEME.NAVY_DARK}; background: #f8fafc; }
@@ -338,15 +364,27 @@ export default function SelectServicePage() {
         .btn-ctrl:hover { background: #fef2f2; }
         .qty-text { font-weight: bold; font-size: 16px; color: ${THEME.NAVY_DARK}; width: 30px; text-align: center; }
 
-        /* HÓA ĐƠN STICKY */
-        .sticky-bill { position: sticky; top: 180px; }
-        .white-bill-card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.05); border: 1px solid ${THEME.BORDER}; }
+        .sticky-bill { position: sticky; top: 100px; }
+        .white-bill-card { 
+            background: #fff; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.05); 
+            border: 1px solid ${THEME.BORDER}; 
+            max-height: calc(100vh - 120px); 
+            overflow-y: auto; 
+        }
+        .white-bill-card .ant-card-body { padding: 24px; }
+        
+        .white-bill-card::-webkit-scrollbar { width: 5px; }
+        .white-bill-card::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
         .bill-title { color: ${THEME.NAVY_DARK} !important; font-family: '"Source Serif 4", serif'; margin-top: 0; margin-bottom: 20px; font-size: 20px; font-weight: 800 !important; text-align: center; }
         
+        /* 🔥 ĐÃ FIX LỖI FLEX BOX TẠI ĐÂY */
         .bill-date-box { display: flex; align-items: center; justify-content: space-between; background: ${THEME.GRAY_BG}; padding: 12px 16px; border-radius: 12px; border: 1px solid ${THEME.BORDER}; }
-        .date-item { display: flex; flex-direction: column; }
-        .date-lbl { font-size: 11px; color: ${THEME.TEXT_MUTED}; text-transform: uppercase; font-weight: 600; margin-bottom: 2px; }
-        .date-val { font-size: 14px; font-weight: 700; color: ${THEME.NAVY_DARK}; }
+        .date-item { display: flex; flex-direction: column; } 
+        .date-lbl { font-size: 11px; color: ${THEME.TEXT_MUTED}; text-transform: uppercase; font-weight: 600; margin-bottom: 2px; display: block; }
+        .date-val { font-size: 14px; font-weight: 700; color: ${THEME.NAVY_DARK}; display: block; }
         
         .empty-cart-msg { text-align: center; padding: 12px 0; color: #94a3b8; font-style: italic; font-size: 13px; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1; margin-top: 8px; }
         .cart-item-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed #f1f5f9; }
@@ -354,27 +392,54 @@ export default function SelectServicePage() {
         .cart-item-name { font-size: 13px; font-weight: 600; color: ${THEME.NAVY_DARK}; }
         .cart-item-price { font-size: 14px; font-weight: 700; color: ${THEME.NAVY_DARK}; }
 
-        .total-area { text-align: right; margin-bottom: 20px; }
+        .total-area { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; }
+        .total-label-box { display: flex; flex-direction: column; }
         .total-label { font-size: 13px; text-transform: uppercase; color: ${THEME.TEXT_MUTED}; font-weight: 700; }
-        .total-amount { font-size: 32px; font-weight: 900; color: ${THEME.NAVY_DARK}; line-height: 1; margin-top: 4px; }
-        .tax-info { font-size: 12px; color: #94a3b8; display: block; margin-top: 4px; }
+        .total-amount { font-size: 32px; font-weight: 900; color: ${THEME.NAVY_DARK}; line-height: 1; margin-top: 4px; text-align: right; }
+        .tax-info { font-size: 12px; color: #94a3b8; margin-top: 4px; }
 
-        /* 🔥 FIX NÚT TIẾP THEO CHO CO GIÃN MƯỢT MÀ */
         .btn-proceed { min-height: 50px; height: auto; padding: 12px 16px; white-space: normal; word-break: break-word; border-radius: 12px; font-size: 15px; font-weight: 800; letter-spacing: 1px; background: ${THEME.NAVY_DARK}; color: #fff; border: none; box-shadow: 0 4px 15px rgba(10, 25, 47, 0.2); }
         .btn-proceed:hover { background: ${THEME.NAVY_LIGHT} !important; color: #fff !important; transform: translateY(-2px); }
 
         .loading-box { text-align: center; padding: 60px 0; display: flex; flex-direction: column; gap: 16px; color: ${THEME.TEXT_MUTED}; }
 
-        /* RESPONSIVE */
+        /* ========================================= */
+        /* 🔥 BẢN VÁ LỖI RESPONSIVE MOBILE CHUẨN XÁC  */
+        /* ========================================= */
         @media (max-width: 992px) {
-            .sticky-bill { position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000; }
-            .white-bill-card { border-radius: 24px 24px 0 0; padding: 16px 20px; box-shadow: 0 -10px 40px rgba(0,0,0,0.1); }
-            .bill-date-box, .cart-area, .bill-title { display: none; }
-            .ant-divider { display: none; }
-            .total-area { display: flex; justify-content: space-between; align-items: center; margin: 0 0 12px 0; text-align: left; }
-            .total-amount { font-size: 24px; margin-top: 0; }
-            .tax-info { display: none; }
             .select-service-wrapper { padding-bottom: 140px; } 
+
+            .sticky-bill { position: fixed !important; top: auto !important; bottom: 0 !important; left: 0; right: 0; z-index: 1000; }
+            
+            .white-bill-card { border-radius: 24px 24px 0 0; padding: 12px 20px; box-shadow: 0 -5px 25px rgba(0,0,0,0.15); margin: 0; border: none; max-height: none; }
+            .white-bill-card .ant-card-body { padding: 0; display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 16px; }
+            
+            .mobile-hide, .bill-date-box, .cart-area, .bill-title, .btn-back { display: none; }
+            
+            .total-area-wrapper { display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 16px; }
+            .total-area { margin: 0; align-items: center; }
+            .total-label { display: none; } 
+            .total-amount { font-size: 24px; margin-top: 0; text-align: left; }
+            
+            .btn-proceed { height: 46px; min-height: unset; flex: 1; margin: 0; max-width: 180px; font-size: 14px; padding: 0 10px; }
+        }
+
+        @media (max-width: 576px) {
+            .container-inner { padding: 0 12px; }
+            
+            .service-card-no-img .ant-card-body { flex-direction: row; align-items: center; padding: 16px; gap: 12px; }
+            .service-info-text { margin-bottom: 0; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+            .service-name { font-size: 15px !important; margin-bottom: 4px !important; }
+            .service-price { font-size: 15px; }
+            
+            .service-action-bottom { margin-top: 0; width: 110px; flex-shrink: 0; display: flex; align-items: center; justify-content: flex-end; }
+            .btn-add-service { min-height: 36px; padding: 4px 8px; font-size: 13px; width: 100%; }
+            .qty-controls { min-height: 36px; padding: 2px; width: 100%; }
+            .qty-text { font-size: 14px; width: 24px; }
+            .btn-ctrl { width: 28px; height: 28px; }
+            .qty-badge-corner { width: 24px; height: 24px; font-size: 12px; top: -8px; right: -8px; }
+            
+            .total-amount { font-size: 22px; }
         }
       `}</style>
     </div>
