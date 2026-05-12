@@ -27,9 +27,10 @@ export default function ClientServicesPage() {
   const [search, setSearch] = useState('');
   const [activeCat, setActiveCat] = useState(null);
 
-  const loadData = useCallback(async (isInitial = false) => {
+  // --- SỬA: Thêm tham số showLoading để cập nhật ngầm ---
+  const loadData = useCallback(async (showLoading = false) => {
     try {
-      if (isInitial) setLoading(true);
+      if (showLoading) setLoading(true);
       if (serviceApi) {
         const [s, c] = await Promise.all([
           serviceApi.getServices(true), 
@@ -38,17 +39,30 @@ export default function ClientServicesPage() {
         const activeCats = Array.isArray(c) ? c : [];
         setServices(Array.isArray(s) ? s : []);
         setCategories(activeCats);
-        if (activeCats.length > 0 && isInitial) setActiveCat(activeCats[0].id);
+        
+        // Chỉ set activeCat mặc định ở lần đầu tiên load trang
+        if (activeCats.length > 0 && showLoading && !activeCat) {
+          setActiveCat(activeCats[0].id);
+        }
       }
     } catch (e) { 
       console.error("Lỗi tải dữ liệu", e); 
     } finally { 
-      if (isInitial) setLoading(false); 
+      if (showLoading) setLoading(false); 
     }
-  }, []);
+  }, [activeCat]);
 
+  // --- SỬA: Lắng nghe SignalR để tự động tải lại dữ liệu ---
   useSignalR(useCallback((msg) => {
+    // Kiểm tra nếu tin nhắn yêu cầu reload hoặc đơn giản là có thông báo mới
     const content = typeof msg === 'object' ? msg.content : msg;
+    const action = typeof msg === 'object' ? msg.action : null;
+
+    // Nếu Backend gửi kèm action "reload_services" hoặc nội dung liên quan đến cập nhật
+    if (action === "reload_services" || !action) {
+        loadData(false); // Tải lại dữ liệu mới nhất (không hiện loading xoay xoay)
+    }
+
     notification.open({
       message: <span style={{ color: THEME.GOLD, fontWeight: 'bold' }}>Elite Concierge</span>,
       description: content || "Dịch vụ đã có cập nhật mới!",
@@ -56,12 +70,11 @@ export default function ClientServicesPage() {
       placement: 'bottomRight',
       className: 'luxury-notification'
     });
-    loadData(false); 
   }, [loadData]));
 
   useEffect(() => {
-    loadData(true);
-  }, [loadData]);
+    loadData(true); // Lần đầu vào trang thì hiện loading
+  }, []); // Chỉ chạy 1 lần khi mount
 
   const getServiceIcon = (name) => {
     const n = name.toLowerCase();
@@ -294,6 +307,7 @@ export default function ClientServicesPage() {
               background: ${THEME.BG_SOFT}; 
               margin: 0 -15px 25px; 
               padding: 10px 15px;
+              z-index: 10;
             }
             
             .sidebar-nav { 

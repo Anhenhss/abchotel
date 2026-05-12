@@ -1,9 +1,12 @@
+using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using abchotel.DTOs;
 using abchotel.Services;
+using abchotel.Hubs; 
 
 namespace abchotel.Controllers
 {
@@ -12,50 +15,49 @@ namespace abchotel.Controllers
     public class ArticlesController : ControllerBase
     {
         private readonly IArticleService _articleService;
+        private readonly IHubContext<NotificationHub> _hubContext;
 
-        public ArticlesController(IArticleService articleService)
+        public ArticlesController(IArticleService articleService, IHubContext<NotificationHub> hubContext)
         {
             _articleService = articleService;
+            _hubContext = hubContext;
         }
 
-        private int GetCurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+        // Lấy ID người dùng an toàn từ Token
+        private int GetCurrentUserId()
+        {
+            var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            return int.TryParse(userIdStr, out int id) ? id : 0;
+        }
 
-        // API Công khai: Lấy danh sách bài viết (Frontend hiển thị tin tức)
         [HttpGet]
         [AllowAnonymous]
         public async Task<IActionResult> GetArticles([FromQuery] bool onlyPublished = true, [FromQuery] int? categoryId = null)
         {
-            // Mặc định khách vãng lai chỉ thấy bài Đã xuất bản. 
-            // Nếu là Admin muốn xem bản nháp, Frontend sẽ truyền onlyPublished = false kèm JWT
             var articles = await _articleService.GetAllArticlesAsync(onlyPublished, categoryId); 
             return Ok(articles);
         }
 
-        // API Công khai: Xem chi tiết bài viết
         [HttpGet("{slug}")]
         [AllowAnonymous]
         public async Task<IActionResult> GetArticleBySlug(string slug)
         {
             var article = await _articleService.GetArticleBySlugAsync(slug);
-            if (article == null) return NotFound(new { message = "Không tìm thấy bài viết." });
+            if (article == null) return NotFound();
             return Ok(article);
         }
-
-        // ==========================================
-        // KHU VỰC BẢO MẬT DÀNH CHO CONTENT CREATOR
-        // ==========================================
 
         [HttpPost]
         [Authorize(Policy = "MANAGE_CONTENT")]
         public async Task<IActionResult> CreateArticle([FromBody] CreateArticleRequest request)
         {
-            // Cốt lõi bảo mật: Trích xuất ID tác giả từ Token
-            int authorId = GetCurrentUserId();
-
-            var result = await _articleService.CreateArticleAsync(authorId, request);
+            var result = await _articleService.CreateArticleAsync(GetCurrentUserId(), request);
             if (!result.IsSuccess) return BadRequest(new { message = result.Message });
-            
-            return Ok(new { message = result.Message, articleId = result.ArticleId });
+
+            // 🔥 BÁO CHO CLIENT RELOAD
+            await _hubContext.Clients.All.SendAsync("ReceiveNotification", new { action = "reload" });
+
+            return Ok(new { id = result.ArticleId });
         }
 
         [HttpPut("{id}")]
@@ -64,7 +66,11 @@ namespace abchotel.Controllers
         {
             var success = await _articleService.UpdateArticleAsync(id, request);
             if (!success) return NotFound(new { message = "Không tìm thấy bài viết." });
-            return Ok(new { message = "Cập nhật bài viết thành công." });
+
+            // 🔥 BÁO CHO CLIENT RELOAD
+            await _hubContext.Clients.All.SendAsync("ReceiveNotification", new { action = "reload" });
+
+            return Ok(new { message = "Cập nhật thành công." });
         }
 
         [HttpDelete("{id}")]
@@ -72,17 +78,12 @@ namespace abchotel.Controllers
         public async Task<IActionResult> DeleteArticle(int id)
         {
             var success = await _articleService.ToggleSoftDeleteAsync(id);
-            if (!success) return NotFound(new { message = "Không tìm thấy bài viết." });
-            return Ok(new { message = "Đã thay đổi trạng thái hiển thị của bài viết." });
-        }
+            if (!success) return NotFound();
 
-        [HttpPost("{id}/thumbnail")]
-        [Authorize(Policy = "MANAGE_CONTENT")]
-        public async Task<IActionResult> UpdateThumbnail(int id, [FromBody] UpdateThumbnailRequest request)
-        {
-            var success = await _articleService.UpdateThumbnailAsync(id, request.ThumbnailUrl);
-            if (!success) return NotFound(new { message = "Không tìm thấy bài viết." });
-            return Ok(new { message = "Cập nhật ảnh bìa thành công." });
+            // 🔥 BÁO CHO CLIENT RELOAD (Khi ẩn bài)
+            await _hubContext.Clients.All.SendAsync("ReceiveNotification", new { action = "reload" });
+
+            return Ok(new { message = "Đã thay đổi trạng thái hiển thị." });
         }
 
         [HttpPatch("{id}/status")]
@@ -90,8 +91,12 @@ namespace abchotel.Controllers
         public async Task<IActionResult> ToggleStatus(int id)
         {
             var success = await _articleService.TogglePublishStatusAsync(id);
-            if (!success) return NotFound(new { message = "Không tìm thấy bài viết." });
-            return Ok(new { message = "Đã thay đổi trạng thái Xuất bản/Bản nháp." });
+            if (!success) return NotFound();
+
+            // 🔥 BÁO CHO CLIENT RELOAD (Khi xuất bản bài)
+            await _hubContext.Clients.All.SendAsync("ReceiveNotification", new { action = "reload" });
+
+            return Ok(new { message = "Đã thay đổi trạng thái xuất bản." });
         }
     }
 }

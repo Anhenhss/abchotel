@@ -27,6 +27,7 @@ export default function ArticlePage() {
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 5;
 
+    // Hàm loadData hỗ trợ chế độ silent để không gây giật lag giao diện khi SignalR cập nhật
     const loadData = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
         try {
@@ -43,14 +44,17 @@ export default function ArticlePage() {
         }
     }, []);
 
+    // Lắng nghe sự kiện từ SignalR để tự động cập nhật danh sách bài viết
     useSignalR(useCallback((notification) => {
-        loadData(true);
+        console.log("SignalR: Nhận thông báo cập nhật bài viết mới.");
+        loadData(true); // Cập nhật ngầm (silent)
     }, [loadData]));
 
     useEffect(() => {
         loadData();
     }, [loadData]);
 
+    // Logic lọc bài viết theo tìm kiếm và danh mục
     const filtered = articles.filter(a => {
         const matchesSearch = a.title.toLowerCase().includes(search.toLowerCase());
         const matchesCat = activeCategory ? a.categoryId === activeCategory : true;
@@ -156,7 +160,7 @@ export default function ArticlePage() {
                                             </Row>
                                         </div>
 
-                                        {/* Mobile Card View - Gọn gàng trên điện thoại */}
+                                        {/* Mobile Card View */}
                                         <Card 
                                             className="mobile-only mobile-article-card"
                                             cover={<div className="mobile-card-img"><img alt="thumb" src={art.thumbnailUrl} /></div>}
@@ -174,11 +178,17 @@ export default function ArticlePage() {
                             </div>
                             
                             <div className="pagination-wrapper">
-                                <Pagination current={currentPage} total={filtered.length} pageSize={pageSize} onChange={setCurrentPage} size="small" />
+                                <Pagination 
+                                    current={currentPage} 
+                                    total={filtered.length} 
+                                    pageSize={pageSize} 
+                                    onChange={setCurrentPage} 
+                                    size="small" 
+                                />
                             </div>
                         </Col>
 
-                        {/* CỘT PHẢI - Ẩn bớt trên mobile hoặc đẩy xuống dưới */}
+                        {/* CỘT PHẢI */}
                         <Col xs={24} lg={7}>
                             <aside className="sidebar-sticky">
                                 <div className="sidebar-title-box">
@@ -229,7 +239,7 @@ export default function ArticlePage() {
                     /* MAIN CONTENT */
                     .main-content-wrapper { max-width: 1300px; margin: 40px auto; padding: 0 20px; }
                     .section-divider { margin: 40px 0 20px; }
-                    .section-title { fontWeight: 800; border-left: 5px solid ${THEME.GOLD}; padding-left: 15px; font-size: 20px !important; }
+                    .section-title { font-weight: 800; border-left: 5px solid ${THEME.GOLD}; padding-left: 15px; font-size: 20px !important; }
 
                     /* TOP POST RESPONSIVE */
                     .top-post-card { cursor: pointer; margin-bottom: 30px; border-bottom: 1px solid ${THEME.BORDER}; padding-bottom: 30px; }

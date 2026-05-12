@@ -87,9 +87,8 @@ export default function ArticleDetailPage() {
         window.scrollTo(0, 0); 
     }, [slug, fetchDetail]);
 
-    // SỬA: Dùng ".." để lùi về 1 cấp (admin/articles/slug -> admin/articles)
     if (loading) return <div style={{ maxWidth: 900, margin: '100px auto', padding: '0 20px' }}><Skeleton active paragraph={{ rows: 15 }} /></div>;
-    if (!article) return <Result status="404" title="Không tìm thấy bài viết" extra={<Button onClick={() => navigate('..')}>Quay lại</Button>} />;
+    if (!article) return <Result status="404" title="Không tìm thấy bài viết" extra={<Button onClick={() => navigate('/article')}>Quay lại</Button>} />;
 
     const rawDesc = article.shortDescription || "";
     const cleanShortDesc = rawDesc.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
@@ -98,8 +97,7 @@ export default function ArticleDetailPage() {
         <div style={{ backgroundColor: '#fff', minHeight: '100vh', padding: '10px 0' }}>
             <div className="article-container">
                 
-                {/* SỬA: Dùng ".." để quay lại cấp cha của Route hiện tại */}
-                <Button type="link" icon={<ArrowLeft />} onClick={() => navigate('..')} style={{ color: LUXURY_THEME.PRIMARY, padding: 0, marginBottom: 15 }}>
+                <Button type="link" icon={<ArrowLeft />} onClick={() => navigate('/article')} style={{ color: LUXURY_THEME.PRIMARY, padding: 0, marginBottom: 15 }}>
                     Quay lại danh sách
                 </Button>
 
@@ -127,6 +125,7 @@ export default function ArticleDetailPage() {
                             </div>
                         )}
 
+                        {/* MỤC LỤC MOBILE - Hiển thị khi màn hình nhỏ */}
                         {toc.length > 0 && (
                             <div className="mobile-toc-wrapper">
                                 <Card 
@@ -163,8 +162,7 @@ export default function ArticleDetailPage() {
                                 <Row gutter={[20, 20]}>
                                     {relatedArticles.map(item => (
                                         <Col xs={24} sm={8} key={item.id}>
-                                            {/* SỬA: Dùng "../" để nhảy sang slug khác trong cùng danh mục */}
-                                            <Link to={`../${item.slug}`}>
+                                            <Link to={`/article/${item.slug}`}>
                                                 <Card
                                                     hoverable
                                                     cover={<img alt={item.title} src={item.thumbnailUrl} style={{ height: 150, objectFit: 'cover' }} />}
@@ -183,6 +181,7 @@ export default function ArticleDetailPage() {
                         )}
                     </Col>
 
+                    {/* MỤC LỤC DESKTOP */}
                     <Col xs={0} lg={7}>
                         <div style={{ position: 'sticky', top: '100px', zIndex: 10 }}>
                             <Card 
@@ -210,23 +209,116 @@ export default function ArticleDetailPage() {
             </Modal>
 
             <style>{`
-                .article-container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
-                .article-main-title { font-family: 'Playfair Display', serif !important; font-size: clamp(24px, 6vw, 40px) !important; color: ${LUXURY_THEME.NAVY} !important; line-height: 1.2 !important; margin-bottom: 20px !important; }
-                .short-desc-card { padding: 20px; border-left: 4px solid ${LUXURY_THEME.GOLD}; background: #f8f9fa; margin-bottom: 30px; font-size: clamp(16px, 4vw, 18px); font-style: italic; font-family: 'Playfair Display', serif; }
-                .article-meta { margin-bottom: 30px; color: #64748B; width: 100%; }
-                .featured-image-wrapper { margin-bottom: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
-                .article-detail-content { font-size: 17px; line-height: 1.8; color: #334155; word-wrap: break-word; }
-                .article-detail-content img { max-width: 100% !important; height: auto !important; margin: 20px 0; }
-                .article-detail-content iframe { max-width: 100% !important; width: 100% !important; height: auto; aspect-ratio: 16/9; }
-                .article-detail-content h2, .article-detail-content h3 { scroll-margin-top: 110px; color: ${LUXURY_THEME.NAVY}; margin-top: 1.5em; font-family: 'Playfair Display', serif; line-height: 1.3; }
-                .mobile-toc-wrapper { display: none; margin-bottom: 30px; }
-                .related-title-text { font-size: clamp(14px, 4vw, 18px); font-family: 'Playfair Display', serif; }
-                .map-iframe-container { width: 100%; height: 450px; background: #f1f5f9; overflow: hidden; }
-                @media (max-width: 991px) { .mobile-toc-wrapper { display: block; } .article-container { padding: 0 15px; } }
-                @media (max-width: 576px) { .article-main-title { margin-top: 10px !important; } .short-desc-card { padding: 15px; } .map-iframe-container { height: 300px; } .article-detail-content { font-size: 16px; } }
+                .article-container {
+                    max-width: 1200px;
+                    margin: 0 auto;
+                    padding: 0 20px;
+                }
+
+                .article-main-title {
+                    font-family: 'Playfair Display', serif !important;
+                    font-size: clamp(24px, 6vw, 40px) !important;
+                    color: ${LUXURY_THEME.NAVY} !important;
+                    line-height: 1.2 !important;
+                    margin-bottom: 20px !important;
+                }
+
+                .short-desc-card { 
+                    padding: 20px; 
+                    border-left: 4px solid ${LUXURY_THEME.GOLD}; 
+                    background: #f8f9fa; 
+                    margin-bottom: 30px; 
+                    font-size: clamp(16px, 4vw, 18px); 
+                    font-style: italic; 
+                    font-family: 'Playfair Display', serif; 
+                }
+
+                .article-meta {
+                    margin-bottom: 30px;
+                    color: #64748B;
+                    width: 100%;
+                }
+
+                .featured-image-wrapper {
+                    margin-bottom: 30px;
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+                }
+
+                .article-detail-content { 
+                    font-size: 17px; 
+                    line-height: 1.8; 
+                    color: #334155; 
+                    word-wrap: break-word;
+                }
+
+                .article-detail-content img {
+                    max-width: 100% !important;
+                    height: auto !important;
+                    margin: 20px 0;
+                }
+
+                .article-detail-content iframe {
+                    max-width: 100% !important;
+                    width: 100% !important;
+                    height: auto;
+                    aspect-ratio: 16/9;
+                }
+
+                .article-detail-content h2, .article-detail-content h3 { 
+                    scroll-margin-top: 110px; 
+                    color: ${LUXURY_THEME.NAVY}; 
+                    margin-top: 1.5em; 
+                    font-family: 'Playfair Display', serif; 
+                    line-height: 1.3;
+                }
+
+                .mobile-toc-wrapper {
+                    display: none;
+                    margin-bottom: 30px;
+                }
+
+                .related-title-text {
+                    font-size: clamp(14px, 4vw, 18px);
+                    font-family: 'Playfair Display', serif;
+                }
+
+                .map-iframe-container {
+                    width: 100%;
+                    height: 450px;
+                    background: #f1f5f9;
+                    overflow: hidden;
+                }
+
+                /* RESPONSIVE BREAKPOINTS */
+                @media (max-width: 991px) {
+                    .mobile-toc-wrapper {
+                        display: block;
+                    }
+                    .article-container {
+                        padding: 0 15px;
+                    }
+                }
+
+                @media (max-width: 576px) {
+                    .article-main-title {
+                        margin-top: 10px !important;
+                    }
+                    .short-desc-card {
+                        padding: 15px;
+                    }
+                    .map-iframe-container {
+                        height: 300px;
+                    }
+                    .article-detail-content {
+                        font-size: 16px;
+                    }
+                }
+
                 .ant-anchor-link-title { font-size: 14px !important; white-space: normal !important; }
                 .ant-divider-horizontal { border-top-color: ${LUXURY_THEME.GOLD} !important; }
                 .ant-anchor-ink { background-color: ${LUXURY_THEME.GOLD} !important; }
+                
+                /* Đảm bảo tất cả góc vuông */
                 * { border-radius: 0 !important; }
             `}</style>
         </div>
