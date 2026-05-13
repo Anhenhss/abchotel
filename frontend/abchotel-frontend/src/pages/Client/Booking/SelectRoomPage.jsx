@@ -185,9 +185,11 @@ export default function SelectRoomPage() {
   };
 
   const handleUndo = () => {
-    if (currentSlotIndex > 0 || selectedRooms.length === searchParams.requestedRooms) {
+    if (selectedRooms.length > 0) {
+        // Xóa phòng vừa chọn cuối cùng khỏi danh sách
         setSelectedRooms(prev => prev.slice(0, -1));
-        setCurrentSlotIndex(prev => (prev === searchParams.requestedRooms ? prev - 1 : prev - 1));
+        // Lùi index về đúng vị trí phòng vừa bị xóa để chọn lại
+        setCurrentSlotIndex(selectedRooms.length - 1);
     }
   };
 
