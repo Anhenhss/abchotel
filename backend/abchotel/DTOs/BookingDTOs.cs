@@ -25,14 +25,11 @@ namespace abchotel.DTOs
     {
         public int RoomTypeId { get; set; }
         public string RoomTypeName { get; set; }
-        public decimal PricePerUnit { get; set; }       // Giá sẽ áp dụng (tùy theo khách chọn Đêm hay Giờ)
-        
-        // CÁC THÔNG TIN HIỂN THỊ CHI TIẾT
-        public decimal BasePricePerNight { get; set; }  // Giá gốc theo Đêm
-        public decimal BasePricePerHour { get; set; }   // Giá gốc theo Giờ
+        public decimal PricePerUnit { get; set; }       
+        public decimal BasePricePerNight { get; set; }  
+        public decimal BasePricePerHour { get; set; }   
         public string ViewDirection { get; set; }
         public string Description { get; set; }
-        
         public int RemainingRooms { get; set; } 
         public decimal SubTotal { get; set; }   
         public bool IsUrgent { get; set; }      
@@ -49,9 +46,6 @@ namespace abchotel.DTOs
     // ==========================================
     public class CreateBookingRequest
     {
-        // 1. Thông tin khách hàng 
-        
-        // Cố tình thêm Required tiếng Việt để lỡ Lễ tân quên nhập thì báo lỗi đẹp
         [Required(ErrorMessage = "Vui lòng nhập tên khách hàng")]
         public string GuestName { get; set; }
 
@@ -63,16 +57,13 @@ namespace abchotel.DTOs
         public string? GuestEmail { get; set; }
         public string IdentityNumber { get; set; }
 
-        // 2. Mã giảm giá (Nếu có)
         public string? VoucherCode { get; set; }
-
-        // 3. Ghi chú của khách
         public string? SpecialRequests { get; set; }
 
-        // 4. Danh sách các phòng muốn đặt
         [Required(ErrorMessage = "Phải chọn ít nhất 1 phòng")]
         [MinLength(1, ErrorMessage = "Phải chọn ít nhất 1 phòng")]
         public List<BookingRoomItem> Rooms { get; set; }
+        public List<BookingServiceRequest>? Services { get; set; } 
     }
 
     public class BookingRoomItem
@@ -81,13 +72,19 @@ namespace abchotel.DTOs
         public int RoomTypeId { get; set; }
         public int? RoomId { get; set; }
         [Required]
-        public int Quantity { get; set; } // Khách muốn đặt mấy phòng loại này?
+        public int Quantity { get; set; } 
         [Required]
         public DateTime CheckInDate { get; set; }
         [Required]
         public DateTime CheckOutDate { get; set; }
         [Required]
         public string PriceType { get; set; } = "NIGHTLY";
+    }
+
+    public class BookingServiceRequest
+    {
+        public int ServiceId { get; set; }
+        public int Quantity { get; set; }
     }
 
     // ==========================================
@@ -97,10 +94,11 @@ namespace abchotel.DTOs
     {
         public int BookingId { get; set; }
         public string BookingCode { get; set; }
-        public decimal TotalAmount { get; set; } // Tổng tiền cần thanh toán
-        public DateTime ExpireAt { get; set; }   // Thời hạn 15 phút để thanh toán
+        public decimal TotalAmount { get; set; } 
+        public DateTime ExpireAt { get; set; }   
         public string Message { get; set; }
     }
+    
     // ==========================================
     // 4. NHÓM DTO CHO QUẢN LÝ (CMS)
     // ==========================================

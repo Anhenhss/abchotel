@@ -23,7 +23,6 @@ export default function BookingDetailDrawer({ isOpen, onClose, bookingCode, onSu
   
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   
-  // 🔥 1. THÊM STATE ĐỂ QUẢN LÝ VÒNG QUAY CHỜ THANH TOÁN TỪ TAB KHÁC
   const [isWaitingPayment, setIsWaitingPayment] = useState(false);
 
   const [payForm] = Form.useForm();
@@ -37,25 +36,23 @@ export default function BookingDetailDrawer({ isOpen, onClose, bookingCode, onSu
     }
   }, [isOpen, bookingCode]);
 
-  // 🔥 2. THUẬT TOÁN POLLING: CỨ MỖI 3 GIÂY SẼ HỎI BACKEND 1 LẦN
   useEffect(() => {
     let interval;
     if (isWaitingPayment && invoiceData?.id) {
         interval = setInterval(async () => {
             try {
-                // Gọi API kiểm tra hóa đơn xem đã đổi trạng thái thành Paid chưa
                 const res = await invoiceApi.getByBookingCode(bookingCode);
                 if (res && res.status === 'Paid') {
-                    setIsWaitingPayment(false); // Tắt vòng quay
-                    setIsPayModalOpen(false);   // Đóng Modal
+                    setIsWaitingPayment(false); 
+                    setIsPayModalOpen(false);   
                     api.success({ message: 'Tuyệt vời!', description: 'Hệ thống đã nhận được tiền từ VNPay/MoMo.' });
-                    setInvoiceData(res);        // Cập nhật giao diện ngay lập tức
+                    setInvoiceData(res);        
                     if (onSuccess) onSuccess(); 
                 }
             } catch (e) { console.log(e) }
         }, 3000);
     }
-    return () => clearInterval(interval); // Dọn dẹp bộ nhớ khi tắt drawer
+    return () => clearInterval(interval); 
   }, [isWaitingPayment, invoiceData?.id, bookingCode]);
 
   const fetchDetail = async () => {
@@ -93,6 +90,40 @@ export default function BookingDetailDrawer({ isOpen, onClose, bookingCode, onSu
     finally { setLoading(false); }
   };
 
+  // 🔥 THÊM MỚI: HÀM NHẬN PHÒNG (CHECK-IN)
+  const handleCheckInBooking = async () => {
+    try {
+      setLoading(true);
+      await bookingApi.updateStatus(bookingData.id, 'Checked_in', 'Lễ tân Check-in');
+      api.success({ message: 'Thành công', description: 'Đã nhận phòng và tự động bật trạng thái phòng thành Có Khách.' });
+      fetchDetail(); 
+      if (onSuccess) onSuccess(); 
+    } catch (e) { 
+      api.error({ message: 'Lỗi', description: 'Không thể Check-in đơn này.' }); 
+    } finally { 
+      setLoading(false); 
+    }
+  };
+
+  // 🔥 THÊM MỚI: HÀM TRẢ PHÒNG (CHECK-OUT)
+  const handleCheckOutBooking = async () => {
+    try {
+      // Logic chặn trả phòng nếu khách chưa thanh toán đủ tiền
+      if (invoiceData && invoiceData.status !== 'Paid') {
+          return api.warning({ message: 'Chưa thanh toán', description: 'Khách cần thanh toán toàn bộ công nợ trước khi hoàn tất trả phòng.' });
+      }
+      setLoading(true);
+      await bookingApi.updateStatus(bookingData.id, 'Completed', 'Khách trả phòng');
+      api.success({ message: 'Thành công', description: 'Đã trả phòng và chuyển trạng thái phòng thành Dơ.' });
+      fetchDetail(); 
+      if (onSuccess) onSuccess(); 
+    } catch (e) { 
+      api.error({ message: 'Lỗi', description: 'Không thể Check-out đơn này.' }); 
+    } finally { 
+      setLoading(false); 
+    }
+  };
+
   const handleRecalculate = async () => {
     if(!invoiceData) return;
     try {
@@ -125,7 +156,7 @@ export default function BookingDetailDrawer({ isOpen, onClose, bookingCode, onSu
         paymentMethod: 'Cash' 
     });
     setIsPayModalOpen(true);
-    setIsWaitingPayment(false); // Reset lại trạng thái chờ mỗi khi mở
+    setIsWaitingPayment(false); 
   };
 
   const handlePayment = async (values) => {
@@ -133,17 +164,16 @@ export default function BookingDetailDrawer({ isOpen, onClose, bookingCode, onSu
       setLoading(true);
       const safeAmount = Number(values.amountPaid); 
 
-      // 🔥 3. MỞ TAB MỚI VÀ BẬT VÒNG QUAY CHỜ ĐỢI
       if (values.paymentMethod === 'VNPay') {
           const res = await invoiceApi.createVnPayUrl(invoiceData.id);
-          window.open(res.url, '_blank'); // MỞ TAB MỚI
-          setIsWaitingPayment(true);      // BẬT CHẾ ĐỘ CHỜ (POLLING)
+          window.open(res.url, '_blank'); 
+          setIsWaitingPayment(true);      
           return; 
       }
       if (values.paymentMethod === 'MoMo') {
           const res = await invoiceApi.createMoMoUrl(invoiceData.id);
-          window.open(res.url, '_blank'); // MỞ TAB MỚI
-          setIsWaitingPayment(true);      // BẬT CHẾ ĐỘ CHỜ (POLLING)
+          window.open(res.url, '_blank'); 
+          setIsWaitingPayment(true);     
           return;
       }
 
@@ -300,11 +330,28 @@ export default function BookingDetailDrawer({ isOpen, onClose, bookingCode, onSu
                         <Title level={5} style={{ color: LUXURY_COLORS.NAVY, fontWeight: 800 }}><Door size={18} style={{ verticalAlign: 'text-bottom' }}/> Chi tiết Phòng</Title>
                         <Table columns={roomColumns} dataSource={bookingData.rooms} rowKey={(r, i) => i} pagination={false} size="small" style={{ border: `1px solid ${LUXURY_COLORS.LIGHT_BLUE}`, borderRadius: 8 }} />
                         
-                        <div style={{ marginTop: 24, textAlign: 'right' }}>
+                        {/* 🔥 ĐÃ THÊM CÁC NÚT THAO TÁC (NHẬN PHÒNG / TRẢ PHÒNG / HỦY) Ở ĐÂY */}
+                        <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
                             {(bookingData.status === 'Pending' || bookingData.status === 'Confirmed') && (
-                            <Popconfirm title="Khách hủy đột xuất hoặc Không đến (No-Show)?" onConfirm={handleCancelBooking}>
-                                <Button danger style={{backgroundColor: '#fff', borderColor: LUXURY_COLORS.ACCENT_RED, color: LUXURY_COLORS.ACCENT_RED}} icon={<XCircle size={18} />}>Hủy Đơn Này</Button>
-                            </Popconfirm>
+                                <>
+                                    <Popconfirm title="Khách hủy đột xuất hoặc Không đến (No-Show)?" onConfirm={handleCancelBooking}>
+                                        <Button danger style={{backgroundColor: '#fff', borderColor: LUXURY_COLORS.ACCENT_RED, color: LUXURY_COLORS.ACCENT_RED}} icon={<XCircle size={18} />}>Hủy Đơn Này</Button>
+                                    </Popconfirm>
+                                    
+                                    <Popconfirm title="Xác nhận khách đã đến và tiến hành giao phòng?" onConfirm={handleCheckInBooking} okText="Nhận phòng" cancelText="Hủy">
+                                        <Button type="primary" style={{ backgroundColor: LUXURY_COLORS.SUCCESS, borderColor: LUXURY_COLORS.SUCCESS }} icon={<CheckCircle size={18} />}>
+                                            Khách Nhận Phòng
+                                        </Button>
+                                    </Popconfirm>
+                                </>
+                            )}
+
+                            {bookingData.status === 'Checked_in' && (
+                                <Popconfirm title="Xác nhận khách trả phòng và hoàn tất đơn?" onConfirm={handleCheckOutBooking} okText="Trả phòng" cancelText="Hủy">
+                                    <Button type="primary" style={{ backgroundColor: LUXURY_COLORS.NAVY, borderColor: LUXURY_COLORS.NAVY }} icon={<Door size={18} />}>
+                                        Khách Trả Phòng
+                                    </Button>
+                                </Popconfirm>
                             )}
                         </div>
                     </Tabs.TabPane>
@@ -372,7 +419,6 @@ export default function BookingDetailDrawer({ isOpen, onClose, bookingCode, onSu
       </Drawer>
 
       <Modal title={<span style={{ color: LUXURY_COLORS.NAVY, fontSize: 18, fontWeight: 900 }}>Thu tiền Khách hàng</span>} open={isPayModalOpen} onCancel={() => { setIsPayModalOpen(false); setIsWaitingPayment(false); }} footer={null} centered width={450}>
-        {/* 🔥 4. ĐỔI GIAO DIỆN MODAL KHI ĐANG CHỜ VNPay/MoMo */}
         {isWaitingPayment ? (
             <div style={{ textAlign: 'center', padding: '30px 10px' }}>
                 <Spin size="large" />
@@ -418,7 +464,6 @@ export default function BookingDetailDrawer({ isOpen, onClose, bookingCode, onSu
 
                 <div style={{ textAlign: 'right', marginTop: 16 }}>
                     <Button size="large" onClick={() => setIsPayModalOpen(false)} style={{ marginRight: 8, fontWeight: 600 }}>Hủy</Button>
-                    {/* 🔥 5. TỰ ĐỘNG ĐỔI CHỮ TRÊN NÚT BẤM */}
                     <Button size="large" type="primary" htmlType="submit" loading={loading} style={{ backgroundColor: LUXURY_COLORS.ACCENT_RED, fontWeight: 'bold', border: 'none' }}>
                         {paymentMethod === 'VNPay' || paymentMethod === 'MoMo' ? 'MỞ TRANG THANH TOÁN' : 'GHI NHẬN THANH TOÁN'}
                     </Button>
@@ -427,7 +472,6 @@ export default function BookingDetailDrawer({ isOpen, onClose, bookingCode, onSu
         )}
       </Modal>
 
-      {/* KHU VỰC IN (Giữ nguyên) */}
       {invoiceData && bookingData && (
         <div className="print-only">
           <div style={{ textAlign: 'center', marginBottom: 24, borderBottom: `2px solid ${LUXURY_COLORS.NAVY}`, paddingBottom: 16 }}>

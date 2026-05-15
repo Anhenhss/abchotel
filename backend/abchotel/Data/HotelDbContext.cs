@@ -63,6 +63,7 @@ public partial class HotelDbContext : DbContext
     public virtual DbSet<Voucher> Vouchers { get; set; }
     public virtual DbSet<Notification> Notifications { get; set; }
     public virtual DbSet<Equipment> Equipments { get; set; }
+    public virtual DbSet<RoleDashboard> RoleDashboards { get; set; }
 
     // =========================================================================
     // 3. GIỮ NGUYÊN TOÀN BỘ CẤU HÌNH BẢNG CỦA QUÝ (KHÔNG ĐỤNG CHẠM)

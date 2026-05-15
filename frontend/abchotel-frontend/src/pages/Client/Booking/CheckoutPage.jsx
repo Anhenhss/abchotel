@@ -39,11 +39,9 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (!bookingState || !bookingState.selectedRooms || bookingState.selectedRooms.length === 0) {
-      // Đã fix lỗi warning message của Antd
       notification.warning({ message: 'Thiếu dữ liệu', description: 'Vui lòng chọn phòng trước.' });
       navigate('/booking/select-room');
     }
-    // Tự động điền thông tin nếu đã đăng nhập
     if (user) {
       form.setFieldsValue({
         guestName: user.fullName, guestEmail: user.email, guestPhone: user.phone
@@ -55,10 +53,8 @@ export default function CheckoutPage() {
 
   const { grandTotal, checkIn, checkOut, priceType, selectedRooms, selectedServices } = bookingState;
 
-  // Tính lại tổng tiền sau khi áp mã
   const finalTotalToPay = grandTotal - discountAmount;
 
-  // ================= XỬ LÝ VOUCHER =================
   const handleApplyVoucher = async () => {
     if (!voucherCode.trim()) return;
     try {
@@ -88,12 +84,11 @@ export default function CheckoutPage() {
     setVoucherCode(''); setAppliedVoucher(null); setDiscountAmount(0);
   };
 
-  // ================= XỬ LÝ ĐẶT PHÒNG & THANH TOÁN =================
   const onFinishCheckout = async (values) => {
     try {
       setLoading(true);
       
-      // 1. TẠO ĐƠN ĐẶT PHÒNG
+      // 🔥 FIX: Gom thẳng Services vào Payload
       const bookingPayload = {
         guestName: values.guestName,
         guestPhone: values.guestPhone,
@@ -109,7 +104,12 @@ export default function CheckoutPage() {
           checkOutDate: checkOut,
           quantity: 1,
           priceType: priceType
-        }))
+        })),
+        // Map Dịch Vụ đã chọn
+        services: selectedServices ? selectedServices.map(s => ({
+          serviceId: s.serviceId,
+          quantity: s.quantity
+        })) : []
       };
 
       const bookingRes = await bookingApi.createBooking(bookingPayload);
@@ -123,15 +123,9 @@ export default function CheckoutPage() {
 
       if (!invoiceId) throw new Error("Không khởi tạo được hóa đơn.");
 
-      // 3. THÊM DỊCH VỤ VÀO HÓA ĐƠN
-      if (selectedServices && Object.keys(selectedServices).length > 0) {
-        const servicesPayload = Object.entries(selectedServices).map(([id, qty]) => ({
-          serviceId: parseInt(id), quantity: qty
-        }));
-        await invoiceApi.addService(invoiceId, servicesPayload);
-      }
+      // Bỏ đi đoạn gọi API addService rời rạc cũ
 
-      // 4. GỌI API CỔNG THANH TOÁN & REDIRECT TRỰC TIẾP
+      // 3. GỌI API CỔNG THANH TOÁN & REDIRECT 
       let paymentUrl = '';
       if (paymentMethod === 'VNPAY') {
         const vnpRes = await invoiceApi.createVnPayUrl(invoiceId);
@@ -141,7 +135,6 @@ export default function CheckoutPage() {
         paymentUrl = typeof momoRes === 'string' ? momoRes : (momoRes?.data?.url || momoRes?.url || momoRes);
       }
 
-      // Chuyển hướng an toàn và chuẩn quốc tế
       if (paymentUrl) {
         window.location.href = paymentUrl;
       } else {
@@ -150,15 +143,7 @@ export default function CheckoutPage() {
 
     } catch (error) {
       console.error(error);
-      // Nếu API trả về 403, báo lỗi chi tiết ra màn hình
-      if (error.response?.status === 403) {
-        api.error({ 
-            message: 'Bị từ chối truy cập (403)', 
-            description: 'Lỗi: Backend chặn quyền tạo Hóa đơn của khách hàng. Hãy kiểm tra lại InvoiceController.cs' 
-        });
-      } else {
-        api.error({ message: 'Lỗi thanh toán', description: error.message || 'Có lỗi xảy ra khi tạo đơn hàng.' });
-      }
+      api.error({ message: 'Lỗi thanh toán', description: error.message || 'Có lỗi xảy ra khi tạo đơn hàng.' });
       setLoading(false);
     }
   };

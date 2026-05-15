@@ -120,10 +120,21 @@ export default function SelectServicePage() {
   const grandTotal = subTotal + taxAmount;
 
   const handleNextStep = () => {
+    // Chuẩn hóa dữ liệu giỏ hàng thành mảng API-ready
+    const formattedServices = Object.entries(cart).map(([srvId, qty]) => {
+      const srv = services.find(s => s.id === parseInt(srvId));
+      return {
+        serviceId: parseInt(srvId),
+        quantity: qty,
+        unitPrice: srv?.price || 0,
+        serviceName: srv?.name // Mang theo name để hiển thị ở trang Checkout nếu cần
+      };
+    });
+
     navigate('/booking/checkout', { 
       state: { 
         ...bookingState, 
-        selectedServices: cart,
+        selectedServices: formattedServices, // Đã chuyển thành mảng
         totalRoomPrice,
         totalServicePrice,
         grandTotal 

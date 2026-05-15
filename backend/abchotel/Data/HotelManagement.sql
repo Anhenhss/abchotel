@@ -80,6 +80,15 @@ CREATE TABLE [dbo].[Users] (
 GO
 CREATE NONCLUSTERED INDEX [IX_Users_RefreshToken] ON [dbo].[Users] ([refresh_token]);
 GO
+-- Tạo bảng Role_Dashboards
+CREATE TABLE [dbo].[Role_Dashboards] (
+    [role_id] INT NOT NULL FOREIGN KEY REFERENCES [dbo].[Roles](id) PRIMARY KEY,
+    [layout_config] NVARCHAR(MAX) NOT NULL,
+    [is_active] BIT NOT NULL DEFAULT 1,
+    [updated_at] DATETIME DEFAULT GETDATE(),
+    [updated_by] INT NULL
+);
+GO
 -- Các bảng quản lý vật tư
 CREATE TABLE [dbo].[Amenities] (
     [id] INT IDENTITY(1,1) PRIMARY KEY,
@@ -471,13 +480,13 @@ INSERT INTO [dbo].[Role_Permissions] ([role_id], [permission_id]) VALUES
 -- ROLE 4: ACCOUNTANT
 (4, 1),(4,11),(4,13),(4,15),
 -- ROLE 5: HOUSEKEEPING
-(5, 8),(5,15),
+(5, 1), (5, 8),(5,15),
 -- ROLE 6: INVENTORY MANAGER
 (6, 1),(6, 9),(6,13),(6,15),
 -- ROLE 7: MARKETING
 (7, 1),(7,13),(7,14),(7,15),(7,17),
 -- ROLE 8: WAITER
-(8, 12),(8,15),
+(8, 1), (8, 12),(8,15),
 -- ROLE 9: IT SUPPORT
 (9, 1),(9, 4),(9, 5),(9,15),(9,16);
 -- ROLE 10: GUEST (Không có quyền backend đặc biệt)
@@ -514,6 +523,114 @@ INSERT INTO [dbo].[Users] ([id], [role_id], [membership_id], [full_name], [email
 (21, 10, NULL, N'Nguyễn Minh Anh', N'anh@gmail.com', N'0902000004', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
 (22, 10, NULL, N'Đỗ Quỳnh Chi', N'chi@gmail.com', N'0902000005', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1);
 SET IDENTITY_INSERT [dbo].[Users] OFF;
+GO
+--TRUNCATE TABLE [dbo].[Role_Dashboards];
+--GO
+INSERT INTO [dbo].[Role_Dashboards] ([role_id], [layout_config]) VALUES 
+-- ROLE 1: ADMIN - THÁP ĐIỀU KHIỂN TỐI CAO (MASTER COMMAND)
+(1, N'{
+  "dashboardName": "Trung Tâm Điều Hành Tối Cao (Admin Master)",
+  "widgets": [
+    { "id": "W_REV", "title": "Doanh Thu Tháng", "type": "StatisticCard", "gridPos": { "w": 4, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/revenue" },
+    { "id": "W_BOOK", "title": "Lượt Đặt Hôm Nay", "type": "StatisticCard", "gridPos": { "w": 4, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/new-bookings" },
+    { "id": "W_ART", "title": "Bài Viết Marketing", "type": "StatisticCard", "gridPos": { "w": 4, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/articles-count" },
+    { "id": "W_INV", "title": "Vật Tư Trong Kho", "type": "StatisticCard", "gridPos": { "w": 4, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/inventory-count" },
+    { "id": "W_DAM", "title": "Hư Hỏng / Mất Mát", "type": "StatisticCard", "gridPos": { "w": 8, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/pending-issues" },
+
+    { "id": "W_ACTION_CENTER", "title": "TRUNG TÂM CẢNH BÁO QUẢN TRỊ", "type": "ActionAlertGrid", "gridPos": { "w": 14, "h": 8 }, "apiEndpoint": "/api/Dashboard/widget/admin-alerts" },
+    { "id": "W_ROLE_DIST", "title": "Hạng Thành Viên", "type": "RoleMembershipDist", "gridPos": { "w": 10, "h": 8 }, "apiEndpoint": "/api/Dashboard/widget/role-membership-dist" },
+
+    { "id": "W_ROOM_VIET", "title": "Trạng Thái Phòng (Thời Gian Thực)", "type": "PieChart", "gridPos": { "w": 10, "h": 9 }, "apiEndpoint": "/api/Dashboard/widget/room-pie" },
+    { "id": "W_REV_CHART", "title": "Tăng Trưởng Doanh Thu Toàn Hệ Thống", "type": "BarChart", "gridPos": { "w": 14, "h": 9 }, "apiEndpoint": "/api/Dashboard/widget/revenue-chart" },
+
+    { "id": "W_MASTER_LOGS", "title": "LUỒNG HOẠT ĐỘNG HỆ THỐNG", "type": "ActivityFeed", "gridPos": { "w": 24, "h": 8 }, "apiEndpoint": "/api/Dashboard/widget/system-logs" }
+  ]
+}'),
+-- ROLE 2: MANAGER - QUẢN LÝ VẬN HÀNH & KHÁCH HÀNG
+(2, N'{
+  "dashboardName": "Bảng Điều Hành Tổng Quản Lý (Manager)",
+  "widgets": [
+    { "id": "W_USR", "title": "Tổng Người Dùng", "type": "StatisticCard", "gridPos": { "w": 6, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/users-count" },
+    { "id": "W_INV_ALL", "title": "Tổng Tài Sản Khách Sạn", "type": "StatisticCard", "gridPos": { "w": 6, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/inventory-count" },
+    { "id": "W_DAM_STAT", "title": "Vật Tư Hư Hỏng/Mất", "type": "StatisticCard", "gridPos": { "w": 6, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/pending-issues" },
+    { "id": "W_REV_MGR", "title": "Doanh Thu Thuần", "type": "StatisticCard", "gridPos": { "w": 6, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/revenue" },
+    { "id": "W_BOOK_MGMT", "title": "QUẢN LÝ ĐẶT PHÒNG", "type": "DataTable", "gridPos": { "w": 16, "h": 8 }, "apiEndpoint": "/api/Dashboard/widget/recent-bookings" },
+    { "id": "W_ROOM_MGR", "title": "Tình Trạng Lưu Trú", "type": "PieChart", "gridPos": { "w": 8, "h": 8 }, "apiEndpoint": "/api/Dashboard/widget/room-pie" },
+    { "id": "W_INV_STATUS", "title": "PHÂN BỔ TÀI SẢN KHO", "type": "PieChart", "gridPos": { "w": 12, "h": 7 }, "apiEndpoint": "/api/Dashboard/widget/inventory-pie" },
+    { "id": "W_CUST_FEED", "title": "NHẬT KÝ VẬN HÀNH CHUNG", "type": "ActivityFeed", "gridPos": { "w": 12, "h": 7 }, "apiEndpoint": "/api/Dashboard/widget/system-logs" }
+  ]
+}'),
+-- ROLE 3: RECEPTIONIST - LỄ TÂN (ĐIỀU PHỐI ĐÓN KHÁCH)
+(3, N'{
+  "dashboardName": "Nghiệp Vụ Lễ Tân (Front Desk)",
+  "widgets": [
+    { "id": "W_BOOK_VOL", "title": "Lượt Đặt Phòng", "type": "StatisticCard", "gridPos": { "w": 12, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/new-bookings" },
+    { "id": "W_ROOM_AVAI", "title": "Phòng Trống Sẵn Sàng", "type": "StatisticCard", "gridPos": { "w": 12, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/available-rooms" },
+    { "id": "W_ALL_BOOKINGS", "title": "TẤT CẢ ĐƠN ĐẶT PHÒNG (CẬP NHẬT MỚI NHẤT)", "type": "DataTable", "gridPos": { "w": 24, "h": 10 }, "apiEndpoint": "/api/Dashboard/widget/recent-bookings" }
+  ]
+}'),
+-- ROLE 4: ACCOUNTANT - KIỂM SOÁT TÀI CHÍNH
+(4, N'{
+  "dashboardName": "Quản Trị Tài Chính & Kế Toán",
+  "widgets": [
+    { "id": "W_REV_TOTAL", "title": "Doanh Thu Đã Thu", "type": "StatisticCard", "gridPos": { "w": 8, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/revenue" },
+    { "id": "W_UNPAID", "title": "Hóa Đơn Chưa Thanh Toán", "type": "StatisticCard", "gridPos": { "w": 8, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/pending-issues" },
+    { "id": "W_LOSS_VAL", "title": "Đền Bù Mất Mát Chờ Thu", "type": "StatisticCard", "gridPos": { "w": 8, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/pending-issues" },    
+    { "id": "W_PAY_METHOD", "title": "Tỷ Trọng Phương Thức Thanh Toán", "type": "PieChart", "gridPos": { "w": 10, "h": 8 }, "apiEndpoint": "/api/Dashboard/widget/revenue-by-method" },
+    { "id": "W_REV_GROWTH", "title": "Báo Cáo Tăng Trưởng Doanh Thu", "type": "BarChart", "gridPos": { "w": 14, "h": 8 }, "apiEndpoint": "/api/Dashboard/widget/revenue-chart" },    
+    { "id": "W_PENDING_INV", "title": "DANH SÁCH HÓA ĐƠN GIAO DỊCH MỚI NHẤT", "type": "DataTable", "gridPos": { "w": 24, "h": 7 }, "apiEndpoint": "/api/Dashboard/widget/recent-bookings" }
+  ]
+}'),
+-- ROLE 5: HOUSEKEEPING - BUỒNG PHÒNG
+(5, N'{
+  "dashboardName": "Điều Phối Buồng Phòng (Housekeeping)",
+  "widgets": [
+    { "id": "W_ROOM_AVAI", "title": "Số Phòng Đã Xử Lý Sạch", "type": "StatisticCard", "gridPos": { "w": 8, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/available-rooms" },
+    { "id": "W_INV_HOUSE", "title": "Vật Tư Tiêu Hao Tồn Kho", "type": "StatisticCard", "gridPos": { "w": 8, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/inventory-count" },
+    { "id": "W_DAM_HOUSE", "title": "Trang Thiết Bị Báo Hỏng", "type": "StatisticCard", "gridPos": { "w": 8, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/pending-issues" },
+    { "id": "W_ROOM_PIE", "title": "Trực Quan Trạng Thái Vệ Sinh", "type": "PieChart", "gridPos": { "w": 10, "h": 8 }, "apiEndpoint": "/api/Dashboard/widget/room-pie" },
+    { "id": "W_CLEAN_QUEUE", "title": "DANH SÁCH PHÒNG CẦN DỌN DẸP ƯU TIÊN", "type": "DataTable", "gridPos": { "w": 14, "h": 8 }, "apiEndpoint": "/api/Dashboard/widget/cleaning-queue" }
+  ]
+}'),
+-- ROLE 6: INVENTORY MANAGER - THỦ KHO
+(6, N'{
+  "dashboardName": "Kiểm Soát Kho & Vật Tư (Inventory)",
+  "widgets": [
+    { "id": "W_INV_ALL", "title": "Tổng Vật Tư Đang Có", "type": "StatisticCard", "gridPos": { "w": 8, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/inventory-count" },
+    { "id": "W_LOW_STOCK", "title": "Vật Tư Dưới Ngưỡng", "type": "StatisticCard", "gridPos": { "w": 8, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/admin-alerts" },
+    { "id": "W_DAM_INV", "title": "Thiết Bị Hỏng Chờ Sửa", "type": "StatisticCard", "gridPos": { "w": 8, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/pending-issues" },
+    { "id": "W_INV_PIE", "title": "Tỷ Lệ Phân Bổ Tài Sản", "type": "PieChart", "gridPos": { "w": 10, "h": 8 }, "apiEndpoint": "/api/Dashboard/widget/inventory-pie" },
+    { "id": "W_MAINTAIN_LIST", "title": "DANH SÁCH THIẾT BỊ CẦN BẢO TRÌ/THAY THẾ", "type": "DataTable", "gridPos": { "w": 14, "h": 8 }, "apiEndpoint": "/api/Dashboard/widget/maintenance-list" }
+  ]
+}'),
+-- ROLE 7: MARKETING - NỘI DUNG & ĐÁNH GIÁ
+(7, N'{
+  "dashboardName": "Quản Trị Nội Dung & Thương Hiệu",
+  "widgets": [
+    { "id": "W_ART_TOTAL", "title": "Tổng Bài Viết Đã Đăng", "type": "StatisticCard", "gridPos": { "w": 8, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/articles-count" },
+    { "id": "W_REV_WAIT", "title": "Đánh Giá Chưa Phản Hồi", "type": "StatisticCard", "gridPos": { "w": 8, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/admin-alerts" },
+    { "id": "W_ATTRACTIONS", "title": "Tổng Tập Khách Hàng", "type": "StatisticCard", "gridPos": { "w": 8, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/users-count" },
+    { "id": "W_REVIEW_LIST", "title": "DANH SÁCH KHÁCH HÀNG MỚI ĐĂNG KÝ", "type": "DataTable", "gridPos": { "w": 12, "h": 8 }, "apiEndpoint": "/api/Dashboard/widget/recent-bookings" }
+  ]
+}'),
+-- ROLE 8: WAITER - ĐIỀU PHỐI DỊCH VỤ ẨM THỰC (F&B)
+(8, N'{
+  "dashboardName": "Điều Phối Dịch Vụ Ẩm Thực (F&B)",
+  "widgets": [
+    { "id": "W_ROOM_AVAI", "title": "Phòng Có Khách Đang Thuê", "type": "StatisticCard", "gridPos": { "w": 12, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/available-rooms" },
+    { "id": "W_PENDING_ISSUES", "title": "Yêu Cầu Gọi Món/Dịch Vụ Cần Xử Lý", "type": "StatisticCard", "gridPos": { "w": 12, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/pending-issues" },
+    { "id": "W_LIVE_ORDERS", "title": "DANH SÁCH ORDER DỊCH VỤ ĐANG CHỜ PHỤC VỤ", "type": "DataTable", "gridPos": { "w": 24, "h": 10 }, "apiEndpoint": "/api/Dashboard/widget/live-service-orders" }
+  ]
+}'),
+-- ROLE 9: IT SUPPORT - GIÁM SÁT HỆ THỐNG
+(9, N'{
+  "dashboardName": "Trạm Giám Sát Kỹ Thuật (IT Ops)",
+  "widgets": [
+    { "id": "W_CONN", "title": "Người Dùng", "type": "StatisticCard", "gridPos": { "w": 12, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/users-count" },
+    { "id": "W_API_HEALTH", "title": "Cảnh Báo Ngoại Lệ DB", "type": "StatisticCard", "gridPos": { "w": 12, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/admin-alerts" },
+    { "id": "W_IT_FEED", "title": "TÓM LƯỢC HOẠT ĐỘNG HỆ THỐNG (LIVE TRACE)", "type": "ActivityFeed", "gridPos": { "w": 24, "h": 12 }, "apiEndpoint": "/api/Dashboard/widget/system-logs" }
+  ]
+}');
 GO
 -- Vật tư
 SET IDENTITY_INSERT [dbo].[Equipments] ON;

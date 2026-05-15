@@ -58,26 +58,46 @@ namespace abchotel.Services
                 query = query.Where(r => r.IsActive);
             }
 
-            return await query.OrderBy(r => r.Floor).ThenBy(r => r.RoomNumber).Select(r => new RoomResponse
+            var rooms = await query.OrderBy(r => r.Floor).ThenBy(r => r.RoomNumber).ToListAsync();
+
+            // 🔥 TƯ DUY THÔNG MINH: Lấy danh sách phòng có lịch Check-in VÀO NGÀY HÔM NAY
+            var today = DateTime.Today;
+            var reservedRoomIds = await _context.BookingDetails
+                .Where(bd => bd.RoomId != null 
+                        && bd.CheckInDate.Date == today 
+                        && (bd.Booking.Status == "Confirmed" || bd.Booking.Status == "Pending"))
+                .Select(bd => bd.RoomId.Value)
+                .ToListAsync();
+
+            return rooms.Select(r => 
             {
-                Id = r.Id,
-                RoomTypeId = r.RoomTypeId,
-                RoomTypeName = r.RoomType != null ? r.RoomType.Name : "Chưa gắn loại phòng",
-                RoomNumber = r.RoomNumber,
-                Floor = r.Floor,
-                Status = r.Status,
-                CleaningStatus = r.CleaningStatus,
-                IsActive = r.IsActive,
+                string displayStatus = r.Status;
                 
-                CapacityAdults = r.RoomType != null ? r.RoomType.CapacityAdults : 0,
-                CapacityChildren = r.RoomType != null ? r.RoomType.CapacityChildren : 0,
-                BedType = (r.RoomType != null && r.RoomType.BedType != null) ? r.RoomType.BedType : "Chưa cập nhật",
-                SizeSqm = r.RoomType != null ? r.RoomType.SizeSqm : null,
-                ViewDirection = (r.RoomType != null && r.RoomType.ViewDirection != null) ? r.RoomType.ViewDirection : "Chưa cập nhật",
-                BasePrice = r.RoomType != null ? r.RoomType.BasePrice : 0,
-                PricePerHour = r.RoomType != null ? r.RoomType.PricePerHour : 0
-                
-            }).ToListAsync();
+                // NẾU: Sơ đồ phòng đang Trống + Có khách đặt tới trong hôm nay => Hiển thị Đặt trước
+                if (displayStatus == "Available" && reservedRoomIds.Contains(r.Id))
+                {
+                    displayStatus = "Reserved";
+                }
+
+                return new RoomResponse
+                {
+                    Id = r.Id,
+                    RoomTypeId = r.RoomTypeId,
+                    RoomTypeName = r.RoomType != null ? r.RoomType.Name : "Chưa gắn loại phòng",
+                    RoomNumber = r.RoomNumber,
+                    Floor = r.Floor,
+                    Status = displayStatus, // Trạng thái này Frontend sẽ nhận được và hiện màu xanh "Đặt Trước"
+                    CleaningStatus = r.CleaningStatus,
+                    IsActive = r.IsActive,
+                    CapacityAdults = r.RoomType != null ? r.RoomType.CapacityAdults : 0,
+                    CapacityChildren = r.RoomType != null ? r.RoomType.CapacityChildren : 0,
+                    BedType = (r.RoomType != null && r.RoomType.BedType != null) ? r.RoomType.BedType : "Chưa cập nhật",
+                    SizeSqm = r.RoomType != null ? r.RoomType.SizeSqm : null,
+                    ViewDirection = (r.RoomType != null && r.RoomType.ViewDirection != null) ? r.RoomType.ViewDirection : "Chưa cập nhật",
+                    BasePrice = r.RoomType != null ? r.RoomType.BasePrice : 0,
+                    PricePerHour = r.RoomType != null ? r.RoomType.PricePerHour : 0
+                };
+            }).ToList();
         }
 
         public async Task<RoomResponse> GetRoomByIdAsync(int id)

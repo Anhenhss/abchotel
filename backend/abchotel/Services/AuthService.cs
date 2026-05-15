@@ -158,7 +158,8 @@ namespace abchotel.Services
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Role, user.Role?.Name ?? "Guest")
+                new Claim(ClaimTypes.Role, user.Role?.Name ?? "Guest"),
+                new Claim("roleId", user.RoleId?.ToString() ?? "10")
             };
 
             var permissions = user.Role?.RolePermissions.Select(rp => rp.Permission.Name).ToList() ?? new List<string>();
