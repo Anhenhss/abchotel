@@ -60,6 +60,7 @@ namespace abchotel.Services
                                     && (v.UsageLimit == null || v.Bookings.Count(b => b.Status != "Cancelled") < v.UsageLimit));
             }
 
+            // Đọc thông tin User từ HttpContext ngầm thông qua Token gửi kèm trong Header
             var claims = _httpContextAccessor.HttpContext?.User?.Claims;
             var userIdStr = claims?.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value
                          ?? claims?.FirstOrDefault(c => c.Type == "sub")?.Value;
@@ -68,15 +69,30 @@ namespace abchotel.Services
 
             if (currentUserId.HasValue)
             {
+                // TRƯỜNG HỢP 1: ĐÃ ĐĂNG NHẬP
                 var user = await _context.Users.Include(u => u.Membership).FirstOrDefaultAsync(u => u.Id == currentUserId.Value);
                 bool isVip = user?.Membership?.TierName?.ToUpper() == "VIP";
+                
+                // Kiểm tra xem user này đã từng đặt phòng thành công chưa
                 bool hasPreviousBooking = await _context.Bookings.AnyAsync(b => b.UserId == currentUserId.Value && b.Status != "Cancelled");
 
-                if (hasPreviousBooking) query = query.Where(v => !v.IsForNewCustomer);
-                if (!isVip) query = query.Where(v => v.DiscountType != "VIP_ONLY");
+                query = query.Where(v => 
+                    // 1. Voucher bình thường (Không phải VIP/Sinh nhật) và kiểm tra điều kiện khách mới nếu có
+                    (v.DiscountType != "VIP_ONLY" && v.DiscountType != "BIRTHDAY" && (!v.IsForNewCustomer || !hasPreviousBooking)) 
+                    
+                    // 2. Voucher VIP: Chỉ hiện khi tài khoản là hạng VIP
+                    || (v.DiscountType == "VIP_ONLY" && isVip)
+                    
+                    // 3. Voucher Sinh nhật: Chỉ hiện khi hôm nay trúng ngày sinh nhật của tài khoản này
+                    || (v.DiscountType == "BIRTHDAY" && user != null && user.DateOfBirth.HasValue 
+                        && user.DateOfBirth.Value.Day == DateTime.Now.Day && user.DateOfBirth.Value.Month == DateTime.Now.Month)
+                );
             }
             else
             {
+                // TRƯỜNG HỢP 2: CHƯA ĐĂNG NHẬP (KHÁCH VÃNG LAI)
+                // 1. Cho phép thấy Voucher bình thường và Voucher người mới (IsForNewCustomer = true)
+                // 2. Ẩn hoàn toàn Voucher VIP_ONLY và BIRTHDAY 
                 query = query.Where(v => v.DiscountType != "VIP_ONLY" && v.DiscountType != "BIRTHDAY");
             }
 
@@ -109,21 +125,12 @@ namespace abchotel.Services
 
             return new VoucherResponse
             {
-                Id = v.Id,
-                Code = v.Code,
-                DiscountType = v.DiscountType,
-                DiscountValue = v.DiscountValue,
-                MinBookingValue = v.MinBookingValue,
-                MaxDiscountAmount = v.MaxDiscountAmount,
-                RoomTypeId = v.RoomTypeId,
-                RoomTypeName = v.RoomType != null ? v.RoomType.Name : "Tất cả",
-                ValidFrom = v.ValidFrom,
-                ValidTo = v.ValidTo,
-                UsageLimit = v.UsageLimit,
-                UsedCount = v.Bookings.Count(b => b.Status != "Cancelled"),
-                MaxUsesPerUser = v.MaxUsesPerUser,
-                IsActive = v.IsActive,
-                IsForNewCustomer = v.IsForNewCustomer
+                Id = v.Id, Code = v.Code, DiscountType = v.DiscountType, DiscountValue = v.DiscountValue,
+                MinBookingValue = v.MinBookingValue, MaxDiscountAmount = v.MaxDiscountAmount,
+                RoomTypeId = v.RoomTypeId, RoomTypeName = v.RoomType != null ? v.RoomType.Name : "Tất cả",
+                ValidFrom = v.ValidFrom, ValidTo = v.ValidTo, UsageLimit = v.UsageLimit,
+                UsedCount = v.Bookings.Count(b => b.Status != "Cancelled"), MaxUsesPerUser = v.MaxUsesPerUser,
+                IsActive = v.IsActive, IsForNewCustomer = v.IsForNewCustomer
             };
         }
 
@@ -142,19 +149,11 @@ namespace abchotel.Services
 
             var voucher = new Voucher
             {
-                Code = finalCode,
-                DiscountType = request.DiscountType,
-                DiscountValue = request.DiscountValue,
-                MinBookingValue = request.MinBookingValue,
-                MaxDiscountAmount = request.MaxDiscountAmount,
-                RoomTypeId = request.RoomTypeId,
-                ValidFrom = request.ValidFrom,
-                ValidTo = request.ValidTo,
-                UsageLimit = request.UsageLimit,
-                MaxUsesPerUser = request.MaxUsesPerUser,
-                IsForNewCustomer = request.IsForNewCustomer,
-                IsActive = true,
-                CreatedAt = DateTime.Now
+                Code = finalCode, DiscountType = request.DiscountType, DiscountValue = request.DiscountValue,
+                MinBookingValue = request.MinBookingValue, MaxDiscountAmount = request.MaxDiscountAmount,
+                RoomTypeId = request.RoomTypeId, ValidFrom = request.ValidFrom, ValidTo = request.ValidTo,
+                UsageLimit = request.UsageLimit, MaxUsesPerUser = request.MaxUsesPerUser,
+                IsForNewCustomer = request.IsForNewCustomer, IsActive = true, CreatedAt = DateTime.Now
             };
 
             _context.Vouchers.Add(voucher);
@@ -258,7 +257,7 @@ namespace abchotel.Services
                 return new List<VoucherResponse>();
 
             return await _context.Vouchers.Include(v => v.RoomType).Include(v => v.Bookings)
-                .Where(v => v.IsActive && v.DiscountType == "BIRTHDAY" && (v.ValidTo == null || v.ValidTo >= today))
+                .Where(v => v.IsActive && v.DiscountType == "BIRTHDAY" && (v.ValidTo == null || v.ValidTo >= DateTime.Now))
                 .Select(v => new VoucherResponse
                 {
                     Id = v.Id, Code = v.Code, DiscountType = v.DiscountType, DiscountValue = v.DiscountValue,
