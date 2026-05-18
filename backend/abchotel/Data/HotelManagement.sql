@@ -500,38 +500,45 @@ INSERT INTO [dbo].[Memberships] ([id], [tier_name], [min_points], [discount_perc
 (5, N'Kim Cương', 10000, 15);
 SET IDENTITY_INSERT [dbo].[Memberships] OFF;
 GO
+
 SET IDENTITY_INSERT [dbo].[Users] ON;
-INSERT INTO [dbo].[Users] ([id], [role_id], [membership_id], [full_name], [email], [phone], [password_hash], [status]) VALUES 
-(1, 1, NULL, N'Nguyễn Admin', N'admin@hotel.com', N'0901000001', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(2, 2, NULL, N'Nguyễn Quốc Tú', N'manager@hotel.com', N'0901000002', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(3, 3, NULL, N'Lê Thu Thảo', N'reception1@hotel.com', N'0901000003', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(4, 3, NULL, N'Phạm Văn Minh', N'reception2@hotel.com', N'0901000004', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(5, 4, NULL, N'Hoàng Thanh Tùng', N'accountant@hotel.com', N'0901000005', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(6, 7, NULL, N'Lý Mỹ Linh', N'marketing@hotel.com', N'0901000016', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(7, 6, NULL, N'Hồ Văn Khoa', N'inventory@hotel.com', N'0901000011', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(8, 5, NULL, N'Vũ Thị Lan', N'housekeeping@hotel.com', N'0901000012', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(9, 9, NULL, N'Ngô Minh Tuấn', N'it@hotel.com', N'0901000013', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(12, 8, NULL, N'Đỗ Tuấn Anh', N'waiter@hotel.com', N'0901000017', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(13, 10, 1, N'Viên Xuân Quý', N'vienxuanquy82024@gmail.com', N'0901000006', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(14, 10, 2, N'Trương Thị Ánh', N'truongthianh23ct112@gmail.com', N'0901000007', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(15, 10, 3, N'Nguyễn Thị Hồng Nhung', N'honggnhungg1605@gmail.com', N'0901000008', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(16, 10, 4, N'Nguyễn Thị Phương Thảo', N'phuongthao2005ab@gmail.com', N'0901000009', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(17, 10, 5, N'Huỳnh Thị Trúc Ly', N'httly20092005@gmail.com', N'0901000010', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(18, 10, NULL, N'Trần Văn Nam', N'nam@gmail.com', N'0902000001', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(19, 10, NULL, N'Phan Thị Mai', N'mai@gmail.com', N'0902000002', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(20, 10, NULL, N'Lê Hoàng Long', N'long@gmail.com', N'0902000003', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(21, 10, NULL, N'Nguyễn Minh Anh', N'anh@gmail.com', N'0902000004', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1),
-(22, 10, NULL, N'Đỗ Quỳnh Chi', N'chi@gmail.com', N'0902000005', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1);
+INSERT INTO [dbo].[Users] ([id], [role_id], [membership_id], [full_name], [email], [phone], [password_hash], [status], [total_points]) VALUES 
+(1, 1, NULL, N'Nguyễn Admin', N'admin@hotel.com', N'0901000001', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1, 0),
+(2, 2, NULL, N'Nguyễn Quốc Tú', N'manager@hotel.com', N'0901000002', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1, 0),
+(3, 3, NULL, N'Lê Thu Thảo', N'reception1@hotel.com', N'0901000003', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1, 0),
+(4, 3, NULL, N'Phạm Văn Minh', N'reception2@hotel.com', N'0901000004', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1, 0),
+(5, 4, NULL, N'Hoàng Thanh Tùng', N'accountant@hotel.com', N'0901000005', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1, 0),
+(6, 7, NULL, N'Lý Mỹ Linh', N'marketing@hotel.com', N'0901000016', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1, 0),
+(7, 6, NULL, N'Hồ Văn Khoa', N'inventory@hotel.com', N'0901000011', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1, 0),
+(8, 5, NULL, N'Vũ Thị Lan', N'housekeeping@hotel.com', N'0901000012', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1, 0),
+(9, 9, NULL, N'Ngô Minh Tuấn', N'it@hotel.com', N'0901000013', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1, 0),
+(10, 8, NULL, N'Đỗ Tuấn Anh', N'waiter@hotel.com', N'0901000017', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1, 0),
+(11, 10, 1, N'Viên Xuân Quý', N'vienxuanquy82024@gmail.com', N'0901000006', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1, 500),   
+(12, 10, 2, N'Trương Thị Ánh', N'truongthianh23ct112@gmail.com', N'0901000007', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1, 1500),   
+(13, 10, 3, N'Nguyễn Thị Hồng Nhung', N'honggnhungg1605@gmail.com', N'0901000008', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1, 3500),   
+(14, 10, 4, N'Nguyễn Thị Phương Thảo', N'phuongthao2005ab@gmail.com', N'0901000009', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1, 6000),   
+(15, 10, 5, N'Huỳnh Thị Trúc Ly', N'httly20092005@gmail.com', N'0901000010', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1, 12000), 
+(16, 10, 1, N'Trần Văn Nam', N'nam@gmail.com', N'0902000001', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1, 0),
+(17, 10, 1, N'Phan Thị Mai', N'mai@gmail.com', N'0902000002', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1, 0),
+(18, 10, 2, N'Lê Hoàng Long', N'long@gmail.com', N'0902000003', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1, 1750),
+(19, 10, 2, N'Nguyễn Minh Anh', N'anh@gmail.com', N'0902000004', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1, 1100),
+(20, 10, 3, N'Đỗ Quỳnh Chi', N'chi@gmail.com', N'0902000005', N'$2a$12$Q7rtMqznJVr3RtIY/F79keNsfy5PR8Tm6B6faYdT/LAE/Woq80e62', 1, 3333);
 SET IDENTITY_INSERT [dbo].[Users] OFF;
+GO
+-- Cập nhật avatar mặc định cho TẤT CẢ user đang có avatar bị NULL
+UPDATE [dbo].[Users] 
+SET avatar_url = 'https://ui-avatars.com/api/?name=' + REPLACE([full_name], ' ', '+') + '&background=random&color=fff&size=150'
+WHERE avatar_url IS NULL;
 GO
 --TRUNCATE TABLE [dbo].[Role_Dashboards];
 --GO
+
 INSERT INTO [dbo].[Role_Dashboards] ([role_id], [layout_config]) VALUES 
 -- ROLE 1: ADMIN - THÁP ĐIỀU KHIỂN TỐI CAO (MASTER COMMAND)
 (1, N'{
   "dashboardName": "Trung Tâm Điều Hành Tối Cao (Admin Master)",
   "widgets": [
-    { "id": "W_REV", "title": "Doanh Thu Tháng", "type": "StatisticCard", "gridPos": { "w": 4, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/revenue" },
+    { "id": "W_REV", "title": "Doanh Thu Năm", "type": "StatisticCard", "gridPos": { "w": 4, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/revenue" },
     { "id": "W_BOOK", "title": "Lượt Đặt Hôm Nay", "type": "StatisticCard", "gridPos": { "w": 4, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/new-bookings" },
     { "id": "W_ART", "title": "Bài Viết Marketing", "type": "StatisticCard", "gridPos": { "w": 4, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/articles-count" },
     { "id": "W_INV", "title": "Vật Tư Trong Kho", "type": "StatisticCard", "gridPos": { "w": 4, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/inventory-count" },
@@ -541,7 +548,7 @@ INSERT INTO [dbo].[Role_Dashboards] ([role_id], [layout_config]) VALUES
     { "id": "W_ROLE_DIST", "title": "Hạng Thành Viên", "type": "RoleMembershipDist", "gridPos": { "w": 10, "h": 8 }, "apiEndpoint": "/api/Dashboard/widget/role-membership-dist" },
 
     { "id": "W_ROOM_VIET", "title": "Trạng Thái Phòng (Thời Gian Thực)", "type": "PieChart", "gridPos": { "w": 10, "h": 9 }, "apiEndpoint": "/api/Dashboard/widget/room-pie" },
-    { "id": "W_REV_CHART", "title": "Tăng Trưởng Doanh Thu Toàn Hệ Thống", "type": "BarChart", "gridPos": { "w": 14, "h": 9 }, "apiEndpoint": "/api/Dashboard/widget/revenue-chart" },
+    { "id": "W_REV_CHART", "title": "Biểu Đồ Doanh Thu Toàn Hệ Thống", "type": "BarChart", "gridPos": { "w": 14, "h": 9 }, "apiEndpoint": "/api/Dashboard/widget/revenue-chart" },
 
     { "id": "W_MASTER_LOGS", "title": "LUỒNG HOẠT ĐỘNG HỆ THỐNG", "type": "ActivityFeed", "gridPos": { "w": 24, "h": 8 }, "apiEndpoint": "/api/Dashboard/widget/system-logs" }
   ]
@@ -553,7 +560,7 @@ INSERT INTO [dbo].[Role_Dashboards] ([role_id], [layout_config]) VALUES
     { "id": "W_USR", "title": "Tổng Người Dùng", "type": "StatisticCard", "gridPos": { "w": 6, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/users-count" },
     { "id": "W_INV_ALL", "title": "Tổng Tài Sản Khách Sạn", "type": "StatisticCard", "gridPos": { "w": 6, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/inventory-count" },
     { "id": "W_DAM_STAT", "title": "Vật Tư Hư Hỏng/Mất", "type": "StatisticCard", "gridPos": { "w": 6, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/pending-issues" },
-    { "id": "W_REV_MGR", "title": "Doanh Thu Thuần", "type": "StatisticCard", "gridPos": { "w": 6, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/revenue" },
+    { "id": "W_REV_MGR", "title": "Doanh Thu Năm", "type": "StatisticCard", "gridPos": { "w": 6, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/revenue" },
     { "id": "W_BOOK_MGMT", "title": "QUẢN LÝ ĐẶT PHÒNG", "type": "DataTable", "gridPos": { "w": 16, "h": 8 }, "apiEndpoint": "/api/Dashboard/widget/recent-bookings" },
     { "id": "W_ROOM_MGR", "title": "Tình Trạng Lưu Trú", "type": "PieChart", "gridPos": { "w": 8, "h": 8 }, "apiEndpoint": "/api/Dashboard/widget/room-pie" },
     { "id": "W_INV_STATUS", "title": "PHÂN BỔ TÀI SẢN KHO", "type": "PieChart", "gridPos": { "w": 12, "h": 7 }, "apiEndpoint": "/api/Dashboard/widget/inventory-pie" },
@@ -573,11 +580,11 @@ INSERT INTO [dbo].[Role_Dashboards] ([role_id], [layout_config]) VALUES
 (4, N'{
   "dashboardName": "Quản Trị Tài Chính & Kế Toán",
   "widgets": [
-    { "id": "W_REV_TOTAL", "title": "Doanh Thu Đã Thu", "type": "StatisticCard", "gridPos": { "w": 8, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/revenue" },
+    { "id": "W_REV_TOTAL", "title": "Doanh Thu Năm", "type": "StatisticCard", "gridPos": { "w": 8, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/revenue" },
     { "id": "W_UNPAID", "title": "Hóa Đơn Chưa Thanh Toán", "type": "StatisticCard", "gridPos": { "w": 8, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/pending-issues" },
     { "id": "W_LOSS_VAL", "title": "Đền Bù Mất Mát Chờ Thu", "type": "StatisticCard", "gridPos": { "w": 8, "h": 3 }, "apiEndpoint": "/api/Dashboard/widget/pending-issues" },    
     { "id": "W_PAY_METHOD", "title": "Tỷ Trọng Phương Thức Thanh Toán", "type": "PieChart", "gridPos": { "w": 10, "h": 8 }, "apiEndpoint": "/api/Dashboard/widget/revenue-by-method" },
-    { "id": "W_REV_GROWTH", "title": "Báo Cáo Tăng Trưởng Doanh Thu", "type": "BarChart", "gridPos": { "w": 14, "h": 8 }, "apiEndpoint": "/api/Dashboard/widget/revenue-chart" },    
+    { "id": "W_REV_GROWTH", "title": "Biểu Đồ Tăng Trưởng Doanh Thu", "type": "BarChart", "gridPos": { "w": 14, "h": 8 }, "apiEndpoint": "/api/Dashboard/widget/revenue-chart" },    
     { "id": "W_PENDING_INV", "title": "DANH SÁCH HÓA ĐƠN GIAO DỊCH MỚI NHẤT", "type": "DataTable", "gridPos": { "w": 24, "h": 7 }, "apiEndpoint": "/api/Dashboard/widget/recent-bookings" }
   ]
 }'),
@@ -1149,87 +1156,76 @@ INSERT INTO [dbo].[Vouchers] ([id], [code], [discount_type], [discount_value], [
 (11, N'HONEYMOON', N'FIXED_AMOUNT', 500000, 4000000, '2026-01-01', '2026-12-31', 50),
 (12, N'CORPORATE', N'PERCENT', 12, 3000000, '2026-01-01', '2026-12-31', 200),
 (13, N'NOEL2026', N'PERCENT', 15, 2500000, '2026-12-20', '2026-12-26', 80),
-(14, N'YEAR-END', N'FIXED_AMOUNT', 400000, 3000000, '2026-12-27', '2026-12-31', 60),
-(15, N'VIP-GUEST', N'PERCENT', 25, 7000000, '2026-01-01', '2026-12-31', 30);
+(14, N'YEAR-END', N'FIXED_AMOUNT', 400000, 3000000, '2026-12-27', '2026-12-31', 60);
 SET IDENTITY_INSERT [dbo].[Vouchers] OFF;
 GO
 -- BOOKING
 SET IDENTITY_INSERT [dbo].[Bookings] ON;
-INSERT INTO [dbo].[Bookings] 
-([id], [user_id], [guest_name], [guest_phone], [booking_code], [status], [created_by]) 
-VALUES 
 
--- ===== QUÁ KHỨ (ĐÃ HOÀN THÀNH) =====
-(1, 13, N'Viên Xuân Quý', N'0901000006', N'BK-0001', N'Completed', 3),
-(2, 14, N'Trương Thị Ánh', N'0901000007', N'BK-0002', N'Completed', 3),
-(3, 15, N'Nguyễn Thị Hồng Nhung', N'0901000008', N'BK-0003', N'Completed', 3),
-(4, 16, N'Nguyễn Thị Phương Thảo', N'0901000009', N'BK-0004', N'Completed', 3),
-(5, 17, N'Huỳnh Thị Trúc Ly', N'0901000010', N'BK-0005', N'Completed', 4),
-
-(6, 18, N'Trần Văn Nam', N'0902000001', N'BK-0006', N'Completed', 4),
-(7, 19, N'Phan Thị Mai', N'0902000002', N'BK-0007', N'Completed', 4),
-(8, 20, N'Lê Hoàng Long', N'0902000003', N'BK-0008', N'Completed', 2),
-(9, 21, N'Nguyễn Minh Anh', N'0902000004', N'BK-0009', N'Completed', 2),
-(10, 22, N'Đỗ Quỳnh Chi', N'0902000005', N'BK-0010', N'Completed', 2),
-
--- ===== TƯƠNG LAI (THÁNG 6-7) =====
-(11, 13, N'Viên Xuân Quý', N'0901000006', N'BK-0011', N'Confirmed', 3),
-(12, 14, N'Trương Thị Ánh', N'0901000007', N'BK-0012', N'Pending', 3),
-(13, 15, N'Nguyễn Thị Hồng Nhung', N'0901000008', N'BK-0013', N'Confirmed', 3),
-(14, 16, N'Nguyễn Thị Phương Thảo', N'0901000009', N'BK-0014', N'Pending', 4),
-(15, 17, N'Huỳnh Thị Trúc Ly', N'0901000010', N'BK-0015', N'Confirmed', 4),
-(16, 18, N'Trần Văn Nam', N'0902000001', N'BK-0016', N'Pending', 2),
-(17, 19, N'Phan Thị Mai', N'0902000002', N'BK-0017', N'Confirmed', 2),
-(18, 20, N'Lê Hoàng Long', N'0902000003', N'BK-0018', N'Pending', 2);
-
+INSERT INTO [dbo].[Bookings] ([id], [user_id], [guest_name], [guest_phone], [booking_code], [status], [cancellation_reason], [created_by], [actual_check_in], [actual_check_out], [created_at]) VALUES 
+-- ===== [QUÁ KHỨ] Đã hoàn thành (Checkout thành công) =====
+-- BK1: Dự kiến checkin 01/03. Đặt phòng ngày 15/02.
+(1, 11, N'Viên Xuân Quý', N'0901000006', N'BK-0001', N'Completed', NULL, 3, '2026-03-01 14:15:00', '2026-03-03 11:45:00', '2026-02-15 09:30:00'),
+-- BK2: Dự kiến checkin 05/03. Đặt phòng ngày 20/02.
+(2, 12, N'Trương Thị Ánh', N'0901000007', N'BK-0002', N'Completed', NULL, 3, '2026-03-05 14:05:00', '2026-03-07 12:10:00', '2026-02-20 14:20:00'),
+-- BK3: Dự kiến checkin 10/03. Đặt phòng ngày 01/03.
+(3, 13, N'Nguyễn Thị Hồng Nhung', N'0901000008', N'BK-0003', N'Completed', NULL, 3, '2026-03-10 14:30:00', '2026-03-13 11:50:00', '2026-03-01 08:15:00'),
+(4, 14, N'Nguyễn Thị Phương Thảo', N'0901000009', N'BK-0004', N'Completed', NULL, 3, '2026-04-01 13:50:00', '2026-04-03 12:00:00', '2026-03-15 10:00:00'),
+(5, 15, N'Huỳnh Thị Trúc Ly', N'0901000010', N'BK-0005', N'Completed', NULL, 4, '2026-04-10 14:20:00', '2026-04-11 11:30:00', '2026-03-25 16:45:00'),
+(6, 18, N'Lê Hoàng Long', N'0902000003', N'BK-0006', N'Completed', NULL, 4, '2026-04-15 14:00:00', '2026-04-17 12:05:00', '2026-04-02 11:10:00'),
+(7, 20, N'Đỗ Quỳnh Chi', N'0902000005', N'BK-0007', N'Completed', NULL, 4, '2026-04-20 15:10:00', '2026-04-23 11:40:00', '2026-04-05 09:25:00'),
+-- ===== [QUÁ KHỨ] Kịch bản Hủy / No-show (Chưa từng check-in nên actual_check_in là NULL) =====
+-- BK8: Dự kiến checkin 25/04. Khách đặt từ 10/04.
+(8, 13, N'Nguyễn Thị Hồng Nhung', N'0901000008', N'BK-0008', N'Cancelled', N'Khách bận việc gia đình, báo hủy trước 3 ngày (Được hoàn cọc)', 10, NULL, NULL, '2026-04-10 08:00:00'),
+-- BK9: Dự kiến checkin 01/05. Khách đặt từ 15/04.
+(9, 14, N'Nguyễn Thị Phương Thảo', N'0901000009', N'BK-0009', N'Cancelled', N'Khách báo hủy lúc 20:00 trước ngày Check-in (Mất cọc do quá hạn)', 10, NULL, NULL, '2026-04-15 14:30:00'),
+-- BK10: Dự kiến checkin 05/05. Khách đặt từ 20/04.
+(10, 15, N'Huỳnh Thị Trúc Ly', N'0901000010', N'BK-0010', N'Cancelled', N'Hệ thống tự hủy: Khách không đến nhận phòng (No-show)', 1, NULL, NULL, '2026-04-20 09:15:00'),
+-- ===== [TƯƠNG LAI] Tháng 7 - 8/2026 (Chưa check-in nên actual = NULL) =====
+-- Đặt phòng vào một ngày gần đây (ví dụ tháng 5/2026) cho các chuyến đi tương lai
+(11, 11, N'Viên Xuân Quý', N'0901000006', N'BK-0011', N'Confirmed', NULL, 10, NULL, NULL, '2026-05-01 10:00:00'),
+(12, 12, N'Trương Thị Ánh', N'0901000007', N'BK-0012', N'Pending', NULL, 10, NULL, NULL, '2026-05-02 11:30:00'),
+(13, 18, N'Lê Hoàng Long', N'0902000003', N'BK-0013', N'Confirmed', NULL, 10, NULL, NULL, '2026-05-05 15:45:00'),
+(14, 19, N'Nguyễn Minh Anh', N'0902000004', N'BK-0014', N'Confirmed', NULL, 10, NULL, NULL, '2026-05-10 09:20:00'),
+(15, 20, N'Đỗ Quỳnh Chi', N'0902000005', N'BK-0015', N'Pending', NULL, 10, NULL, NULL, '2026-05-12 20:10:00');
 SET IDENTITY_INSERT [dbo].[Bookings] OFF;
 GO
 SET IDENTITY_INSERT [dbo].[Booking_Details] ON;
 INSERT INTO [dbo].[Booking_Details] ([id], [booking_id], [room_id], [room_type_id], [check_in_date], [check_out_date], [applied_price], [price_type]) VALUES 
--- ===== QUÁ KHỨ =====
-(1,1,1,1,'2026-02-01','2026-02-03',400000,'NIGHTLY'),
-(2,2,6,2,'2026-02-05','2026-02-07',500000,'NIGHTLY'),
-(3,3,11,3,'2026-02-10','2026-02-12',650000,'NIGHTLY'),
-(4,4,16,4,'2026-02-15','2026-02-18',850000,'NIGHTLY'),
-(5,5,21,5,'2026-02-20','2026-02-22',1000000,'NIGHTLY'),
-
-(6,6,26,6,'2026-03-01','2026-03-03',1400000,'NIGHTLY'),
-(7,7,31,7,'2026-03-05','2026-03-07',1700000,'NIGHTLY'),
-(8,8,36,8,'2026-03-10','2026-03-12',5000000,'NIGHTLY'),
-(9,9,2,1,'2026-03-15','2026-03-17',400000,'NIGHTLY'),
-(10,10,7,2,'2026-03-20','2026-03-22',500000,'NIGHTLY'),
-
--- ===== TƯƠNG LAI =====
-(11,11,3,1,'2026-06-01','2026-06-03',400000,'NIGHTLY'),
-(12,12,8,2,'2026-06-05','2026-06-07',500000,'NIGHTLY'),
-(13,13,13,3,'2026-06-10','2026-06-12',650000,'NIGHTLY'),
-(14,14,18,4,'2026-06-15','2026-06-18',850000,'NIGHTLY'),
-(15,15,23,5,'2026-06-20','2026-06-22',1000000,'NIGHTLY'),
-(16,16,28,6,'2026-07-01','2026-07-03',1400000,'NIGHTLY'),
-(17,17,33,7,'2026-07-05','2026-07-07',1700000,'NIGHTLY'),
-(18,18,37,8,'2026-07-10','2026-07-12',5000000,'NIGHTLY');
-
+-- Quá khứ
+(1, 1, 1, 1, '2026-03-01 14:00:00', '2026-03-03 12:00:00', 400000, 'NIGHTLY'), -- 2 đêm
+(2, 2, 6, 2, '2026-03-05 14:00:00', '2026-03-07 12:00:00', 500000, 'NIGHTLY'), -- 2 đêm
+(3, 3, 11, 3, '2026-03-10 14:00:00', '2026-03-13 12:00:00', 650000, 'NIGHTLY'), -- 3 đêm
+(4, 4, 16, 4, '2026-04-01 14:00:00', '2026-04-03 12:00:00', 850000, 'NIGHTLY'), -- 2 đêm
+(5, 5, 21, 5, '2026-04-10 14:00:00', '2026-04-11 12:00:00', 1000000, 'NIGHTLY'), -- 1 đêm
+(6, 6, 2, 1, '2026-04-15 14:00:00', '2026-04-17 12:00:00', 400000, 'NIGHTLY'), -- 2 đêm
+(7, 7, 7, 2, '2026-04-20 14:00:00', '2026-04-23 12:00:00', 500000, 'NIGHTLY'), -- 3 đêm
+-- Hủy / No-show
+(8, 8, 3, 1, '2026-04-25 14:00:00', '2026-04-27 12:00:00', 400000, 'NIGHTLY'), 
+(9, 9, 8, 2, '2026-05-01 14:00:00', '2026-05-03 12:00:00', 500000, 'NIGHTLY'), 
+(10, 10, 12, 3, '2026-05-05 14:00:00', '2026-05-07 12:00:00', 650000, 'NIGHTLY'),
+-- Tương lai
+(11, 11, 17, 4, '2026-08-10 14:00:00', '2026-08-12 12:00:00', 850000, 'NIGHTLY'), 
+(12, 12, 4, 1, '2026-08-15 14:00:00', '2026-08-17 12:00:00', 400000, 'NIGHTLY'), 
+(13, 13, 9, 2, '2026-07-10 14:00:00', '2026-07-13 12:00:00', 500000, 'NIGHTLY'), 
+(14, 14, 22, 5, '2026-07-20 14:00:00', '2026-07-22 12:00:00', 1000000, 'NIGHTLY'), 
+(15, 15, 13, 3, '2026-08-01 14:00:00', '2026-08-03 12:00:00', 650000, 'NIGHTLY');
 SET IDENTITY_INSERT [dbo].[Booking_Details] OFF;
 GO
 -- Reviews
 SET IDENTITY_INSERT [dbo].[Reviews] ON;
-INSERT INTO [dbo].[Reviews] ([id], [user_id], [booking_id], [room_type_id], [rating], [comment], [is_visible]) VALUES
--- Review từ những Booking đã Completed (1-10) tương ứng với User (13-22)
-(1, 13, 1, 1, 5, N'Phòng sạch sẽ, rất đáng tiền!', 1),          
-(2, 14, 2, 2, 5, N'Trải nghiệm tuyệt vời nhất.', 1),            
-(3, 15, 3, 3, 3, N'Phòng Superior bình thường, rèm cửa hơi sáng.', 1),          
-(4, 16, 4, 4, 5, N'View thành phố về đêm nhìn từ ban công rất đẹp.', 1), 
-(5, 17, 5, 5, 4, N'View biển nhìn thẳng ra đón bình minh, giường nằm êm.', 1),    
-(6, 18, 6, 6, 5, N'Phòng Family cực kỳ rộng rãi, rất thích hợp cho gia đình đông người.', 0),    
-(7, 19, 7, 7, 4, N'Suite sang trọng, nội thất đẹp nhưng phục vụ phòng hơi lâu.', 0),      
-(8, 20, 8, 8, 2, N'Chưa hài lòng với tốc độ dọn phòng lúc check-in dù phòng tổng thống cực kỳ xịn xò.', 0), 
-(9, 21, 9, 1, 5, N'Nhân viên thân thiện nhiệt tình.', 0),            
-(10, 22, 10, 2, 5, N'Tiện nghi đầy đủ, hoàn hảo mọi mặt. Chắc chắn sẽ quay lại.', 0);
+INSERT INTO [dbo].[Reviews] ([id], [user_id], [booking_id], [room_type_id], [rating], [comment], [reply_comment], [is_visible], [created_by], [created_at]) VALUES
+(1, 11, 1, 1, 5, N'Phòng sạch sẽ, gọn gàng. Buffet sáng rất ngon!', N'Cảm ơn bạn đã tin tưởng ABC Hotel. Rất mong được đón tiếp bạn ở lần lưu trú tới!', 1, 11, '2026-03-04 09:15:00'),
+(2, 12, 2, 2, 4, N'Phòng đẹp, giường êm nhưng wifi buổi tối hơi chập chờn.', NULL, 1, 12, '2026-03-08 10:20:00'),
+(3, 13, 3, 3, 2, N'Máy lạnh không mát, gọi lễ tân mất 20 phút mới có người lên kiểm tra, làm việc thiếu chuyên nghiệp.', N'ABC Hotel vô cùng xin lỗi về trải nghiệm không tốt của bạn.', 1, 13, '2026-03-14 14:00:00'),
+(4, 14, 4, 4, 1, N'Khách sạn quá tệ. Mọi người qua khách sạn XYZ bên cạnh ở sướng hơn, có voucher giảm 50% nè: xyz.com', NULL, 0, 14, '2026-04-04 11:10:00'),
+(5, 15, 5, 5, 5, N'View biển quá tuyệt vời. Bồn tắm siêu xịn. Nhân viên dọn phòng cũng rất nhiệt tình và thân thiện.', N'Cảm ơn những lời khen có cánh của bạn. Chúc bạn một ngày thật vui vẻ!', 1, 15, '2026-04-12 16:30:00'),
+(6, 18, 6, 1, 3, N'Giá cả hợp lý so với mặt bằng chung nhưng cách âm hành lang chưa tốt lắm, sáng ồn ào ngủ không được.', NULL, 1, 18, '2026-04-18 08:45:00'),
+(7, 20, 7, 2, 5, N'Tiện nghi đầy đủ, gia đình mình rất thích. Chắc chắn sẽ quay lại vào kỳ nghỉ hè năm sau.', NULL, 0, 20, '2026-04-24 09:00:00');
 SET IDENTITY_INSERT [dbo].[Reviews] OFF;
 GO
 -- Dịch vụ
 SET IDENTITY_INSERT [dbo].[Service_Categories] ON;
-
 INSERT INTO [dbo].[Service_Categories] ([id], [name]) VALUES
 (1, N'Ẩm Thực & Nhà Hàng'),
 (2, N'Spa & Chăm Sóc Sức Khỏe'),
@@ -1248,136 +1244,110 @@ SET IDENTITY_INSERT [dbo].[Services] ON;
 INSERT INTO [dbo].[Services]
 ([id], [category_id], [name], [price], [unit])
 VALUES
-
 -- ===== ẨM THỰC =====
 (1,1,N'Buffet sáng',200000,N'Người'),
 (2,1,N'Hải sản nướng BBQ',350000,N'Người'),
 (3,1,N'Combo ăn tối 2 người',500000,N'Phần'),
-
 -- ===== SPA =====
 (4,2,N'Massage toàn thân 60 phút',500000,N'Lượt'),
 (5,2,N'Chăm sóc da mặt',400000,N'Lượt'),
-
 -- ===== DI CHUYỂN =====
 (6,3,N'Đưa đón sân bay 4 chỗ',350000,N'Chuyến'),
 (7,3,N'Thuê xe máy 24h',150000,N'Chiếc'),
 (8,3,N'Thuê xe ô tô 7 chỗ',900000,N'Ngày'),
-
 -- ===== GIẶT ỦI =====
 (9,4,N'Giặt ủi quần áo',40000,N'Kg'),
 (10,4,N'Giặt khô vest',120000,N'Cái'),
-
 -- ===== TOUR =====
 (11,5,N'Tour Bà Nà Hills',1200000,N'Người'),
 (12,5,N'Tour Hội An 1 ngày',800000,N'Người'),
-
 -- ===== GIẢI TRÍ =====
 (13,6,N'Phòng Gym',0,N'Lượt'),
 (14,6,N'Lớp Yoga sáng',100000,N'Người'),
-
 -- ===== BIỂN & HỒ BƠI =====
 (15,7,N'Ghế nằm bãi biển',100000,N'Lượt'),
-(16,7,N'Khăn hồ bơi',0,N'Cái'),
-
+(16,7,N'Áo phao bơi',50000,N'Cái'),
 -- ===== SỰ KIỆN =====
 (17,8,N'Trang trí phòng họp',2000000,N'Gói'),
 (18,8,N'Trang trí hội trường',5000000,N'Gói'),
 (19,8,N'Âm thanh ánh sáng sự kiện',3000000,N'Gói'),
 (20,8,N'Teabreak (trà + bánh)',100000,N'Người'),
-
 -- ===== GIA ĐÌNH =====
 (21,9,N'Dịch vụ giữ trẻ',100000,N'Giờ'),
-
 -- ===== LƯU NIỆM =====
 (22,10,N'Móc khóa',50000,N'Cái'),
 (23,10,N'Áo thun du lịch Đà Nẵng',150000,N'Cái');
-
 SET IDENTITY_INSERT [dbo].[Services] OFF;
 GO
 SET IDENTITY_INSERT [dbo].[Order_Services] ON;
-INSERT INTO [dbo].[Order_Services] ([id], [booking_detail_id], [total_amount], [status]) VALUES
--- QUÁ KHỨ (Đã sử dụng)
-(1, 1, 400000, N'Delivered'),   
-(2, 2, 700000, N'Delivered'),   
-(3, 4, 350000, N'Delivered'),   
-(4, 6, 2400000, N'Delivered'),  
-(5, 7, 1000000, N'Delivered'),  
-(6, 8, 2000000, N'Delivered'),  
-(7, 10, 500000, N'Delivered'),
-
--- TƯƠNG LAI (Đặt trước online)
-(8, 11, 200000, N'Confirmed'),  -- Booking 11 đặt Buffet sáng
-(9, 13, 350000, N'Confirmed'),  -- Booking 13 đặt xe Đưa đón
-(10, 15, 2400000, N'Confirmed'),-- Booking 15 đặt 2 vé Tour Bà Nà
-(11, 17, 1000000, N'Confirmed');-- Booking 17 đặt 2 lượt Massage
+INSERT INTO [dbo].[Order_Services] ([id], [booking_detail_id], [total_amount], [status], [created_at]) VALUES
+(1, 1, 400000, N'Delivered', '2026-03-02 18:30:00'),   -- BK1
+(2, 3, 500000, N'Delivered', '2026-03-11 19:00:00'),   -- BK3
+(3, 4, 350000, N'Delivered', '2026-04-02 08:15:00'),   -- BK4
+(4, 11, 350000, N'Confirmed', '2026-05-01 10:15:00');  -- BK11 tương lai (Đặt kèm lúc book phòng)
 SET IDENTITY_INSERT [dbo].[Order_Services] OFF;
 GO
+
 SET IDENTITY_INSERT [dbo].[Order_Service_Details] ON;
 INSERT INTO [dbo].[Order_Service_Details] ([id], [order_service_id], [service_id], [quantity], [unit_price]) VALUES
--- Chi tiết dịch vụ quá khứ
-(1, 1, 1, 2, 200000), (2, 2, 2, 2, 350000), (3, 3, 6, 1, 350000),
-(4, 4, 11, 2, 1200000), (5, 5, 4, 2, 500000), (6, 6, 17, 1, 2000000), (7, 7, 3, 1, 500000),
--- Chi tiết dịch vụ đặt trước tương lai
-(8, 8, 1, 1, 200000),   -- 1 vé Buffet sáng
-(9, 9, 6, 1, 350000),   -- 1 xe đưa đón sân bay
-(10, 10, 11, 2, 1200000),-- 2 vé Tour Bà Nà
-(11, 11, 4, 2, 500000);  -- 2 lượt Massage
+(1, 1, 1, 2, 200000),   
+(2, 2, 4, 1, 500000),   
+(3, 3, 6, 1, 350000),   
+(4, 4, 6, 1, 350000);   
 SET IDENTITY_INSERT [dbo].[Order_Service_Details] OFF;
 GO
 -- Thanh toán
 SET IDENTITY_INSERT [dbo].[Invoices] ON;
 INSERT INTO [dbo].[Invoices] 
-([id], [booking_id], [total_room_amount], [total_service_amount], [discount_amount], [tax_amount], [final_total], [status], [created_by]) VALUES 
-
--- QUÁ KHỨ (Đã Paid 100%)
-(1, 1, 800000, 400000, 0, 120000, 1470000, N'Paid', 3),
-(2, 2, 1000000, 700000, 0, 170000, 2220000, N'Paid', 3),
-(3, 3, 1300000, 0, 0, 130000, 1430000, N'Paid', 3),
-(4, 4, 2550000, 350000, 0, 290000, 3190000, N'Paid', 3),
-(5, 5, 2000000, 0, 0, 200000, 2350000, N'Paid', 4),
-(6, 6, 2800000, 2400000, 0, 520000, 6020000, N'Paid', 4),
-(7, 7, 3400000, 1000000, 0, 440000, 4840000, N'Paid', 4),
-(8, 8, 10000000, 2000000, 0, 1200000, 13200000, N'Paid', 2),
-(9, 9, 800000, 0, 0, 80000, 880000, N'Paid', 2),
-(10, 10, 1000000, 500000, 0, 150000, 1650000, N'Paid', 2),
-
--- TƯƠNG LAI (Hóa đơn đã bao gồm tiền phòng + dịch vụ đặt trước)
-(11, 11, 800000, 200000, 0, 100000, 1100000, N'Unpaid', 3), -- Tổng: 1.1M
-(12, 12, 1000000, 0, 0, 100000, 1100000, N'Pending', 3),
-(13, 13, 1300000, 350000, 0, 165000, 1815000, N'Unpaid', 3), -- Tổng: 1.815M
-(14, 14, 2550000, 0, 0, 255000, 2805000, N'Pending', 4),
-(15, 15, 2000000, 2400000, 0, 440000, 4840000, N'Unpaid', 4), -- Tổng: 4.84M
-(16, 16, 2800000, 0, 0, 280000, 3080000, N'Pending', 2),
-(17, 17, 3400000, 1000000, 0, 440000, 4840000, N'Unpaid', 2), -- Tổng: 4.84M
-(18, 18, 10000000, 0, 0, 1000000, 11000000, N'Pending', 2);
+([id], [booking_id], [total_room_amount], [total_service_amount], [discount_amount], [tax_amount], [final_total], [status], [created_by], [created_at]) VALUES 
+-- [QUÁ KHỨ] Hoàn thành (Lấy giờ lúc Checkout)
+(1, 1, 800000, 400000, 0, 120000, 1320000, N'Paid', 3, '2026-03-03 11:45:00'),
+(2, 2, 1000000, 0, 0, 100000, 1100000, N'Paid', 3, '2026-03-07 12:10:00'),
+(3, 3, 1950000, 500000, 0, 245000, 2695000, N'Paid', 3, '2026-03-13 11:50:00'),
+(4, 4, 1700000, 350000, 0, 205000, 2255000, N'Paid', 3, '2026-04-03 12:00:00'),
+(5, 5, 1000000, 0, 0, 100000, 1100000, N'Paid', 4, '2026-04-11 11:30:00'),
+(6, 6, 800000, 0, 0, 80000, 880000, N'Paid', 4, '2026-04-17 12:05:00'),
+(7, 7, 1500000, 0, 0, 150000, 1650000, N'Paid', 4, '2026-04-23 11:40:00'),
+-- [HỦY] Lấy giờ lúc hủy / No-show
+(8, 8, 800000, 0, 0, 80000, 880000, N'Refunded', 3, '2026-04-22 09:00:00'),
+(9, 9, 1000000, 0, 0, 100000, 1100000, N'Cancelled', 3, '2026-04-30 20:00:00'),
+(10, 10, 1300000, 0, 0, 130000, 1430000, N'Cancelled', 1, '2026-05-05 14:00:00'),
+-- [TƯƠNG LAI] Lấy giờ lúc tạo đơn Pending/Confirmed
+(11, 11, 1700000, 350000, 0, 205000, 2255000, N'Partial', 10, '2026-05-01 10:05:00'),
+(12, 12, 800000, 0, 0, 80000, 880000, N'Unpaid', 10, '2026-05-02 11:35:00'),
+(13, 13, 1500000, 0, 0, 150000, 1650000, N'Partial', 10, '2026-05-05 15:50:00'),
+(14, 14, 2000000, 0, 0, 200000, 2200000, N'Partial', 10, '2026-05-10 09:25:00'),
+(15, 15, 1300000, 0, 0, 130000, 1430000, N'Unpaid', 10, '2026-05-12 20:15:00');
 SET IDENTITY_INSERT [dbo].[Invoices] OFF;
 GO
--- Đền bù thiệt hại 
 SET IDENTITY_INSERT [dbo].[Loss_And_Damages] ON;
 INSERT INTO [dbo].[Loss_And_Damages] 
-([id], [booking_detail_id], [room_inventory_id], [invoice_id], [reported_by], [quantity], [penalty_amount], [description], [status]) VALUES
-(1, 1, 10, 1, 8, 1, 150000, N'Làm bẩn khăn tắm không giặt được', 'Paid'),   -- Map với Hóa đơn 1, Phòng 101
-(2, 2, 18, 2, 8, 1, 350000, N'Làm hỏng ấm siêu tốc', 'Paid'),               -- Map với Hóa đơn 2, Phòng 201
-(3, 5, 69, 5, 8, 1, 150000, N'Mất khăn tắm', 'Paid'),                       -- Map với Hóa đơn 5, Phòng 501
-(4, 6, 84, 6, 8, 2, 300000, N'Rách 2 khăn tắm do dính hóa chất', 'Paid');   -- Map với Hóa đơn 6, Phòng 601
+([id], [booking_detail_id], [room_inventory_id], [invoice_id], [reported_by], [quantity], [penalty_amount], [description], [status], [created_at]) VALUES
+(1, 2, 24, 2, 8, 1, 50000, N'Khách làm ố vàng khăn mặt, không giặt được', 'Paid', '2026-03-07 11:55:00'),
+(2, 6, 13, 6, 8, 2, 60000, N'Mất 2 móc treo quần áo', 'Paid', '2026-04-17 11:50:00');
 SET IDENTITY_INSERT [dbo].[Loss_And_Damages] OFF;
 GO
 SET IDENTITY_INSERT [dbo].[Payments] ON;
-INSERT INTO [dbo].[Payments] 
-([id], [invoice_id], [payment_method], [amount_paid], [transaction_code]) 
-VALUES 
--- Thanh toán đầy đủ cho quá khứ
-(1, 1, N'Cash', 1470000, N'CASH001'), (2, 2, N'VNPay', 2220000, N'VNP002'),
-(3, 3, N'Bank', 1430000, N'BANK003'), (4, 4, N'Momo', 3190000, N'MOMO004'),
-(5, 5, N'Cash', 2350000, N'CASH005'), (6, 6, N'VNPay', 6020000, N'VNP006'),
-(7, 7, N'Bank', 4840000, N'BANK007'), (8, 8, N'Credit Card', 13200000, N'CC008'),
-(9, 9, N'Cash', 880000, N'CASH009'), (10, 10, N'Momo', 1650000, N'MOMO010'),
-
--- Thanh toán tiền cọc (Deposit) cho các đơn tương lai có đặt dịch vụ
-(11, 11, N'VNPay', 300000, N'DEP011'),
-(12, 13, N'VNPay', 500000, N'DEP013'),
-(13, 15, N'Momo', 1000000, N'DEP015'),
-(14, 17, N'Bank', 1000000, N'DEP017');
+INSERT INTO [dbo].[Payments]  ([id], [invoice_id], [payment_method], [amount_paid], [transaction_code], [refund_amount], [created_at])  VALUES 
+(1, 1, N'VNPay', 1320000, N'VNP001', 0, '2026-03-03 11:50:00'), 
+(2, 2, N'Cash', 1100000, N'CASH002', 0, '2026-03-07 12:15:00'),
+(3, 3, N'Momo', 2695000, N'MOMO003', 0, '2026-03-13 11:55:00'), 
+(4, 4, N'Bank Transfer', 2255000, N'BANK004', 0, '2026-04-03 12:10:00'),
+(5, 5, N'Credit Card', 1100000, N'CC005', 0, '2026-04-11 11:35:00'), 
+(6, 6, N'VNPay', 880000, N'VNP006', 0, '2026-04-17 12:15:00'),
+(7, 7, N'Cash', 1650000, N'CASH007', 0, '2026-04-23 11:45:00'), 
+-- Invoice 8: Hủy hợp lệ trước 24h -> Trả qua VNPay và hệ thống tự động hoàn lại tiền (refund_amount = 176k)
+(8, 8, N'VNPay', 176000, N'DEP_008', 176000, '2026-04-10 08:05:00'), 
+-- Invoice 9: Khách cọc qua Momo nhưng báo hủy trễ -> Khách mất cọc, Khách sạn thu túi (refund_amount = 0)
+(9, 9, N'Momo', 220000, N'DEP_009', 0, '2026-04-15 14:35:00'),     
+-- Invoice 10: Khách cọc qua VNPay nhưng không đến (No-show) -> Khách mất cọc (Đã sửa từ Bank Transfer sang VNPay)
+(10, 10, N'VNPay', 286000, N'DEP_010', 0, '2026-04-20 09:20:00'), 
+-- Invoice 11: Khách đặt phòng tương lai và cọc thành công qua VNPay
+(11, 11, N'VNPay', 451000, N'DEP_011', 0, '2026-05-01 10:10:00'),
+-- Invoice 13: Khách đặt phòng tương lai và cọc thành công qua Momo
+(12, 13, N'Momo', 330000, N'DEP_013', 0, '2026-05-05 15:55:00'),
+-- Invoice 14: Khách đặt phòng tương lai và cọc thành công qua Momo
+(13, 14, N'Momo', 440000, N'DEP_014', 0, '2026-05-10 09:30:00');
 SET IDENTITY_INSERT [dbo].[Payments] OFF;
 GO
 -- ==============================================================================

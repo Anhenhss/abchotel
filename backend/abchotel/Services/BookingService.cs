@@ -20,6 +20,7 @@ namespace abchotel.Services
         Task<bool> UpdateBookingStatusAsync(int id, string status, string reason);
         Task<List<object>> GetAvailableSpecificRoomsAsync(int roomTypeId, DateTime checkIn, DateTime checkOut);
         Task<List<BookingListResponse>> GetMyBookingsAsync(int userId);
+        Task<(bool IsSuccess, string Message)> CancelMyBookingAsync(int bookingId, int userId, string reason);
     }
 
     public class BookingService : IBookingService
@@ -27,17 +28,16 @@ namespace abchotel.Services
         private readonly HotelDbContext _context;
         private readonly INotificationService _notificationService;
         private readonly ILogger<BookingService> _logger;
+        private readonly IEmailService _emailService; 
 
-        public BookingService(HotelDbContext context, INotificationService notificationService, ILogger<BookingService> logger)
+        public BookingService(HotelDbContext context, INotificationService notificationService, ILogger<BookingService> logger, IEmailService emailService)
         {
             _context = context;
             _notificationService = notificationService;
             _logger = logger;
+            _emailService = emailService;
         }
 
-        // ==========================================================
-        // 1. THUẬT TOÁN TÌM PHÒNG
-        // ==========================================================
         public async Task<List<AvailableRoomResponse>> SearchRoomsAsync(SearchRoomRequest request)
         {
             int duration = request.PriceType == "HOURLY"
@@ -95,12 +95,54 @@ namespace abchotel.Services
             return result.OrderBy(r => r.PricePerUnit).ToList();
         }
 
-        // ==========================================================
-        // 2. KHỞI TẠO ĐƠN ĐẶT PHÒNG VÀ KHÓA PHÒNG
-        // ==========================================================
         public async Task<(bool IsSuccess, BookingSuccessResponse Data, string Message)> CreateBookingAsync(CreateBookingRequest request, int? currentUserId)
         {
             string bookingCode = "BK-" + DateTime.Now.ToString("yyyyMMddHHmmss");
+
+            // 🔥 LOGIC TẠO TÀI KHOẢN HOẶC GOM ĐƠN CHO KHÁCH VÃNG LAI CÓ NHẬP EMAIL
+            if (currentUserId == null && !string.IsNullOrEmpty(request.GuestEmail))
+            {
+                var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.GuestEmail);
+                if (existingUser != null)
+                {
+                    // Email đã tồn tại -> Tự động gắn đơn vào tài khoản này cho tiện
+                    currentUserId = existingUser.Id; 
+                }
+                else
+                {
+                    // Nếu là Email hoàn toàn mới -> Tự động sinh User
+                    string newPassword = "Abc@" + new Random().Next(10000, 99999).ToString();
+                    var defaultMembership = await _context.Memberships.OrderBy(m => m.MinPoints).FirstOrDefaultAsync();
+                    
+                    var newUser = new User
+                    {
+                        FullName = request.GuestName,
+                        Email = request.GuestEmail,
+                        Phone = request.GuestPhone,
+                        PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword),
+                        RoleId = 10,
+                        MembershipId = defaultMembership?.Id,
+                        TotalPoints = 0,
+                        IsActive = true,
+                        CreatedAt = DateTime.Now
+                    };
+                    
+                    _context.Users.Add(newUser);
+                    await _context.SaveChangesAsync();
+                    
+                    currentUserId = newUser.Id;
+
+                    string emailBody = $@"
+                        <h3>Chào mừng {newUser.FullName} đến với ABC Hotel,</h3>
+                        <p>Hệ thống đã tự động kích hoạt tài khoản thành viên cho bạn dựa trên thông tin đơn đặt phòng nhằm giúp bạn dễ dàng theo dõi hạng thẻ và nhận ưu đãi tích điểm sau này.</p>
+                        <p><b>Email đăng nhập:</b> {newUser.Email}</p>
+                        <p><b>Mật khẩu tạm thời:</b> <span style='color: #8A1538; font-size: 18px; font-weight: bold;'>{newPassword}</span></p>
+                        <p>Bạn hãy sử dụng tài khoản này đăng nhập vào website và đổi mật khẩu để bảo vệ thông tin cá nhân.</p>
+                        <br/><p>Trân trọng,<br/>Đội ngũ ABC Hotel</p>";
+                        
+                    await _emailService.SendEmailAsync(newUser.Email, "Kích hoạt Tài khoản Thành viên - ABC Hotel", emailBody);
+                }
+            }
 
             Voucher appliedVoucher = null;
             if (!string.IsNullOrEmpty(request.VoucherCode))
@@ -111,7 +153,7 @@ namespace abchotel.Services
 
             var booking = new Booking
             {
-                UserId = currentUserId,
+                UserId = currentUserId, // Lấy ID tài khoản cũ, ID vừa sinh mới, hoặc null nếu không thèm nhập Email
                 GuestName = request.GuestName,
                 GuestPhone = request.GuestPhone,
                 GuestEmail = request.GuestEmail,
@@ -194,9 +236,6 @@ namespace abchotel.Services
                 return (false, null, ex.Message);
             }
 
-            // =======================================================
-            // 5. TÍNH TIỀN PHÒNG & XỬ LÝ DỊCH VỤ MUA TRƯỚC
-            // =======================================================
             var details = await _context.BookingDetails.Where(bd => bd.BookingId == booking.Id).ToListAsync();
 
             decimal totalRoomAmount = 0;
@@ -210,11 +249,10 @@ namespace abchotel.Services
                 totalRoomAmount += (d.AppliedPrice * duration);
             }
 
-            // 🔥 FIX MỚI NHẤT: Thêm logic tạo Dịch vụ gán vào phòng đại diện
             decimal totalServiceAmount = 0;
             if (request.Services != null && request.Services.Any() && details.Any())
             {
-                var primaryDetail = details.First(); // Lấy phòng đầu tiên làm đại diện
+                var primaryDetail = details.First(); 
                 var order = new OrderService
                 {
                     BookingDetailId = primaryDetail.Id,
@@ -247,24 +285,42 @@ namespace abchotel.Services
                 }
             }
 
-            // Tính Voucher dựa trên tiền phòng
-            decimal discountAmount = 0;
+            decimal voucherDiscount = 0;
+            decimal memberDiscount = 0;
+
+            // 1. Tính toán Voucher
             if (appliedVoucher != null)
             {
                 if (appliedVoucher.DiscountType == "PERCENT")
                 {
-                    discountAmount = totalRoomAmount * (appliedVoucher.DiscountValue / 100);
-                    if (appliedVoucher.MaxDiscountAmount.HasValue && discountAmount > appliedVoucher.MaxDiscountAmount)
-                        discountAmount = appliedVoucher.MaxDiscountAmount.Value;
+                    voucherDiscount = totalRoomAmount * (appliedVoucher.DiscountValue / 100);
+                    if (appliedVoucher.MaxDiscountAmount.HasValue && voucherDiscount > appliedVoucher.MaxDiscountAmount)
+                        voucherDiscount = appliedVoucher.MaxDiscountAmount.Value;
                 }
                 else
                 {
-                    discountAmount = appliedVoucher.DiscountValue;
+                    voucherDiscount = appliedVoucher.DiscountValue;
                 }
-                if (discountAmount > totalRoomAmount) discountAmount = totalRoomAmount;
             }
 
-            // 🔥 Tính Thuế VAT (Bao gồm cả tiền phòng + tiền dịch vụ - Voucher)
+            // 2. Tính toán Hạng Thành Viên
+            if (currentUserId.HasValue)
+            {
+                var user = await _context.Users.FindAsync(currentUserId.Value);
+                if (user != null && user.MembershipId.HasValue)
+                {
+                    var membership = await _context.Memberships.FindAsync(user.MembershipId.Value);
+                    if (membership != null)
+                    {
+                        memberDiscount = totalRoomAmount * ((membership.DiscountPercent ?? 0m) / 100m);
+                    }
+                }
+            }
+
+// Gộp chung giảm giá
+decimal discountAmount = voucherDiscount + memberDiscount;
+if (discountAmount > totalRoomAmount) discountAmount = totalRoomAmount;
+
             decimal subTotal = totalRoomAmount + totalServiceAmount - discountAmount;
             decimal taxAmount = subTotal * 0.10m;
             decimal finalTotal = subTotal + taxAmount;
@@ -273,7 +329,7 @@ namespace abchotel.Services
             {
                 BookingId = booking.Id,
                 TotalRoomAmount = totalRoomAmount,
-                TotalServiceAmount = totalServiceAmount, // Ghi nhận tiền dịch vụ
+                TotalServiceAmount = totalServiceAmount, 
                 DiscountAmount = discountAmount,
                 TaxAmount = taxAmount,
                 FinalTotal = finalTotal,
@@ -295,9 +351,6 @@ namespace abchotel.Services
             }, "OK");
         }
 
-        // ==========================================================
-        // 3. TRA CỨU MÃ ĐẶT PHÒNG
-        // ==========================================================
         public async Task<object> GetBookingByCodeAsync(string bookingCode)
         {
             var booking = await _context.Bookings
@@ -329,9 +382,6 @@ namespace abchotel.Services
             };
         }
         
-        // ==========================================================
-        // CÁC HÀM CÒN LẠI GIỮ NGUYÊN HOÀN TOÀN
-        // ==========================================================
         public async Task<List<BookingListResponse>> GetAllBookingsAsync(string status = null)
         {
             var query = _context.Bookings.Include(b => b.BookingDetails).AsQueryable();
@@ -352,10 +402,8 @@ namespace abchotel.Services
             }).ToListAsync();
         }
 
-        // Nằm ở file BookingService.cs
         public async Task<bool> UpdateBookingStatusAsync(int id, string status, string reason)
         {
-            // BẮT BUỘC Include BookingDetails để biết khách ở phòng nào
             var booking = await _context.Bookings
                 .Include(b => b.BookingDetails)
                 .FirstOrDefaultAsync(b => b.Id == id);
@@ -365,7 +413,6 @@ namespace abchotel.Services
             booking.Status = status;
             booking.CancellationReason = reason;
 
-            // 1. NẾU KHÁCH NHẬN PHÒNG (CHECK-IN) -> TỰ ĐỘNG ĐỔI SƠ ĐỒ THÀNH CÓ KHÁCH
             if (status == "Checked_in")
             {
                 booking.ActualCheckIn = DateTime.Now;
@@ -376,12 +423,11 @@ namespace abchotel.Services
                         var physicalRoom = await _context.Rooms.FindAsync(detail.RoomId.Value);
                         if (physicalRoom != null && physicalRoom.Status != "Maintenance")
                         {
-                            physicalRoom.Status = "Occupied"; // Khóa sơ đồ phòng
+                            physicalRoom.Status = "Occupied"; 
                         }
                     }
                 }
             }
-            // 2. NẾU KHÁCH TRẢ PHÒNG (CHECK-OUT) -> TỰ ĐỘNG XẢ PHÒNG, BÁO DƠ
             else if (status == "Completed")
             {
                 booking.ActualCheckOut = DateTime.Now;
@@ -392,13 +438,12 @@ namespace abchotel.Services
                         var physicalRoom = await _context.Rooms.FindAsync(detail.RoomId.Value);
                         if (physicalRoom != null)
                         {
-                            physicalRoom.Status = "Available"; // Trả lại phòng trống
-                            physicalRoom.CleaningStatus = "Dirty"; // Báo Buồng phòng đi dọn
+                            physicalRoom.Status = "Available"; 
+                            physicalRoom.CleaningStatus = "Dirty"; 
                         }
                     }
                 }
             }
-            // 3. NẾU HỦY ĐƠN (CANCELLED)
             else if (status == "Cancelled")
             {
                 var invoice = await _context.Invoices.FirstOrDefaultAsync(i => i.BookingId == id);
@@ -448,6 +493,59 @@ namespace abchotel.Services
                 })
                 .ToListAsync();
             return bookings;
+        }
+
+        public async Task<(bool IsSuccess, string Message)> CancelMyBookingAsync(int bookingId, int userId, string reason)
+        {
+            var booking = await _context.Bookings
+                .Include(b => b.BookingDetails)
+                .Include(b => b.Invoices)
+                .FirstOrDefaultAsync(b => b.Id == bookingId && b.UserId == userId);
+
+            if (booking == null) return (false, "Không tìm thấy đơn đặt phòng của bạn.");
+
+            if (booking.Status != "Pending" && booking.Status != "Confirmed")
+                return (false, "Trạng thái hiện tại không cho phép hủy. Vui lòng liên hệ Lễ tân.");
+
+            if (booking.Status == "Confirmed")
+            {
+                var checkInDate = booking.BookingDetails.Min(d => d.CheckInDate);
+                if (DateTime.Now > checkInDate.AddHours(-24))
+                {
+                    return (false, "Chỉ được phép hủy và hoàn cọc trước 24 tiếng so với giờ nhận phòng. Để được hỗ trợ thêm, vui lòng liên hệ trực tiếp khách sạn.");
+                }
+            }
+
+            booking.Status = "Cancelled";
+            booking.CancellationReason = reason;
+
+            foreach (var detail in booking.BookingDetails)
+            {
+                if (detail.RoomId.HasValue)
+                {
+                    var physicalRoom = await _context.Rooms.FindAsync(detail.RoomId.Value);
+                    if (physicalRoom != null && physicalRoom.Status == "Occupied")
+                    {
+                        physicalRoom.Status = "Available";
+                    }
+                }
+            }
+
+            var invoice = booking.Invoices.FirstOrDefault();
+            if (invoice != null)
+            {
+                if (invoice.Status == "Partial") 
+                {
+                    invoice.Status = "Refund_Pending"; 
+                }
+                else if (invoice.Status == "Unpaid")
+                {
+                    invoice.Status = "Cancelled";
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return (true, "Yêu cầu hủy phòng thành công. Tiền cọc sẽ được hoàn lại (nếu có).");
         }
     }
 }

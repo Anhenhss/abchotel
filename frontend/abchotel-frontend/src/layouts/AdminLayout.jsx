@@ -223,7 +223,7 @@ export default function AdminLayout() {
 
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" arrow>
               <Space align="center" style={{ cursor: 'pointer', padding: '4px 8px', borderRadius: 8 }}>
-                <Avatar src={user?.avatarUrl} icon={!user?.avatarUrl && !user?.fullName ? <UserCircle /> : null} style={{ backgroundColor: user?.avatarUrl ? 'transparent' : '#e9f0f8', color: ACCENT_RED, fontWeight: 'bold' }}>
+              <Avatar src={user?.avatarUrl || undefined} icon={!user?.avatarUrl && !user?.fullName ? <UserCircle /> : null} style={{ backgroundColor: user?.avatarUrl ? 'transparent' : '#e9f0f8', color: ACCENT_RED, fontWeight: 'bold' }}>
                   {!user?.avatarUrl && user?.fullName ? user.fullName.charAt(0).toUpperCase() : ''}
                 </Avatar>
                 {!isMobile && (

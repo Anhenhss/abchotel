@@ -67,11 +67,13 @@ namespace abchotel.Services
 
         public async Task<object> GetRevenueStatsAsync()
         {
-            var startOfMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
-            var total = await _context.Invoices.AsNoTracking()
-                .Where(i => i.CreatedAt >= startOfMonth && i.Status == "Paid")
-                .SumAsync(i => i.FinalTotal ?? 0);
-            return new { value = total };
+            var now = DateTime.Now;
+            var totalRevenue = await _context.Invoices
+                // Đã xóa điều kiện i.CreatedAt.Value.Month == now.Month
+                .Where(i => i.Status == "Paid" && i.CreatedAt.HasValue && i.CreatedAt.Value.Year == now.Year)
+                .SumAsync(i => i.FinalTotal);
+                
+            return new { value = totalRevenue, unit = "VNĐ", trend = "Năm nay" };
         }
 
         public async Task<object> GetNewBookingsCountAsync()

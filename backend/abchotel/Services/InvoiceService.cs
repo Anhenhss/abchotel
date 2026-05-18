@@ -15,11 +15,10 @@ namespace abchotel.Services
     {
         Task<List<InvoiceResponse>> GetAllInvoicesAsync(string status = null);
         Task<InvoiceResponse> GetInvoiceByIdAsync(int id);
-        
         Task<InvoiceResponse> GetInvoiceByBookingCodeAsync(string bookingCode);
-        
         Task<bool> RecalculateInvoiceAsync(int invoiceId);
         Task<(bool IsSuccess, string Message)> ProcessPaymentAsync(PaymentRequest request);
+        Task<bool> MarkAsRefundedAsync(int invoiceId);
     }
 
     public class InvoiceService : IInvoiceService
@@ -27,12 +26,15 @@ namespace abchotel.Services
         private readonly HotelDbContext _context;
         private readonly INotificationService _notificationService;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        // Bổ sung EmailService để gởi email thông báo lên hạng
+        private readonly IEmailService _emailService;
 
-        public InvoiceService(HotelDbContext context, INotificationService notificationService, IHttpContextAccessor httpContextAccessor)
+        public InvoiceService(HotelDbContext context, INotificationService notificationService, IHttpContextAccessor httpContextAccessor, IEmailService emailService)
         {
             _context = context;
             _notificationService = notificationService;
             _httpContextAccessor = httpContextAccessor;
+            _emailService = emailService;
         }
 
         private async Task<string> GetCurrentUserNameAsync()
@@ -56,16 +58,15 @@ namespace abchotel.Services
             if (!string.IsNullOrEmpty(status)) 
                 query = query.Where(i => i.Status == status);
 
-            // 🔥 Kéo dữ liệu từ SQL lên RAM trước
             var invoices = await query.OrderByDescending(i => i.CreatedAt).ToListAsync();
 
-            // 🔥 Sau đó mới Map sang DTO (Bỏ qua rào cản dịch SQL của EF Core)
             return invoices.Select(i => new InvoiceResponse
             {
                 Id = i.Id, 
                 BookingId = i.BookingId, 
                 BookingCode = i.Booking != null ? i.Booking.BookingCode : "N/A",
                 GuestName = i.Booking != null ? i.Booking.GuestName : "Khách vãng lai", 
+                GuestPhone = i.Booking != null ? i.Booking.GuestPhone : "N/A", 
                 TotalRoomAmount = i.TotalRoomAmount ?? 0,
                 TotalServiceAmount = i.TotalServiceAmount ?? 0, 
                 DiscountAmount = i.DiscountAmount ?? 0,
@@ -73,15 +74,13 @@ namespace abchotel.Services
                 FinalTotal = i.FinalTotal ?? 0,
                 AmountPaid = i.Payments != null ? i.Payments.Sum(p => p.AmountPaid) : 0, 
                 Status = i.Status, 
-                BookingStatus = i.Booking != null ? i.Booking.Status : "N/A", // Bạn đã thêm đúng chỗ này!
+                BookingStatus = i.Booking != null ? i.Booking.Status : "N/A",
                 CreatedAt = i.CreatedAt
-                // Các List chi tiết bên dưới tự động rỗng, không bị lỗi EF Core nữa
             }).ToList();
         }
 
         public async Task<InvoiceResponse> GetInvoiceByIdAsync(int id)
         {
-            // BƯỚC 1: Dùng Include để móc sâu xuống đáy Database
             var invoice = await _context.Invoices
                 .Include(i => i.Payments)
                 .Include(i => i.Booking)
@@ -102,13 +101,13 @@ namespace abchotel.Services
 
             if (invoice == null) return null;
 
-            // BƯỚC 2: Nhào nặn dữ liệu ra DTO
             var response = new InvoiceResponse
             {
                 Id = invoice.Id,
                 BookingId = invoice.BookingId,
                 BookingCode = invoice.Booking?.BookingCode,
                 GuestName = invoice.Booking?.GuestName,
+                GuestPhone = invoice.Booking?.GuestPhone,
                 TotalRoomAmount = invoice.TotalRoomAmount ?? 0,
                 TotalServiceAmount = invoice.TotalServiceAmount ?? 0,
                 DiscountAmount = invoice.DiscountAmount ?? 0,
@@ -116,19 +115,14 @@ namespace abchotel.Services
                 FinalTotal = invoice.FinalTotal ?? 0,
                 AmountPaid = invoice.Payments.Sum(p => p.AmountPaid),
                 Status = invoice.Status,
-                
-                // 🔥 ĐÃ BỔ SUNG TRƯỜNG NÀY ĐỂ FRONTEND LỌC ĐƯỢC:
                 BookingStatus = invoice.Booking?.Status ?? "N/A",
-                
                 CreatedAt = invoice.CreatedAt
             };
 
-            // BƯỚC 3: Rút trích chi tiết từng khoản mục
             if (invoice.Booking != null && invoice.Booking.BookingDetails != null)
             {
                 foreach (var detail in invoice.Booking.BookingDetails)
                 {
-                    // 3.1 Tiền phòng
                     int duration = detail.PriceType == "HOURLY"
                         ? (int)Math.Ceiling((detail.CheckOutDate - detail.CheckInDate).TotalHours)
                         : (int)(detail.CheckOutDate.Date - detail.CheckInDate.Date).TotalDays;
@@ -145,7 +139,6 @@ namespace abchotel.Services
                         SubTotal = detail.AppliedPrice * duration
                     });
 
-                    // 3.2 Tiền dịch vụ ăn uống / Minibar
                     if (detail.OrderServices != null)
                     {
                         foreach (var os in detail.OrderServices.Where(o => o.Status != "Cancelled"))
@@ -166,7 +159,6 @@ namespace abchotel.Services
                         }
                     }
 
-                    // 3.3 Tiền phạt / Hư hỏng
                     if (detail.LossAndDamages != null)
                     {
                         foreach (var ld in detail.LossAndDamages.Where(l => l.Status != "Cancelled"))
@@ -203,7 +195,7 @@ namespace abchotel.Services
                 .Include(i => i.Booking).ThenInclude(b => b.BookingDetails).ThenInclude(bd => bd.LossAndDamages)
                 .FirstOrDefaultAsync(i => i.Id == invoiceId);
 
-            if (invoice == null || invoice.Status == "Paid") return false;
+            if (invoice == null || invoice.Status == "Paid" || invoice.Status == "Refunded" || invoice.Status == "Cancelled") return false;
 
             decimal totalRoom = 0;
             decimal totalService = 0;
@@ -222,16 +214,33 @@ namespace abchotel.Services
             }
 
             decimal totalExtras = totalService + totalDamage;
-            decimal discount = 0;
+            decimal voucherDiscount = 0;
+            decimal memberDiscount = 0;
+
             var voucher = invoice.Booking.Voucher;
             if (voucher != null && voucher.IsActive)
             {
                 if (voucher.DiscountType == "PERCENT") {
-                    discount = totalRoom * (voucher.DiscountValue / 100);
-                    if (voucher.MaxDiscountAmount.HasValue && discount > voucher.MaxDiscountAmount.Value) discount = voucher.MaxDiscountAmount.Value;
-                } else discount = voucher.DiscountValue;
-                if (discount > totalRoom) discount = totalRoom;
+                    voucherDiscount = totalRoom * (voucher.DiscountValue / 100);
+                    if (voucher.MaxDiscountAmount.HasValue && voucherDiscount > voucher.MaxDiscountAmount.Value) voucherDiscount = voucher.MaxDiscountAmount.Value;
+                } else voucherDiscount = voucher.DiscountValue;
             }
+
+            if (invoice.Booking.UserId.HasValue)
+            {
+                var user = await _context.Users.FindAsync(invoice.Booking.UserId.Value);
+                if (user != null && user.MembershipId.HasValue)
+                {
+                    var membership = await _context.Memberships.FindAsync(user.MembershipId.Value);
+                    if (membership != null)
+                    {
+                        memberDiscount = totalRoom * ((membership.DiscountPercent ?? 0m) / 100m);
+                    }
+                }
+            }
+
+            decimal discount = voucherDiscount + memberDiscount;
+            if (discount > totalRoom) discount = totalRoom;
 
             decimal subTotal = totalRoom + totalExtras - discount;
             decimal tax = subTotal * 0.10m;
@@ -288,19 +297,23 @@ namespace abchotel.Services
 
             decimal totalPaidAfter = currentPaid + actualAmountToLog;
 
+            if (invoice.Booking != null && invoice.Booking.Status == "Pending" && totalPaidAfter > 0)
+            {
+                invoice.Booking.Status = "Confirmed";
+            }
+
             if (totalPaidAfter >= invoice.FinalTotal)
             {
                 invoice.Status = "Paid"; 
                 
-                if (invoice.Booking != null && invoice.Booking.Status == "Pending")
-                    invoice.Booking.Status = "Confirmed";
-
+                // 🔥 FIX LOGIC 2: TÍCH ĐIỂM VÀ TỰ ĐỘNG THĂNG HẠNG MEMBERSHIP (Kèm gửi Email)
                 if (invoice.Booking != null && invoice.Booking.UserId.HasValue)
                 {
                     var user = await _context.Users.FindAsync(invoice.Booking.UserId.Value);
                     if (user != null)
                     {
-                        int earnedPoints = (int)((invoice.FinalTotal ?? 0) / 100); 
+                        // Tính điểm tích lũy: Ví dụ ở đây là 10.000đ = 1 điểm. 
+                        int earnedPoints = (int)((invoice.FinalTotal ?? 0) / 10000); 
                         user.TotalPoints += earnedPoints;
 
                         _context.PointHistories.Add(new PointHistory
@@ -308,9 +321,28 @@ namespace abchotel.Services
                             UserId = user.Id,
                             InvoiceId = invoice.Id,
                             PointsEarned = earnedPoints,
-                            Description = $"Cộng điểm từ giao dịch thanh toán Hóa đơn #{invoice.Id} (Mã: {invoice.Booking.BookingCode})",
+                            Description = $"Cộng điểm từ giao dịch thanh toán Hóa đơn #{invoice.Id}",
                             CreatedAt = DateTime.Now
                         });
+                        
+                        // XÉT NÂNG HẠNG TỰ ĐỘNG
+                        var appropriateMembership = await _context.Memberships
+                            .Where(m => m.MinPoints <= user.TotalPoints)
+                            .OrderByDescending(m => m.MinPoints)
+                            .FirstOrDefaultAsync();
+
+                        if (appropriateMembership != null && user.MembershipId != appropriateMembership.Id)
+                        {
+                            user.MembershipId = appropriateMembership.Id;
+                            
+                            string emailBody = $@"
+                                <h3>Chúc mừng {user.FullName},</h3>
+                                <p>Nhờ thường xuyên tin dùng dịch vụ, hạng thành viên của bạn tại ABC Hotel đã được thăng lên cấp <b>{appropriateMembership.TierName}</b>.</p>
+                                <p>Ở hạng thẻ này, bạn sẽ nhận được mã giảm giá <b>{appropriateMembership.DiscountPercent}%</b> cho tất cả các lần đặt phòng tiếp theo trên hệ thống.</p>
+                                <br/><p>Trân trọng cảm ơn bạn,<br/>ABC Hotel</p>";
+                                
+                            await _emailService.SendEmailAsync(user.Email, "Thăng Hạng Thành Viên Thành Công!", emailBody);
+                        }
                     }
                 }
             }
@@ -328,6 +360,18 @@ namespace abchotel.Services
             await _notificationService.SendToPermissionAsync("MANAGE_INVOICES", "Thanh toán mới", $"[{userName}] vừa thu {actualAmountToLog:N0}đ cho hóa đơn {invoice.Booking?.BookingCode}.");
 
             return (true, resultMsg);
+        }
+
+        public async Task<bool> MarkAsRefundedAsync(int invoiceId)
+        {
+            var invoice = await _context.Invoices.FirstOrDefaultAsync(i => i.Id == invoiceId);
+            if (invoice == null || invoice.Status != "Refund_Pending") return false;
+
+            invoice.Status = "Refunded";
+            invoice.UpdatedAt = DateTime.Now;
+            
+            await _context.SaveChangesAsync();
+            return true;
         }
     }
 }

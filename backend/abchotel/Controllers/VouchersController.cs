@@ -19,12 +19,12 @@ namespace abchotel.Controllers
         }
 
         [HttpGet]
-        [AllowAnonymous]
+        [AllowAnonymous] // Cho phép cả khách vãng lai và user đã đăng nhập gọi API này
         public async Task<IActionResult> GetAll()
         {
-            // Truyền true để chỉ lấy các Voucher đang Active và phù hợp logic IsForNewCustomer
+            // Gọi Service xử lý lọc Voucher tự động dựa theo HttpContext ngầm bên dưới
             var vouchers = await _voucherService.GetAllVouchersAsync(onlyActive: true);
-            return Ok(await _voucherService.GetAllVouchersAsync(onlyActive: true));
+            return Ok(vouchers);
         }
 
         [HttpGet("{id}")]

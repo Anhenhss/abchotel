@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Form, Input, Button, Typography, notification, Row, Col, Card, Steps, Divider, Radio, Space, Tag } from 'antd';
 import { 
-  Bed, SuitcaseRolling, ShieldCheck, CreditCard, Ticket, CheckCircle, ArrowRight, User, Phone, Envelope, IdentificationCard
+  Bed, SuitcaseRolling, ShieldCheck, CreditCard, Ticket, CheckCircle, ArrowRight, User, Phone, Envelope, IdentificationCard, Crown
 } from '@phosphor-icons/react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -11,6 +11,7 @@ import { bookingApi } from '../../../api/bookingApi';
 import { invoiceApi } from '../../../api/invoiceApi';
 import { voucherApi } from '../../../api/voucherApi';
 import { useAuthStore } from '../../../store/authStore';
+import axiosClient from '../../../api/axiosClient'; // 🔥 Thêm axiosClient để gọi API Profile
 
 const { Title, Text } = Typography;
 
@@ -31,11 +32,14 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('VNPAY');
   
-  // Voucher States
   const [voucherCode, setVoucherCode] = useState('');
   const [appliedVoucher, setAppliedVoucher] = useState(null);
-  const [discountAmount, setDiscountAmount] = useState(0);
+  const [voucherDiscountAmount, setVoucherDiscountAmount] = useState(0);
   const [isApplyingVoucher, setIsApplyingVoucher] = useState(false);
+
+  // 🔥 STATE LƯU TRỮ HẠNG THÀNH VIÊN
+  const [myProfile, setMyProfile] = useState(null);
+  const [memberships, setMemberships] = useState([]);
 
   useEffect(() => {
     if (!bookingState || !bookingState.selectedRooms || bookingState.selectedRooms.length === 0) {
@@ -44,8 +48,14 @@ export default function CheckoutPage() {
     }
     if (user) {
       form.setFieldsValue({
-        guestName: user.fullName, guestEmail: user.email, guestPhone: user.phone
+        guestName: user.fullName, 
+        guestEmail: user.email, 
+        guestPhone: user.phone || ''
       });
+
+      // 🔥 Lấy thông tin điểm số và bảng hạng thành viên
+      axiosClient.get('/UserProfile/my-profile').then(res => setMyProfile(res)).catch(()=>{});
+      axiosClient.get('/Memberships').then(res => setMemberships(res.$values || res || [])).catch(()=>{});
     }
   }, [bookingState, navigate, user, form]);
 
@@ -53,7 +63,19 @@ export default function CheckoutPage() {
 
   const { grandTotal, checkIn, checkOut, priceType, selectedRooms, selectedServices } = bookingState;
 
-  const finalTotalToPay = grandTotal - discountAmount;
+  // 🔥 TÍNH TOÁN ƯU ĐÃI HẠNG THÀNH VIÊN
+  const currentTier = useMemo(() => {
+    if (!myProfile || !memberships.length) return null;
+    return memberships.sort((a,b) => b.minPoints - a.minPoints).find(m => myProfile.totalPoints >= m.minPoints);
+  }, [myProfile, memberships]);
+
+  const memDiscountPercent = currentTier ? currentTier.discountPercent : 0;
+  // Ưu đãi thành viên thường áp dụng trên tổng tiền phòng (grandTotal)
+  const memDiscountAmount = Math.round(grandTotal * (memDiscountPercent / 100));
+
+  // TỔNG TIỀN CUỐI CÙNG SAU KHI TRỪ VOUCHER VÀ MEMBERSHIP
+  const finalTotalToPay = grandTotal - voucherDiscountAmount - memDiscountAmount;
+  const depositAmount = finalTotalToPay * 0.20; 
 
   const handleApplyVoucher = async () => {
     if (!voucherCode.trim()) return;
@@ -68,7 +90,7 @@ export default function CheckoutPage() {
       const data = res.data || res;
       if (data.isValid || data.isSuccess) {
         setAppliedVoucher(voucherCode.toUpperCase());
-        setDiscountAmount(data.discountAmount || 0);
+        setVoucherDiscountAmount(data.discountAmount || 0);
         api.success({ message: 'Thành công', description: `Đã giảm ${new Intl.NumberFormat('vi-VN').format(data.discountAmount)}đ` });
       } else {
         api.error({ message: 'Mã không hợp lệ', description: data.message });
@@ -81,14 +103,13 @@ export default function CheckoutPage() {
   };
 
   const handleRemoveVoucher = () => {
-    setVoucherCode(''); setAppliedVoucher(null); setDiscountAmount(0);
+    setVoucherCode(''); setAppliedVoucher(null); setVoucherDiscountAmount(0);
   };
 
   const onFinishCheckout = async (values) => {
     try {
       setLoading(true);
       
-      // 🔥 FIX: Gom thẳng Services vào Payload
       const bookingPayload = {
         guestName: values.guestName,
         guestPhone: values.guestPhone,
@@ -105,7 +126,6 @@ export default function CheckoutPage() {
           quantity: 1,
           priceType: priceType
         })),
-        // Map Dịch Vụ đã chọn
         services: selectedServices ? selectedServices.map(s => ({
           serviceId: s.serviceId,
           quantity: s.quantity
@@ -117,21 +137,17 @@ export default function CheckoutPage() {
       
       if (!bData.bookingCode) throw new Error("Không lấy được mã đơn hàng từ hệ thống.");
 
-      // 2. LẤY INVOICE ID 
       const invoiceRes = await invoiceApi.getByBookingCode(bData.bookingCode);
       const invoiceId = invoiceRes?.data?.id || invoiceRes?.id;
 
       if (!invoiceId) throw new Error("Không khởi tạo được hóa đơn.");
 
-      // Bỏ đi đoạn gọi API addService rời rạc cũ
-
-      // 3. GỌI API CỔNG THANH TOÁN & REDIRECT 
       let paymentUrl = '';
       if (paymentMethod === 'VNPAY') {
-        const vnpRes = await invoiceApi.createVnPayUrl(invoiceId);
+        const vnpRes = await invoiceApi.createVnPayUrl(invoiceId, true);
         paymentUrl = typeof vnpRes === 'string' ? vnpRes : (vnpRes?.data?.url || vnpRes?.url || vnpRes);
       } else if (paymentMethod === 'MOMO') {
-        const momoRes = await invoiceApi.createMoMoUrl(invoiceId);
+        const momoRes = await invoiceApi.createMoMoUrl(invoiceId, true);
         paymentUrl = typeof momoRes === 'string' ? momoRes : (momoRes?.data?.url || momoRes?.url || momoRes);
       }
 
@@ -161,7 +177,7 @@ export default function CheckoutPage() {
             <Steps current={2} className="luxury-steps" items={[
                 { title: 'Chọn Hạng Phòng', icon: <Bed size={22}/> },
                 { title: 'Dịch Vụ', icon: <SuitcaseRolling size={22}/> },
-                { title: 'Thanh Toán', icon: <ShieldCheck size={22}/> }
+                { title: 'Thanh Toán Cọc', icon: <ShieldCheck size={22}/> }
             ]} />
         </div>
       </div>
@@ -206,7 +222,7 @@ export default function CheckoutPage() {
               </div>
 
               <div className="section-block" style={{ marginTop: 32 }}>
-                <Title level={4} className="section-title"><CreditCard size={24}/> Phương thức thanh toán</Title>
+                <Title level={4} className="section-title"><CreditCard size={24}/> Phương thức cọc trước 20%</Title>
                 <Card variant="borderless" className="form-card">
                   <Radio.Group onChange={(e) => setPaymentMethod(e.target.value)} value={paymentMethod} style={{ width: '100%' }}>
                     <div className={`payment-method-row ${paymentMethod === 'VNPAY' ? 'active' : ''}`} onClick={() => setPaymentMethod('VNPAY')}>
@@ -283,13 +299,30 @@ export default function CheckoutPage() {
                           </div>
                           
                           <AnimatePresence>
-                            {discountAmount > 0 && (
+                            {/* 🔥 HIỂN THỊ ƯU ĐÃI HẠNG THÀNH VIÊN */}
+                            {memDiscountAmount > 0 && (
+                              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="cart-item-row">
+                                <Text className="cart-item-name" style={{ color: THEME.GOLD, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <Crown weight="fill" /> Hạng {currentTier?.tierName} ({memDiscountPercent}%)
+                                </Text>
+                                <Text className="cart-item-price" style={{ color: THEME.GOLD }}>-{new Intl.NumberFormat('vi-VN').format(memDiscountAmount)}₫</Text>
+                              </motion.div>
+                            )}
+
+                            {voucherDiscountAmount > 0 && (
                               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="cart-item-row">
                                 <Text className="cart-item-name" style={{ color: '#10b981' }}>Giảm giá (Voucher)</Text>
-                                <Text className="cart-item-price" style={{ color: '#10b981' }}>-{new Intl.NumberFormat('vi-VN').format(discountAmount)}₫</Text>
+                                <Text className="cart-item-price" style={{ color: '#10b981' }}>-{new Intl.NumberFormat('vi-VN').format(voucherDiscountAmount)}₫</Text>
                               </motion.div>
                             )}
                           </AnimatePresence>
+
+                          <Divider style={{ margin: '8px 0', borderStyle: 'dashed' }} />
+                          
+                          <div className="cart-item-row">
+                              <Text className="cart-item-name" style={{ color: THEME.NAVY_DARK, fontWeight: 700 }}>Tổng cộng chuyến đi</Text>
+                              <Text className="cart-item-price">{new Intl.NumberFormat('vi-VN').format(finalTotalToPay)}₫</Text>
+                          </div>
                       </div>
 
                       <Divider style={{ margin: '16px 0' }} className="mobile-hide"/>
@@ -297,16 +330,16 @@ export default function CheckoutPage() {
                       <div className="total-area-wrapper">
                           <div className="total-area">
                               <div className="total-label-box">
-                                  <Text className="total-label">Tổng thanh toán</Text>
-                                  <Text className="tax-info mobile-hide">(Đã bao gồm thuế/phí)</Text>
+                                  <Text className="total-label">Cọc trước (20%)</Text>
+                                  <Text className="tax-info mobile-hide">Còn lại thanh toán tại quầy</Text>
                               </div>
                               <div className="total-amount" style={{ color: THEME.DARK_RED }}>
-                                {new Intl.NumberFormat('vi-VN').format(finalTotalToPay)}<span style={{ fontSize: 20, verticalAlign: 'top' }}>₫</span>
+                                {new Intl.NumberFormat('vi-VN').format(depositAmount)}<span style={{ fontSize: 20, verticalAlign: 'top' }}>₫</span>
                               </div>
                           </div>
 
                           <Button block htmlType="submit" className="btn-proceed" loading={loading}>
-                              THANH TOÁN NGAY
+                              THANH TOÁN CỌC
                           </Button>
                       </div>
 

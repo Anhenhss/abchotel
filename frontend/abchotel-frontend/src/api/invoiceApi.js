@@ -5,9 +5,10 @@ export const invoiceApi = {
   getById: (id) => axiosClient.get(`/Invoices/${id}`),
   recalculate: (id) => axiosClient.post(`/Invoices/${id}/recalculate`),
   payCash: (data) => axiosClient.post('/Invoices/pay', data),
-  createVnPayUrl: (id) => axiosClient.post(`/Invoices/${id}/create-vnpay-url`),
+  markRefunded: (id) => axiosClient.post(`/Invoices/${id}/mark-refunded`),
 
-  createMoMoUrl: (id) => axiosClient.post(`/Invoices/${id}/create-momo-url`),
+  createVnPayUrl: (id, isDeposit = false) => axiosClient.post(`/Invoices/${id}/create-vnpay-url?isDeposit=${isDeposit}`),
+  createMoMoUrl: (id, isDeposit = false) => axiosClient.post(`/Invoices/${id}/create-momo-url?isDeposit=${isDeposit}`),
   
   addService: (invoiceId, data) => axiosClient.post(`/Invoices/${invoiceId}/add-service`, data),
   addDamage: (invoiceId, data) => axiosClient.post(`/Invoices/${invoiceId}/add-damage`, data),

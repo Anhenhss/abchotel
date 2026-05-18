@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Drawer, Descriptions, Table, Tag, Button, Space, Typography, Divider, Spin, notification, Collapse, Modal, Form, Select, InputNumber, Popconfirm } from 'antd';
-import { Printer, CreditCard, ShoppingCart, WarningCircle, CheckCircle, Calculator, Money, QrCode, XCircle } from '@phosphor-icons/react';
+import { Printer, CreditCard, ShoppingCart, WarningCircle, CheckCircle, Calculator, Money, QrCode, XCircle, HandCoins } from '@phosphor-icons/react';
 import dayjs from 'dayjs';
 
 import { invoiceApi } from '../api/invoiceApi';
@@ -39,19 +39,18 @@ export default function InvoiceDetailDrawer({ isOpen, onClose, invoiceId, onSucc
     if (isWaitingPayment && invoiceId) {
         interval = setInterval(async () => {
             try {
-                // Gọi API kiểm tra hóa đơn xem đã đổi trạng thái thành Paid chưa
                 const res = await invoiceApi.getById(invoiceId);
                 if (res && res.status === 'Paid') {
-                    setIsWaitingPayment(false); // Tắt vòng quay
-                    setIsPayModalOpen(false);   // Đóng Modal
+                    setIsWaitingPayment(false); 
+                    setIsPayModalOpen(false);   
                     api.success({ message: 'Tuyệt vời!', description: 'Hệ thống đã nhận được tiền từ VNPay/MoMo.' });
-                    fetchInvoiceDetail();       // Cập nhật giao diện ngay lập tức
+                    fetchInvoiceDetail();       
                     if (onSuccess) onSuccess(); 
                 }
             } catch (e) { console.log(e) }
         }, 3000);
     }
-    return () => clearInterval(interval); // Dọn dẹp bộ nhớ khi tắt drawer
+    return () => clearInterval(interval); 
   }, [isWaitingPayment, invoiceId]);
 
   const fetchInvoiceDetail = async () => {
@@ -95,6 +94,21 @@ export default function InvoiceDetailDrawer({ isOpen, onClose, invoiceId, onSucc
     }
   };
 
+  // 🔥 LOGIC KẾ TOÁN XÁC NHẬN ĐÃ HOÀN TIỀN
+  const handleConfirmRefund = async () => {
+      try {
+          setLoading(true);
+          await invoiceApi.markRefunded(invoiceId);
+          api.success({ message: 'Hoàn tất', description: 'Đã ghi nhận đóng hồ sơ hoàn tiền cho khách.' });
+          fetchInvoiceDetail();
+          if (onSuccess) onSuccess();
+      } catch (e) {
+          api.error({ message: 'Lỗi', description: 'Có lỗi xảy ra khi xác nhận hoàn tiền.' });
+      } finally {
+          setLoading(false);
+      }
+  };
+
   const openPayModal = () => {
     payForm.resetFields();
     payForm.setFieldsValue({ 
@@ -102,26 +116,25 @@ export default function InvoiceDetailDrawer({ isOpen, onClose, invoiceId, onSucc
         paymentMethod: 'Cash' 
     });
     setIsPayModalOpen(true);
-    setIsWaitingPayment(false); // Reset lại trạng thái chờ mỗi khi mở
+    setIsWaitingPayment(false); 
   };
 
   const handlePayment = async (values) => {
     try {
       setLoading(true);
-      // ÉP KIỂU ĐỂ FIX 400 BAD REQUEST
       const safeAmount = Number(values.amountPaid); 
 
       // 🔥 3. MỞ TAB MỚI VÀ BẬT VÒNG QUAY CHỜ ĐỢI
       if (values.paymentMethod === 'VNPay') {
           const res = await invoiceApi.createVnPayUrl(invoiceId);
-          window.open(res.url, '_blank'); // MỞ TAB MỚI
-          setIsWaitingPayment(true);      // BẬT CHẾ ĐỘ CHỜ (POLLING)
+          window.open(res.url, '_blank'); 
+          setIsWaitingPayment(true);      
           return;
       }
       if (values.paymentMethod === 'MoMo') {
           const res = await invoiceApi.createMoMoUrl(invoiceId);
-          window.open(res.url, '_blank'); // MỞ TAB MỚI
-          setIsWaitingPayment(true);      // BẬT CHẾ ĐỘ CHỜ (POLLING)
+          window.open(res.url, '_blank'); 
+          setIsWaitingPayment(true);      
           return;
       }
 
@@ -153,6 +166,18 @@ export default function InvoiceDetailDrawer({ isOpen, onClose, invoiceId, onSucc
           case 'MoMo': return <Tag color="magenta" style={{fontWeight:'bold', fontSize: 13}}>Thanh toán MoMo</Tag>;
           case 'Bank Transfer': return <Tag color="cyan" style={{fontWeight:'bold', fontSize: 13}}>Chuyển khoản QR</Tag>;
           default: return <Tag color="green" style={{fontWeight:'bold', fontSize: 13}}>Tiền mặt</Tag>;
+      }
+  };
+
+  const renderInvoiceStatusTag = (status) => {
+      switch (status) {
+          case 'Unpaid': return <Tag color="error" style={{background: LUXURY_COLORS.ACCENT_RED, color: '#fff'}} icon={<WarningCircle/>}>CHƯA CỌC</Tag>;
+          case 'Partial': return <Tag color="processing">ĐÃ CỌC (CÒN NỢ)</Tag>;
+          case 'Paid': return <Tag color="success" icon={<CheckCircle/>}>ĐÃ THANH TOÁN</Tag>;
+          case 'Refund_Pending': return <Tag color="warning" style={{background: '#d97706', color: '#fff', borderColor: '#d97706'}} icon={<WarningCircle/>}>CHỜ HOÀN TIỀN</Tag>;
+          case 'Refunded': return <Tag color="default">ĐÃ TRẢ KHÁCH</Tag>;
+          case 'Cancelled': return <Tag color="default">ĐÃ HỦY</Tag>;
+          default: return <Tag>{status}</Tag>;
       }
   };
 
@@ -224,8 +249,8 @@ export default function InvoiceDetailDrawer({ isOpen, onClose, invoiceId, onSucc
                     <Title level={4} style={{ margin: 0, color: LUXURY_COLORS.DARKEST, fontWeight: 900 }}>Hóa đơn #{invoiceId}</Title>
                 </Space>
                 <Space>
-                    {invoice && invoice.status === 'Paid' && renderPaymentMethodTag(invoice.paymentMethod)}
-                    {invoice && (invoice.status === 'Paid' ? <Tag color="success" icon={<CheckCircle/>}>ĐÃ THANH TOÁN</Tag> : <Tag color="error" style={{background: LUXURY_COLORS.ACCENT_RED, color: '#fff'}} icon={<WarningCircle/>}>CHƯA THU ĐỦ</Tag>)}
+                    {invoice && (invoice.status === 'Paid' || invoice.status === 'Partial') && renderPaymentMethodTag(invoice.paymentMethod)}
+                    {invoice && renderInvoiceStatusTag(invoice.status)}
                 </Space>
             </div>
         }
@@ -235,10 +260,28 @@ export default function InvoiceDetailDrawer({ isOpen, onClose, invoiceId, onSucc
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             
             <div style={{ flex: 1, overflowY: 'auto', paddingRight: 8 }}>
+              
+              {/* KHỐI CẢNH BÁO CHO KẾ TOÁN NẾU LÀ ĐƠN HOÀN TIỀN */}
+              {invoice.status === 'Refund_Pending' && (
+                  <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', padding: 16, borderRadius: 8, marginBottom: 16 }}>
+                      <Space align="start">
+                          <WarningCircle size={24} color="#d97706" weight="fill" style={{marginTop: 2}}/>
+                          <div>
+                              <Text strong style={{ color: '#b45309', fontSize: 16, display: 'block', marginBottom: 4 }}>KHÁCH ĐÃ HỦY PHÒNG - CẦN TRẢ LẠI TIỀN CỌC!</Text>
+                              <Text style={{ color: '#92400e' }}>
+                                  Vui lòng liên hệ số điện thoại <b style={{fontSize: 16}}>{invoice.guestPhone || 'Chưa cung cấp'}</b> để xin STK ngân hàng và chuyển khoản trả lại số tiền <b>{new Intl.NumberFormat('vi-VN').format(invoice.amountPaid)}đ</b>.
+                                  Sau khi chuyển xong, bấm nút "Xác nhận Đã hoàn tiền" bên dưới.
+                              </Text>
+                          </div>
+                      </Space>
+                  </div>
+              )}
+
               <div style={{ backgroundColor: '#fff', padding: 16, borderRadius: 8, border: `2px solid ${LUXURY_COLORS.NAVY}`, marginBottom: 16 }}>
                  <Descriptions column={2} size="small">
                     <Descriptions.Item label="Mã Đặt Phòng"><Text strong style={{ color: LUXURY_COLORS.NAVY }}>{invoice.bookingCode}</Text></Descriptions.Item>
                     <Descriptions.Item label="Khách hàng"><Text strong>{invoice.guestName || 'Khách vãng lai'}</Text></Descriptions.Item>
+                    <Descriptions.Item label="SĐT Khách"><Text strong style={{ color: LUXURY_COLORS.ACCENT_RED }}>{invoice.guestPhone || '---'}</Text></Descriptions.Item>
                     <Descriptions.Item label="Ngày lập HĐ">{dayjs(invoice.createdAt).format('DD/MM/YYYY HH:mm')}</Descriptions.Item>
                  </Descriptions>
               </div>
@@ -257,32 +300,60 @@ export default function InvoiceDetailDrawer({ isOpen, onClose, invoiceId, onSucc
               </div>
               
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 16, padding: '12px 0', borderTop: `2px dashed ${LUXURY_COLORS.MUTED_BLUE}` }}>
-                 <Title level={5} style={{ margin: 0, color: LUXURY_COLORS.NAVY, fontWeight: 900 }}>TỔNG THANH TOÁN</Title>
-                 <Title level={3} style={{ color: LUXURY_COLORS.ACCENT_RED, margin: 0, fontWeight: 900 }}>{new Intl.NumberFormat('vi-VN').format(invoice.finalTotal)}đ</Title>
+                 <Title level={5} style={{ margin: 0, color: LUXURY_COLORS.NAVY, fontWeight: 900 }}>TỔNG ĐƠN GIÁ</Title>
+                 {invoice.status === 'Cancelled' || invoice.status === 'Refund_Pending' || invoice.status === 'Refunded' ? (
+                     <Text style={{ textDecoration: 'line-through', color: '#94a3b8', fontSize: 18 }}>{new Intl.NumberFormat('vi-VN').format(invoice.finalTotal)}đ</Text>
+                 ) : (
+                     <Title level={3} style={{ color: LUXURY_COLORS.ACCENT_RED, margin: 0, fontWeight: 900 }}>{new Intl.NumberFormat('vi-VN').format(invoice.finalTotal)}đ</Title>
+                 )}
               </div>
+              
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
                  <Text type="secondary">Khách đã trả / Cọc:</Text>
                  <Text strong style={{ color: LUXURY_COLORS.SUCCESS, fontSize: 16 }}>{new Intl.NumberFormat('vi-VN').format(invoice.amountPaid)}đ</Text>
               </div>
               
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12, padding: '16px', backgroundColor: '#fff', borderRadius: 8, border: `2px solid ${invoice.finalTotal - invoice.amountPaid > 0 ? LUXURY_COLORS.ACCENT_RED : LUXURY_COLORS.SUCCESS}` }}>
-                 <Text strong style={{ fontSize: 16, color: LUXURY_COLORS.DARKEST }}>KHÁCH CÒN NỢ:</Text>
-                 <Text strong style={{ fontSize: 18, color: invoice.finalTotal - invoice.amountPaid > 0 ? LUXURY_COLORS.ACCENT_RED : LUXURY_COLORS.SUCCESS }}>
-                    {new Intl.NumberFormat('vi-VN').format(Math.max(0, invoice.finalTotal - invoice.amountPaid))}đ
-                 </Text>
-              </div>
+              {/* Tùy trạng thái mà hiển thị NỢ hoặc TRẢ */}
+              {(invoice.status === 'Unpaid' || invoice.status === 'Partial' || invoice.status === 'Paid') && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12, padding: '16px', backgroundColor: '#fff', borderRadius: 8, border: `2px solid ${invoice.finalTotal - invoice.amountPaid > 0 ? LUXURY_COLORS.ACCENT_RED : LUXURY_COLORS.SUCCESS}` }}>
+                    <Text strong style={{ fontSize: 16, color: LUXURY_COLORS.DARKEST }}>KHÁCH CÒN NỢ:</Text>
+                    <Text strong style={{ fontSize: 18, color: invoice.finalTotal - invoice.amountPaid > 0 ? LUXURY_COLORS.ACCENT_RED : LUXURY_COLORS.SUCCESS }}>
+                        {new Intl.NumberFormat('vi-VN').format(Math.max(0, invoice.finalTotal - invoice.amountPaid))}đ
+                    </Text>
+                </div>
+              )}
+
+              {invoice.status === 'Refund_Pending' && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12, padding: '16px', backgroundColor: '#fffbeb', borderRadius: 8, border: `2px solid #d97706` }}>
+                    <Text strong style={{ fontSize: 16, color: '#92400e' }}>CẦN TRẢ LẠI KHÁCH:</Text>
+                    <Text strong style={{ fontSize: 18, color: '#d97706' }}>
+                        {new Intl.NumberFormat('vi-VN').format(invoice.amountPaid)}đ
+                    </Text>
+                </div>
+              )}
             </div>
 
             <div style={{ marginTop: 24, paddingTop: 16, borderTop: `1px solid ${LUXURY_COLORS.LIGHT_BLUE}`, display: 'flex', justifyContent: 'space-between' }}>
-              <Button icon={<Calculator/>} onClick={handleRecalculate} disabled={invoice.status === 'Paid'} style={{ color: LUXURY_COLORS.NAVY }}>Cập nhật lại</Button>
+              <Button icon={<Calculator/>} onClick={handleRecalculate} disabled={invoice.status !== 'Unpaid' && invoice.status !== 'Partial'} style={{ color: LUXURY_COLORS.NAVY }}>Cập nhật lại</Button>
               <Space>
-                <Button type="primary" size="large" icon={<Printer size={20} />} onClick={handlePrint} disabled={invoice.status !== 'Paid'} style={{ backgroundColor: LUXURY_COLORS.GOLD, color: LUXURY_COLORS.DARKEST, fontWeight: 'bold', border: 'none' }}>
+                <Button type="primary" size="large" icon={<Printer size={20} />} onClick={handlePrint} disabled={invoice.status === 'Cancelled' || invoice.status === 'Refund_Pending' || invoice.status === 'Refunded'} style={{ backgroundColor: LUXURY_COLORS.GOLD, color: LUXURY_COLORS.DARKEST, fontWeight: 'bold', border: 'none' }}>
                   IN BIÊN LAI
                 </Button>
-                {invoice.status !== 'Paid' && (
+                
+                {/* NÚT THU TIỀN: Ẩn đi khi hóa đơn đang chờ hoàn tiền */}
+                {(invoice.status === 'Unpaid' || invoice.status === 'Partial') && (
                   <Button type="primary" size="large" icon={<CreditCard size={20}/>} onClick={openPayModal} style={{ backgroundColor: LUXURY_COLORS.NAVY, padding: '0 24px', fontWeight: 'bold' }}>
                     THU TIỀN NGAY
                   </Button>
+                )}
+
+                {/* NÚT HOÀN TIỀN DÀNH CHO KẾ TOÁN */}
+                {invoice.status === 'Refund_Pending' && (
+                    <Popconfirm title="Bạn xác nhận đã chuyển khoản trả lại tiền cho khách?" onConfirm={handleConfirmRefund} okText="Đã chuyển khoản" cancelText="Hủy">
+                        <Button type="primary" size="large" icon={<HandCoins size={20}/>} style={{ backgroundColor: '#d97706', padding: '0 24px', fontWeight: 'bold', border: 'none' }}>
+                            XÁC NHẬN ĐÃ HOÀN TIỀN
+                        </Button>
+                    </Popconfirm>
                 )}
               </Space>
             </div>
@@ -291,7 +362,6 @@ export default function InvoiceDetailDrawer({ isOpen, onClose, invoiceId, onSucc
       </Drawer>
 
       <Modal title={<span style={{ color: LUXURY_COLORS.NAVY, fontSize: 18, fontWeight: 900 }}>Xác nhận Thu tiền</span>} open={isPayModalOpen} onCancel={() => { setIsPayModalOpen(false); setIsWaitingPayment(false); }} footer={null} centered width={450}>
-        {/* 🔥 4. ĐỔI GIAO DIỆN MODAL KHI ĐANG CHỜ VNPay/MoMo */}
         {isWaitingPayment ? (
             <div style={{ textAlign: 'center', padding: '30px 10px' }}>
                 <Spin size="large" />
@@ -325,7 +395,6 @@ export default function InvoiceDetailDrawer({ isOpen, onClose, invoiceId, onSucc
 
                 <div style={{ textAlign: 'right', marginTop: 16 }}>
                     <Button size="large" onClick={() => setIsPayModalOpen(false)} style={{ marginRight: 8, fontWeight: 600 }}>Hủy</Button>
-                    {/* 🔥 5. TỰ ĐỘNG ĐỔI CHỮ TRÊN NÚT BẤM */}
                     <Button size="large" type="primary" htmlType="submit" loading={loading} style={{ backgroundColor: LUXURY_COLORS.ACCENT_RED, fontWeight: 'bold', border: 'none' }}>
                         {paymentMethod === 'VNPay' || paymentMethod === 'MoMo' ? 'MỞ TRANG THANH TOÁN' : 'GHI NHẬN THANH TOÁN'}
                     </Button>

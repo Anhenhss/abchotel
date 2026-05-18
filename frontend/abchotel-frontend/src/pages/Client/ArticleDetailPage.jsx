@@ -5,6 +5,7 @@ import { User, ArrowLeft, CalendarBlank, ListBullets, BellRinging, BookOpenText 
 import { articleApi } from '../../api/articleApi'; 
 import { useSignalR } from '../../hooks/useSignalR';
 import dayjs from 'dayjs';
+import DOMPurify from 'dompurify';
 
 const { Title, Text } = Typography;
 
@@ -55,10 +56,48 @@ export default function ArticleDetailPage() {
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(res.content, 'text/html');
                     const headings = Array.from(doc.querySelectorAll('h2, h3'));
+                    
+                    // 🔥 LOGIC ĐÁNH SỐ TỰ ĐỘNG 
+                    let h2Count = 0;
+                    let h3Count = 0;
+
                     const tocData = headings.map((h, index) => {
                         const id = `heading-${index}`;
                         h.setAttribute('id', id);
-                        return { key: id, href: `#${id}`, title: h.innerText };
+                        
+                        const isH2 = h.tagName.toLowerCase() === 'h2';
+                        let prefix = "";
+
+                        if (isH2) {
+                            h2Count++;
+                            h3Count = 0; // Reset đếm H3 khi gặp H2 mới
+                            prefix = `${h2Count}. `;
+                        } else {
+                            h3Count++;
+                            prefix = `${h2Count}.${h3Count}. `;
+                        }
+
+                        // 1. Dùng Regex lọc bỏ toàn bộ các số, dấu chấm và khoảng trắng do người dùng lỡ gõ tay ở đầu câu
+                        const cleanText = h.innerText.replace(/^[\d\.\s]+/, '').trim();
+
+                        // 2. Ghi đè lại nội dung thẻ H2/H3 trong bài viết để hiển thị số tự động cho đồng bộ
+                        h.innerText = `${prefix}${cleanText}`;
+
+                        return { 
+                            key: id, 
+                            href: `#${id}`, 
+                            title: (
+                                <span style={{ 
+                                    fontWeight: isH2 ? '600' : '400',
+                                    color: isH2 ? LUXURY_THEME.NAVY : '#57606a',
+                                    fontSize: isH2 ? '15px' : '14px',
+                                    paddingLeft: isH2 ? '0' : '12px',
+                                    display: 'inline-block'
+                                }}>
+                                    {prefix}{cleanText}
+                                </span>
+                            )
+                        };
                     });
                     setToc(tocData);
                     setProcessedContent(doc.body.innerHTML);
@@ -90,9 +129,6 @@ export default function ArticleDetailPage() {
     if (loading) return <div style={{ maxWidth: 900, margin: '100px auto', padding: '0 20px' }}><Skeleton active paragraph={{ rows: 15 }} /></div>;
     if (!article) return <Result status="404" title="Không tìm thấy bài viết" extra={<Button onClick={() => navigate('/article')}>Quay lại</Button>} />;
 
-    const rawDesc = article.shortDescription || "";
-    const cleanShortDesc = rawDesc.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
-
     return (
         <div style={{ backgroundColor: '#fff', minHeight: '100vh', padding: '10px 0' }}>
             <div className="article-container">
@@ -107,10 +143,11 @@ export default function ArticleDetailPage() {
                             {article.title}
                         </Title>
 
-                        {cleanShortDesc && (
-                            <div className="short-desc-card">
-                                <Text>{cleanShortDesc}</Text>
-                            </div>
+                        {article.shortDescription && (
+                            <div 
+                                className="short-desc-card" 
+                                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.shortDescription.replace(/&nbsp;/g, ' ')) }} 
+                            />
                         )}
 
                         <Space size="middle" wrap className="article-meta">
@@ -125,7 +162,7 @@ export default function ArticleDetailPage() {
                             </div>
                         )}
 
-                        {/* MỤC LỤC MOBILE - Hiển thị khi màn hình nhỏ */}
+                        {/* MỤC LỤC MOBILE */}
                         {toc.length > 0 && (
                             <div className="mobile-toc-wrapper">
                                 <Card 
@@ -144,7 +181,7 @@ export default function ArticleDetailPage() {
 
                         <div 
                             className="article-detail-content"
-                            dangerouslySetInnerHTML={{ __html: processedContent }}
+                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(processedContent) }}
                             onClick={handleContentClick}
                         />
 
@@ -231,6 +268,9 @@ export default function ArticleDetailPage() {
                     font-size: clamp(16px, 4vw, 18px); 
                     font-style: italic; 
                     font-family: 'Playfair Display', serif; 
+                    word-break: break-word;
+                    overflow-wrap: break-word;
+                    white-space: normal;
                 }
 
                 .article-meta {
@@ -257,13 +297,6 @@ export default function ArticleDetailPage() {
                     margin: 20px 0;
                 }
 
-                .article-detail-content iframe {
-                    max-width: 100% !important;
-                    width: 100% !important;
-                    height: auto;
-                    aspect-ratio: 16/9;
-                }
-
                 .article-detail-content h2, .article-detail-content h3 { 
                     scroll-margin-top: 110px; 
                     color: ${LUXURY_THEME.NAVY}; 
@@ -272,14 +305,19 @@ export default function ArticleDetailPage() {
                     line-height: 1.3;
                 }
 
+                /* Tùy chỉnh Anchor của Ant Design */
+                .ant-anchor-link-title { 
+                    white-space: normal !important; 
+                    line-height: 1.4 !important;
+                    display: block !important;
+                }
+                
+                /* Ẩn thanh ink nếu muốn mục lục sạch hơn */
+                .ant-anchor-ink { display: block !important; background-color: ${LUXURY_THEME.GOLD} !important; }
+
                 .mobile-toc-wrapper {
                     display: none;
                     margin-bottom: 30px;
-                }
-
-                .related-title-text {
-                    font-size: clamp(14px, 4vw, 18px);
-                    font-family: 'Playfair Display', serif;
                 }
 
                 .map-iframe-container {
@@ -289,36 +327,10 @@ export default function ArticleDetailPage() {
                     overflow: hidden;
                 }
 
-                /* RESPONSIVE BREAKPOINTS */
                 @media (max-width: 991px) {
-                    .mobile-toc-wrapper {
-                        display: block;
-                    }
-                    .article-container {
-                        padding: 0 15px;
-                    }
+                    .mobile-toc-wrapper { display: block; }
                 }
 
-                @media (max-width: 576px) {
-                    .article-main-title {
-                        margin-top: 10px !important;
-                    }
-                    .short-desc-card {
-                        padding: 15px;
-                    }
-                    .map-iframe-container {
-                        height: 300px;
-                    }
-                    .article-detail-content {
-                        font-size: 16px;
-                    }
-                }
-
-                .ant-anchor-link-title { font-size: 14px !important; white-space: normal !important; }
-                .ant-divider-horizontal { border-top-color: ${LUXURY_THEME.GOLD} !important; }
-                .ant-anchor-ink { background-color: ${LUXURY_THEME.GOLD} !important; }
-                
-                /* Đảm bảo tất cả góc vuông */
                 * { border-radius: 0 !important; }
             `}</style>
         </div>

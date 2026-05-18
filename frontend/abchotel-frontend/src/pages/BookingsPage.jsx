@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Table, Button, Space, Typography, Tag, Input, notification, Grid, Divider, Empty, Tabs } from 'antd';
 import { MagnifyingGlass, Eye, XCircle, CheckCircle, ClockCounterClockwise, CalendarCheck, DoorOpen } from '@phosphor-icons/react';
 import dayjs from 'dayjs';
-import isSameOrAfter from 'dayjs/plugin/isSameOrAfter'; // Cần dùng plugin này
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter'; 
 import { useNavigate } from 'react-router-dom';
 
 import { bookingApi } from '../api/bookingApi';
@@ -46,10 +46,9 @@ export default function BookingsPage() {
 
   useEffect(() => { fetchBookings(); }, []);
 
-  useSignalR((notification) => {
-    if (notification.permission === "MANAGE_BOOKINGS" || notification.permission === "MANAGE_INVOICES") {
-      fetchBookings(true);
-    }
+  // 🔥 Đã gỡ bỏ điều kiện lỗi thời. Gọi tải ngầm ngay khi có bất kỳ thay đổi nào
+  useSignalR(() => {
+    fetchBookings(true);
   });
 
   const openDrawer = (code) => {
@@ -57,23 +56,18 @@ export default function BookingsPage() {
     setIsDrawerOpen(true);
   };
 
-  // 🔥 THUẬT TOÁN LỌC CHUẨN NGHIỆP VỤ KHÁCH SẠN
   const processedBookings = bookings
     .filter(b => {
       const today = dayjs().startOf('day');
       const bookingDate = dayjs(b.expectedCheckIn).startOf('day');
 
-      // 1. Lọc theo Tab Nghiệp vụ
       if (activeTab === 'ArrivalsToday') {
-          // KHÁCH ĐẾN HÔM NAY: Ngày dự kiến là hôm nay + Trạng thái chưa nhận phòng
           return bookingDate.isSame(today, 'day') && (b.status === 'Confirmed' || b.status === 'Pending');
       }
       if (activeTab === 'InHouse') {
-          // ĐANG LƯU TRÚ: Đã làm thủ tục Check-in và chưa hoàn tất trả phòng
           return b.status === 'Checked_in';
       }
       if (activeTab === 'Upcoming') {
-          // SẮP ĐẾN: Ngày dự kiến trong tương lai (sau ngày hôm nay)
           return bookingDate.isAfter(today, 'day') && b.status === 'Confirmed';
       }
       if (activeTab === 'PendingPayment') {
@@ -81,7 +75,6 @@ export default function BookingsPage() {
       }
       if (activeTab !== 'ALL' && b.status !== activeTab) return false;
       
-      // 2. Lọc theo thanh tìm kiếm
       const searchLower = searchText.toLowerCase();
       return (
         b.bookingCode?.toLowerCase().includes(searchLower) ||
@@ -89,7 +82,7 @@ export default function BookingsPage() {
         b.guestPhone?.includes(searchText)
       );
     })
-    .sort((a, b) => dayjs(a.expectedCheckIn).valueOf() - dayjs(b.expectedCheckIn).valueOf()); // Sắp xếp ai đến trước hiện trên đầu
+    .sort((a, b) => dayjs(a.expectedCheckIn).valueOf() - dayjs(b.expectedCheckIn).valueOf()); 
 
   const renderStatus = (status) => {
     switch (status) {

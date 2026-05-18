@@ -10,6 +10,7 @@ npm install react-quill-new
 npm install framer-motion
 npm install recharts xlsx
 npm install @ant-design/icons
+npm install dompurify
 
 máy tính trường 
 dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org

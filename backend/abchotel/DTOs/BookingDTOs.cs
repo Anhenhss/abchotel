@@ -4,9 +4,6 @@ using System.ComponentModel.DataAnnotations;
 
 namespace abchotel.DTOs
 {
-    // ==========================================
-    // 1. NHÓM DTO CHO TÌM KIẾM PHÒNG (SEARCH)
-    // ==========================================
     public class SearchRoomRequest
     {
         [Required]
@@ -16,7 +13,7 @@ namespace abchotel.DTOs
         public int Adults { get; set; } = 1;
         public int Children { get; set; } = 0;
         public int RequestedRooms { get; set; } = 1;
-        public string PriceType { get; set; } = "NIGHTLY"; // HOURLY hoặc NIGHTLY
+        public string PriceType { get; set; } = "NIGHTLY"; 
         public decimal? MinPrice { get; set; }
         public decimal? MaxPrice { get; set; }
     }
@@ -41,9 +38,6 @@ namespace abchotel.DTOs
         public List<string> Amenities { get; set; }
     }
 
-    // ==========================================
-    // 2. NHÓM DTO CHO TẠO ĐƠN ĐẶT PHÒNG (CREATE)
-    // ==========================================
     public class CreateBookingRequest
     {
         [Required(ErrorMessage = "Vui lòng nhập tên khách hàng")]
@@ -87,9 +81,6 @@ namespace abchotel.DTOs
         public int Quantity { get; set; }
     }
 
-    // ==========================================
-    // 3. NHÓM DTO TRẢ VỀ (RESPONSE) SAU KHI ĐẶT XONG
-    // ==========================================
     public class BookingSuccessResponse
     {
         public int BookingId { get; set; }
@@ -99,9 +90,6 @@ namespace abchotel.DTOs
         public string Message { get; set; }
     }
     
-    // ==========================================
-    // 4. NHÓM DTO CHO QUẢN LÝ (CMS)
-    // ==========================================
     public class BookingListResponse
     {
         public int Id { get; set; }
@@ -119,6 +107,13 @@ namespace abchotel.DTOs
     public class UpdateBookingStatusRequest
     {
         public string Status { get; set; }
+        public string Reason { get; set; }
+    }
+
+    // 🔥 THÊM LẠI: DTO KHÁCH HÀNG TỰ HỦY PHÒNG
+    public class CancelClientRequest
+    {
+        [Required(ErrorMessage = "Vui lòng nhập lý do hủy")]
         public string Reason { get; set; }
     }
 }

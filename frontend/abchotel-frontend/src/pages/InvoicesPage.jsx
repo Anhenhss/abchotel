@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Table, Button, Space, Typography, Tag, Input, notification, Tooltip, Grid, Divider, Empty, Tabs, Statistic, Row, Col } from 'antd';
-import { MagnifyingGlass, Receipt, Money, CheckCircle, WarningCircle, Eye, Printer } from '@phosphor-icons/react';
+import { MagnifyingGlass, Receipt, Money, CheckCircle, WarningCircle, Eye, Printer, HandCoins } from '@phosphor-icons/react';
 import dayjs from 'dayjs';
 
 import { invoiceApi } from '../api/invoiceApi';
+import { useSignalR } from '../hooks/useSignalR'; // 🔥 Thêm hook Real-time
 import InvoiceDetailDrawer from '../components/InvoiceDetailDrawer';
 import { COLORS } from '../constants/theme';
 
@@ -14,45 +15,47 @@ export default function InvoicesPage() {
   const screens = useBreakpoint();
   const [api, contextHolder] = notification.useNotification({ placement: 'bottomRight' });
 
-  // States
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
-  const [activeTab, setActiveTab] = useState('Unpaid'); // Lễ tân luôn quan tâm ai còn nợ tiền trước tiên
+  const [activeTab, setActiveTab] = useState('Unpaid'); 
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
 
-  // Lấy dữ liệu
-  const fetchInvoices = async () => {
+  // 🔥 Cải tiến hàm fetch với chế độ tải ngầm (Silent Fetch)
+  const fetchInvoices = async (isSilent = false) => {
     try {
-      setLoading(true);
-      const res = await invoiceApi.getAll(); // Em nhớ đảm bảo Backend có API GET /api/Invoices nhé
+      if (!isSilent) setLoading(true);
+      const res = await invoiceApi.getAll(); 
       setInvoices(res || []);
     } catch (error) {
-      api.error({ message: 'Lỗi', description: 'Không thể tải danh sách hóa đơn.' });
+      if (!isSilent) api.error({ message: 'Lỗi', description: 'Không thể tải danh sách hóa đơn.' });
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
   useEffect(() => { fetchInvoices(); }, []);
+
+  // 🔥 Lắng nghe tín hiệu Real-time từ SignalR để tải ngầm dữ liệu
+  useSignalR(() => {
+    fetchInvoices(true);
+  });
 
   const openDrawer = (id) => {
     setSelectedInvoiceId(id);
     setIsDrawerOpen(true);
   };
 
-  // 🔥 THUẬT TOÁN LỌC VÀ SẮP XẾP
   const processedInvoices = invoices
     .filter(inv => {
-      // 0. LOẠI BỎ CÁC HÓA ĐƠN CỦA ĐƠN ĐẶT PHÒNG ĐÃ BỊ HỦY (Sửa lỗi hiển thị đơn "aaaaa")
-      if (inv.bookingStatus === 'Cancelled') return false;
+      // Ẩn hóa đơn của đơn hủy, TRỪ KHI hóa đơn đó đang cần hoàn tiền hoặc đã hoàn tiền
+      if (inv.bookingStatus === 'Cancelled' && inv.status !== 'Refund_Pending' && inv.status !== 'Refunded') return false;
 
-      // 1. Lọc theo Tab (Unpaid / Paid / All)
+      // 🔥 Lọc theo Tab được đơn giản hóa, cực kỳ chính xác
       if (activeTab !== 'ALL' && inv.status !== activeTab) return false;
       
-      // 2. Lọc theo tìm kiếm (Mã phòng, Tên khách)
       const searchLower = searchText.toLowerCase();
       return (
         inv.bookingCode?.toLowerCase().includes(searchLower) ||
@@ -60,18 +63,19 @@ export default function InvoicesPage() {
         inv.id.toString().includes(searchLower)
       );
     })
-    .sort((a, b) => {
-      // Ưu tiên hóa đơn mới nhất lên đầu
-      return dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf();
-    });
-  // Tính toán thống kê nhanh cho Thu ngân
-  const totalUnpaid = invoices.filter(i => i.status === 'Unpaid').reduce((sum, i) => sum + (i.finalTotal - i.amountPaid), 0);
+    .sort((a, b) => dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf());
+
+  const totalUnpaid = invoices.filter(i => i.status === 'Unpaid' || i.status === 'Partial').reduce((sum, i) => sum + (i.finalTotal - i.amountPaid), 0);
   const totalPaidToday = invoices.filter(i => i.status === 'Paid' && dayjs(i.updatedAt).isSame(dayjs(), 'day')).reduce((sum, i) => sum + i.amountPaid, 0);
+  const totalRefundPending = invoices.filter(i => i.status === 'Refund_Pending').reduce((sum, i) => sum + i.amountPaid, 0);
 
   const renderStatus = (status) => {
     switch (status) {
-      case 'Unpaid': return <Tag color="error" icon={<WarningCircle/>}>CHƯA THU ĐỦ</Tag>;
+      case 'Unpaid': return <Tag color="error" icon={<WarningCircle/>}>CHƯA CỌC</Tag>;
+      case 'Partial': return <Tag color="processing">ĐÃ CỌC (CÒN NỢ)</Tag>;
       case 'Paid': return <Tag color="success" icon={<CheckCircle/>}>ĐÃ THANH TOÁN</Tag>;
+      case 'Refund_Pending': return <Tag color="warning" style={{background: '#d97706', color: '#fff', borderColor: '#d97706'}} icon={<WarningCircle/>}>CHỜ HOÀN TIỀN</Tag>;
+      case 'Refunded': return <Tag color="default">ĐÃ TRẢ KHÁCH</Tag>;
       case 'Cancelled': return <Tag color="default">ĐÃ HỦY</Tag>;
       default: return <Tag>{status}</Tag>;
     }
@@ -92,15 +96,22 @@ export default function InvoicesPage() {
       )
     },
     {
-      title: 'Tổng tiền', dataIndex: 'finalTotal', key: 'finalTotal', align: 'right',
+      title: 'Tổng tiền Đơn', dataIndex: 'finalTotal', key: 'finalTotal', align: 'right',
       render: (val) => <Text strong style={{ color: COLORS.ACCENT_RED, fontSize: 15 }}>{new Intl.NumberFormat('vi-VN').format(val)}đ</Text>
     },
     {
-      title: 'Còn nợ', key: 'debt', align: 'right',
+      title: 'Tình trạng dòng tiền', key: 'debt', align: 'right',
       render: (_, record) => {
+        if (record.status === 'Refund_Pending') {
+            return <Text strong style={{ color: '#d97706' }}>Cần trả khách: {new Intl.NumberFormat('vi-VN').format(record.amountPaid)}đ</Text>;
+        }
+        if (record.status === 'Refunded') {
+            return <Text style={{ color: '#64748b' }}>Đã trả: {new Intl.NumberFormat('vi-VN').format(record.amountPaid)}đ</Text>;
+        }
+        
         const debt = record.finalTotal - record.amountPaid;
         return <Text strong style={{ color: debt > 0 ? COLORS.ERROR : COLORS.SUCCESS }}>
-          {new Intl.NumberFormat('vi-VN').format(debt)}đ
+          Khách nợ: {new Intl.NumberFormat('vi-VN').format(debt)}đ
         </Text>
       }
     },
@@ -111,12 +122,12 @@ export default function InvoicesPage() {
     {
       title: 'Thao tác', key: 'actions', align: 'center', width: 100,
       render: (_, record) => (
-        <Tooltip title={record.status === 'Unpaid' ? "Thu Tiền" : "Xem Hóa Đơn"}>
+        <Tooltip title={record.status === 'Unpaid' || record.status === 'Partial' ? "Thu Tiền" : record.status === 'Refund_Pending' ? "Xử lý hoàn tiền" : "Xem chi tiết"}>
           <Button 
-            type={record.status === 'Unpaid' ? "primary" : "default"} 
-            icon={record.status === 'Unpaid' ? <Money size={20} /> : <Eye size={20} />} 
+            type={(record.status === 'Unpaid' || record.status === 'Partial' || record.status === 'Refund_Pending') ? "primary" : "default"} 
+            icon={(record.status === 'Unpaid' || record.status === 'Partial') ? <Money size={20} /> : record.status === 'Refund_Pending' ? <HandCoins size={20} /> : <Eye size={20} />} 
             onClick={() => openDrawer(record.id)} 
-            style={record.status === 'Unpaid' ? { backgroundColor: COLORS.MIDNIGHT_BLUE } : {}}
+            style={(record.status === 'Unpaid' || record.status === 'Partial' || record.status === 'Refund_Pending') ? { backgroundColor: COLORS.MIDNIGHT_BLUE } : {}}
           />
         </Tooltip>
       )
@@ -127,12 +138,11 @@ export default function InvoicesPage() {
     <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
       {contextHolder}
       
-      {/* KHỐI THỐNG KÊ NHANH */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-         <Col xs={24} md={12}>
+         <Col xs={24} md={8}>
             <Card variant="borderless" style={{ borderRadius: 12, backgroundColor: '#fef2f2', border: '1px solid #fecaca' }}>
                <Statistic 
-                  title={<Text strong style={{ color: '#991b1b' }}>Tổng Nợ Cần Thu (Chưa thanh toán)</Text>}
+                  title={<Text strong style={{ color: '#991b1b' }}>Khách còn nợ (Cần thu)</Text>}
                   value={totalUnpaid} 
                   suffix="VNĐ"
                   styles={{ content: { color: '#dc2626', fontWeight: 'bold' } }}
@@ -140,10 +150,21 @@ export default function InvoicesPage() {
                />
             </Card>
          </Col>
-         <Col xs={24} md={12}>
+         <Col xs={24} md={8}>
+            <Card variant="borderless" style={{ borderRadius: 12, backgroundColor: '#fffbeb', border: '1px solid #fde68a' }}>
+               <Statistic 
+                  title={<Text strong style={{ color: '#b45309' }}>Quỹ Cần Trả Khách (Hoàn tiền)</Text>}
+                  value={totalRefundPending} 
+                  suffix="VNĐ"
+                  styles={{ content: { color: '#d97706', fontWeight: 'bold' } }}
+                  prefix={<HandCoins />}
+               />
+            </Card>
+         </Col>
+         <Col xs={24} md={8}>
             <Card variant="borderless" style={{ borderRadius: 12, backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0' }}>
                <Statistic 
-                  title={<Text strong style={{ color: '#166534' }}>Doanh thu Thực nhận (Hôm nay)</Text>}
+                  title={<Text strong style={{ color: '#166534' }}>Thực nhận (Hôm nay)</Text>}
                   value={totalPaidToday} 
                   suffix="VNĐ"
                   styles={{ content: { color: '#16a34a', fontWeight: 'bold' } }}
@@ -155,15 +176,17 @@ export default function InvoicesPage() {
 
       <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.03)', padding: screens.md ? 0 : '16px 0' }}>
         
-        {/* THANH TÌM KIẾM VÀ TABS PHÂN LOẠI */}
         <div style={{ display: 'flex', flexDirection: screens.xs ? 'column' : 'row', justifyContent: 'space-between', alignItems: screens.xs ? 'stretch' : 'center', marginBottom: 16, gap: 16, padding: screens.md ? '0' : '0 16px' }}>
           <Tabs 
             activeKey={activeTab} 
             onChange={setActiveTab} 
             style={{ flex: 1 }}
             items={[
-              { key: 'Unpaid', label: 'Chưa thanh toán (Cần thu)' },
-              { key: 'Paid', label: 'Đã thanh toán xong' },
+              { key: 'Unpaid', label: 'Mới tạo (Chưa cọc)' },
+              { key: 'Partial', label: 'Đã cọc (Đang phục vụ)' },
+              { key: 'Refund_Pending', label: 'Cần hoàn tiền' },
+              { key: 'Refunded', label: 'Đã hoàn tiền' }, // 🔥 Thêm Tab theo yêu cầu
+              { key: 'Paid', label: 'Đã hoàn tất' },
               { key: 'ALL', label: 'Tất cả hóa đơn' },
             ]}
           />
@@ -177,7 +200,6 @@ export default function InvoicesPage() {
           />
         </div>
 
-        {/* HIỂN THỊ DỮ LIỆU */}
         {screens.md ? (
           <Table 
             columns={columns} dataSource={processedInvoices} rowKey="id" loading={loading}
@@ -196,13 +218,13 @@ export default function InvoicesPage() {
                     <Text strong>{record.guestName || 'Khách vãng lai'}</Text>
                     <Text type="secondary" style={{ fontSize: 13 }}>Booking: {record.bookingCode}</Text>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-                       <Text>Tổng tiền:</Text>
+                       <Text>Số tiền:</Text>
                        <Text strong style={{ color: COLORS.ACCENT_RED }}>{new Intl.NumberFormat('vi-VN').format(record.finalTotal)}đ</Text>
                     </div>
                   </Space>
                   <Divider style={{ margin: '8px 0' }} />
-                  <Button type={record.status === 'Unpaid' ? "primary" : "default"} block ghost={record.status !== 'Unpaid'} onClick={() => openDrawer(record.id)} style={record.status === 'Unpaid' ? { backgroundColor: COLORS.MIDNIGHT_BLUE } : {}}>
-                    {record.status === 'Unpaid' ? "THU TIỀN NGAY" : "Xem chi tiết"}
+                  <Button type={(record.status === 'Unpaid' || record.status === 'Partial' || record.status === 'Refund_Pending') ? "primary" : "default"} block ghost={(record.status !== 'Unpaid' && record.status !== 'Partial' && record.status !== 'Refund_Pending')} onClick={() => openDrawer(record.id)} style={(record.status === 'Unpaid' || record.status === 'Partial' || record.status === 'Refund_Pending') ? { backgroundColor: COLORS.MIDNIGHT_BLUE } : {}}>
+                    {record.status === 'Unpaid' || record.status === 'Partial' ? "THU TIỀN" : record.status === 'Refund_Pending' ? "XỬ LÝ HOÀN TIỀN" : "Xem chi tiết"}
                   </Button>
                 </div>
               );
@@ -211,12 +233,11 @@ export default function InvoicesPage() {
         )}
       </Card>
 
-      {/* COMPONENT NGĂN KÉO CHI TIẾT */}
       <InvoiceDetailDrawer 
          isOpen={isDrawerOpen} 
          onClose={() => setIsDrawerOpen(false)} 
          invoiceId={selectedInvoiceId} 
-         onSuccess={() => fetchInvoices()} // Thu tiền xong bắt bảng danh sách load lại data mới
+         onSuccess={() => fetchInvoices()} 
       />
 
       <style>{`

@@ -215,11 +215,19 @@ export default function ClientLayout() {
               )}
               
               <Dropdown menu={{ items: userDropdownItems }} placement="bottomRight" arrow>
-                <Avatar 
-                  style={{ cursor: 'pointer', backgroundColor: THEME.NAVY_LIGHT, border: `2px solid ${THEME.GOLD}` }}
-                  src={user?.avatarUrl}
-                  icon={!user?.avatarUrl ? <UserCircle size={24} /> : null}
-                />
+                  <Avatar 
+                    style={{ 
+                      cursor: 'pointer', 
+                      backgroundColor: user?.avatarUrl ? 'transparent' : THEME.NAVY_LIGHT, 
+                      color: THEME.GOLD, // Màu chữ cái
+                      fontWeight: 'bold',
+                      border: `2px solid ${THEME.GOLD}` 
+                    }}
+                    src={user?.avatarUrl || undefined}
+                    icon={!user?.avatarUrl && !user?.fullName ? <UserCircle size={24} /> : null}
+                  >
+                    {!user?.avatarUrl && user?.fullName ? user.fullName.charAt(0).toUpperCase() : ''}
+                  </Avatar>
               </Dropdown>
             </Space>
           ) : (

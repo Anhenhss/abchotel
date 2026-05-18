@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using abchotel.DTOs;
 using abchotel.Services;
+using System;
 
 namespace abchotel.Controllers
 {
@@ -31,7 +32,6 @@ namespace abchotel.Controllers
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
-            // Bắt UserId nếu khách có đăng nhập (Có Token). Nếu khách vãng lai thì null.
             int? currentUserId = null;
             var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (int.TryParse(userIdStr, out int uid)) currentUserId = uid;
@@ -51,15 +51,14 @@ namespace abchotel.Controllers
             if (data == null) return NotFound(new { message = "Không tìm thấy mã đặt phòng." });
             return Ok(data);
         }
-        // 🔥 API Lấy danh sách (React đang bị 404 gọi vào đây)
+
         [HttpGet]
-        [Authorize(Policy = "MANAGE_BOOKINGS")] // Chỉ nhân viên mới xem được danh sách
+        [Authorize(Policy = "MANAGE_BOOKINGS")]
         public async Task<IActionResult> GetAll([FromQuery] string status = null)
         {
             return Ok(await _bookingService.GetAllBookingsAsync(status));
         }
 
-        // 🔥 API Đổi trạng thái (Khi bấm nút X màu đỏ để Hủy đơn)
         [HttpPatch("{id}/status")]
         [Authorize(Policy = "MANAGE_BOOKINGS")]
         public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateBookingStatusRequest request)
@@ -68,14 +67,16 @@ namespace abchotel.Controllers
             if (!success) return NotFound(new { message = "Không tìm thấy đơn đặt phòng." });
             return Ok(new { message = "Cập nhật trạng thái thành công." });
         }
+
         [HttpGet("specific-rooms")]
         public async Task<IActionResult> GetSpecificRooms([FromQuery] int roomTypeId, [FromQuery] DateTime checkIn, [FromQuery] DateTime checkOut)
         {
             var rooms = await _bookingService.GetAvailableSpecificRoomsAsync(roomTypeId, checkIn, checkOut);
             return Ok(rooms);
         }
+
         [HttpGet("my-bookings")]
-        [Authorize] // Khách hàng đăng nhập là gọi được
+        [Authorize] 
         public async Task<IActionResult> GetMyBookings()
         {
             var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -83,6 +84,22 @@ namespace abchotel.Controllers
 
             var bookings = await _bookingService.GetMyBookingsAsync(userId);
             return Ok(bookings);
+        }
+
+        // 🔥 THÊM LẠI: API Cho khách tự hủy
+        [HttpPost("my-bookings/{id}/cancel")]
+        [Authorize]
+        public async Task<IActionResult> CancelMyBooking(int id, [FromBody] CancelClientRequest request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(userIdStr, out int userId)) return Unauthorized();
+
+            var result = await _bookingService.CancelMyBookingAsync(id, userId, request.Reason);
+            if (!result.IsSuccess) return BadRequest(new { message = result.Message });
+
+            return Ok(new { message = result.Message });
         }
     }
 }

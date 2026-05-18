@@ -10,6 +10,7 @@ namespace abchotel.DTOs
         public int? BookingId { get; set; }
         public string BookingCode { get; set; }
         public string GuestName { get; set; }
+        public string GuestPhone { get; set; }
         public decimal TotalRoomAmount { get; set; }
         public decimal TotalServiceAmount { get; set; }
         public decimal TotalDamageAmount { get; set; } // Phí đền bù hư hỏng

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Typography, Row, Col, Spin, Empty, Button, Space, Tabs, 
-  notification, Drawer, Divider, Modal, Input, Rate, Card, Grid
+  notification, Drawer, Divider, Modal, Input, Rate, Card, Grid, Table
 } from 'antd';
 import { 
-  Receipt, Bed, Clock, CheckCircle, XCircle, Star, SuitcaseRolling, Key, Printer
+  Receipt, Bed, Clock, CheckCircle, XCircle, Star, SuitcaseRolling, Key, Printer, WarningCircle, ShoppingCart
 } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import dayjs from 'dayjs';
@@ -31,7 +31,7 @@ const THEME = {
 const getStatusConfig = (status) => {
   switch (status) {
     case 'Pending': return { text: 'Chờ xác nhận', color: '#B48600', bg: '#FFFBE6', border: '#FFE58F', icon: <Clock weight="fill"/> };
-    case 'Confirmed': return { text: 'Đã xác nhận', color: '#0284C7', bg: '#E0F2FE', border: '#BAE6FD', icon: <CheckCircle weight="fill"/> };
+    case 'Confirmed': return { text: 'Đã cọc / Xác nhận', color: '#0284C7', bg: '#E0F2FE', border: '#BAE6FD', icon: <CheckCircle weight="fill"/> };
     case 'CheckedIn': return { text: 'Đang lưu trú', color: '#4F46E5', bg: '#E0E7FF', border: '#C7D2FE', icon: <Key weight="fill"/> };
     case 'Completed': 
     case 'CheckedOut': return { text: 'Đã hoàn tất', color: '#166534', bg: '#DCFCE7', border: '#BBF7D0', icon: <CheckCircle weight="fill"/> };
@@ -97,12 +97,12 @@ export default function ClientBookingHistoryPage() {
     }
     try {
       setLoading(true);
-      await bookingApi.updateStatus(selectedBookingToCancel.id, 'Cancelled', cancelReason);
-      api.success({ message: 'Thành công', description: 'Đã gửi yêu cầu hủy phòng.' });
+      const res = await bookingApi.cancelMyBooking(selectedBookingToCancel.id, cancelReason);
+      api.success({ message: 'Thành công', description: res.data?.message || 'Đã xử lý yêu cầu hủy phòng.' });
       setCancelModalOpen(false);
       fetchMyBookings();
     } catch (error) {
-      api.error({ message: 'Lỗi', description: 'Không thể hủy phòng lúc này.' });
+      api.error({ message: 'Không thể hủy', description: error.response?.data?.message || 'Không thể hủy phòng lúc này.' });
     } finally {
       setLoading(false);
     }
@@ -149,11 +149,9 @@ export default function ClientBookingHistoryPage() {
     }
   };
 
-  // 🔥 THUẬT TOÁN IN ẨN MỚI: HOÀN HẢO VÀ CHUYÊN NGHIỆP
   const handlePrint = () => {
     if (!selectedInvoiceData) return;
 
-    // Mở một cửa sổ ẩn tạm thời
     const printWindow = window.open('', '_blank', 'width=900,height=800');
     if (!printWindow) {
       api.warning({ message: 'Bị chặn', description: 'Trình duyệt đang chặn Pop-up. Vui lòng cho phép mở tab mới để in.' });
@@ -163,12 +161,16 @@ export default function ClientBookingHistoryPage() {
     const {
       id, bookingCode, guestName, createdAt, status,
       totalRoomAmount, totalServiceAmount, discountAmount, taxAmount, finalTotal, amountPaid,
-      roomDetails, services
+      roomDetails, services, damages
     } = selectedInvoiceData;
 
     const formatMoney = (num) => new Intl.NumberFormat('vi-VN').format(num || 0) + 'đ';
+    
+    // Bóc tách mảng an toàn
+    const roomList = roomDetails?.$values || roomDetails || [];
+    const serviceList = services?.$values || services || [];
+    const damageList = damages?.$values || damages || [];
 
-    // Tạo nội dung HTML chuẩn giấy A4
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -176,7 +178,7 @@ export default function ClientBookingHistoryPage() {
           <meta charset="utf-8">
           <title>Hóa Đơn - ${bookingCode}</title>
           <style>
-              body { font-family: 'Arial', sans-serif; color: #333; margin: 0; padding: 40px; }
+              body { font-family: 'Arial', sans-serif; color: #333; margin: 0; padding: 40px; line-height: 1.5; }
               .header { display: flex; justify-content: space-between; border-bottom: 2px solid #0B132B; padding-bottom: 20px; margin-bottom: 30px; }
               .hotel-info h1 { margin: 0; color: #0B132B; font-size: 28px; letter-spacing: 2px; }
               .hotel-info p { margin: 5px 0; color: #555; font-size: 14px; }
@@ -184,7 +186,7 @@ export default function ClientBookingHistoryPage() {
               .invoice-info h2 { margin: 0; color: #0B132B; font-size: 24px; text-transform: uppercase; }
               .invoice-info p { margin: 5px 0; font-size: 14px; color: #555; }
               
-              .guest-box { background: #f8fafc; padding: 20px; border-radius: 8px; display: flex; justify-content: space-between; margin-bottom: 30px; font-size: 14px; }
+              .guest-box { background: #f8fafc; padding: 20px; border-radius: 8px; display: flex; justify-content: space-between; margin-bottom: 30px; font-size: 14px; border: 1px solid #e2e8f0; }
               .guest-box div p { margin: 5px 0; }
               
               .section-title { font-size: 16px; font-weight: bold; color: #0B132B; border-bottom: 1px solid #ccc; padding-bottom: 8px; margin-bottom: 15px; text-transform: uppercase; }
@@ -197,7 +199,7 @@ export default function ClientBookingHistoryPage() {
               td:first-child { text-align: left; }
               td:last-child { text-align: right; font-weight: bold; }
               
-              .summary-box { width: 350px; margin-left: auto; font-size: 14px; }
+              .summary-box { width: 350px; margin-left: auto; font-size: 14px; background: #fff; padding: 15px; border-radius: 8px; }
               .summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #eee; }
               .summary-row.total { font-size: 20px; font-weight: bold; color: #0B132B; border-bottom: none; border-top: 2px solid #0B132B; padding-top: 15px; margin-top: 5px; }
               
@@ -223,12 +225,12 @@ export default function ClientBookingHistoryPage() {
 
           <div class="guest-box">
               <div>
-                  <p><strong>Khách hàng (Guest):</strong> ${guestName}</p>
-                  <p><strong>Mã đặt phòng (Booking Code):</strong> ${bookingCode}</p>
+                  <p><strong>Khách hàng:</strong> ${guestName || 'Khách vãng lai'}</p>
+                  <p><strong>Mã đặt phòng:</strong> ${bookingCode}</p>
               </div>
               <div style="text-align: right;">
-                  <p><strong>Ngày lập (Issue Date):</strong> ${dayjs(createdAt).format('DD/MM/YYYY')}</p>
-                  <p><strong>Trạng thái (Status):</strong> ${status === 'Paid' ? 'ĐÃ THANH TOÁN' : 'CHƯA THANH TOÁN'}</p>
+                  <p><strong>Ngày lập:</strong> ${dayjs(createdAt).format('DD/MM/YYYY HH:mm')}</p>
+                  <p><strong>Trạng thái HĐ:</strong> <span style="color: ${status === 'Paid' ? '#166534' : '#e11d48'}; font-weight: bold;">${status === 'Paid' ? 'ĐÃ THANH TOÁN' : (status === 'Refund_Pending' || status === 'Refunded' ? 'ĐÃ HỦY / HOÀN TIỀN' : 'CHƯA THANH TOÁN')}</span></p>
               </div>
           </div>
 
@@ -239,14 +241,14 @@ export default function ClientBookingHistoryPage() {
                       <th>Loại phòng</th>
                       <th>Lịch trình</th>
                       <th>Đơn giá</th>
-                      <th>Số lượng (Đêm/Giờ)</th>
+                      <th>Đêm/Giờ</th>
                       <th>Thành tiền</th>
                   </tr>
               </thead>
               <tbody>
-                  ${roomDetails?.$values?.map(room => `
+                  ${roomList.map(room => `
                       <tr>
-                          <td>${room.roomTypeName} <br/><span style="font-size: 12px; color: #666;">(Phòng: ${room.roomNumber})</span></td>
+                          <td>${room.roomTypeName} <br/><span style="font-size: 12px; color: #666; font-style: italic;">${room.roomNumber === 'Chưa xếp' ? '(Sẽ xếp phòng khi đến)' : `(Phòng: ${room.roomNumber})`}</span></td>
                           <td>${dayjs(room.checkIn).format('DD/MM')} - ${dayjs(room.checkOut).format('DD/MM')}</td>
                           <td>${formatMoney(room.price)}</td>
                           <td>${room.duration}</td>
@@ -256,7 +258,7 @@ export default function ClientBookingHistoryPage() {
               </tbody>
           </table>
 
-          ${services?.$values?.length > 0 ? `
+          ${serviceList.length > 0 ? `
               <div class="section-title">Dịch Vụ Phát Sinh (Additional Services)</div>
               <table>
                   <thead>
@@ -268,12 +270,34 @@ export default function ClientBookingHistoryPage() {
                       </tr>
                   </thead>
                   <tbody>
-                      ${services.$values.map(srv => `
+                      ${serviceList.map(srv => `
                           <tr>
                               <td>${srv.serviceName}</td>
-                              <td>${dayjs(srv.date).format('DD/MM/YYYY')}</td>
+                              <td>${dayjs(srv.date).format('DD/MM/YYYY HH:mm')}</td>
                               <td>${srv.quantity}</td>
                               <td>${formatMoney(srv.totalAmount)}</td>
+                          </tr>
+                      `).join('')}
+                  </tbody>
+              </table>
+          ` : ''}
+          
+          ${damageList.length > 0 ? `
+              <div class="section-title" style="color: #8B0000; border-bottom-color: #8B0000;">Phí Phạt / Trách nhiệm (Loss & Damages)</div>
+              <table>
+                  <thead>
+                      <tr style="background-color: #8B0000;">
+                          <th>Mục phạt</th>
+                          <th></th>
+                          <th></th>
+                          <th>Thành tiền</th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                      ${damageList.map(dmg => `
+                          <tr>
+                              <td colspan="3">${dmg.itemName}</td>
+                              <td>${formatMoney(dmg.penaltyAmount)}</td>
                           </tr>
                       `).join('')}
                   </tbody>
@@ -286,7 +310,7 @@ export default function ClientBookingHistoryPage() {
                   <span>${formatMoney(totalRoomAmount)}</span>
               </div>
               <div class="summary-row">
-                  <span>Dịch vụ bổ sung:</span>
+                  <span>Dịch vụ phát sinh:</span>
                   <span>${formatMoney(totalServiceAmount)}</span>
               </div>
               ${discountAmount > 0 ? `
@@ -302,10 +326,16 @@ export default function ClientBookingHistoryPage() {
                   <span>TỔNG CỘNG:</span>
                   <span>${formatMoney(finalTotal)}</span>
               </div>
+              
               <div class="summary-row" style="margin-top: 10px; font-weight: bold; color: ${status === 'Paid' ? '#166534' : '#E11D48'};">
                   <span>Khách đã trả:</span>
                   <span>${formatMoney(amountPaid)}</span>
               </div>
+              ${status !== 'Paid' && (finalTotal - amountPaid) > 0 ? `
+              <div class="summary-row" style="font-weight: bold; color: #e11d48;">
+                  <span>CÒN NỢ:</span>
+                  <span>${formatMoney(finalTotal - amountPaid)}</span>
+              </div>` : ''}
           </div>
 
           <div class="signature-area">
@@ -322,7 +352,7 @@ export default function ClientBookingHistoryPage() {
           </div>
 
           <div class="footer">
-              <p>Cảm ơn quý khách đã tin tưởng và sử dụng dịch vụ của ABC Hotel.</p>
+              <p>Cảm ơn bạn đã tin tưởng và sử dụng dịch vụ của ABC Hotel.</p>
           </div>
       </body>
       </html>
@@ -332,13 +362,15 @@ export default function ClientBookingHistoryPage() {
     printWindow.document.write(htmlContent);
     printWindow.document.close();
 
-    // Chờ 0.5s để trình duyệt render xong HTML mới gọi lệnh in
     setTimeout(() => {
       printWindow.print();
-      // Đóng cửa sổ ẩn sau khi in xong
       printWindow.close();
     }, 500);
   };
+
+  // Chuẩn bị dữ liệu hiển thị cho Drawer UI
+  const getRoomDetailsArray = () => selectedInvoiceData?.roomDetails?.$values || selectedInvoiceData?.roomDetails || [];
+  const getServicesArray = () => selectedInvoiceData?.services?.$values || selectedInvoiceData?.services || [];
 
   return (
     <div className="client-history-wrapper" translate="no">
@@ -388,8 +420,8 @@ export default function ClientBookingHistoryPage() {
                 const inD = booking.expectedCheckIn || booking.actualCheckIn;
                 const outD = booking.expectedCheckOut || booking.actualCheckOut;
                 
-                const showCancel = booking.status === 'Pending';
-                const showInvoice = ['Completed', 'CheckedOut', 'Confirmed', 'CheckedIn'].includes(booking.status);
+                const showCancel = booking.status === 'Pending' || booking.status === 'Confirmed';
+                const showInvoice = ['Completed', 'CheckedOut', 'Confirmed', 'CheckedIn', 'Cancelled'].includes(booking.status);
                 const showReview = booking.status === 'Completed' || booking.status === 'CheckedOut';
 
                 return (
@@ -481,6 +513,19 @@ export default function ClientBookingHistoryPage() {
            <Paragraph style={{ fontSize: 15 }}>
              Bạn đang yêu cầu hủy mã phòng <Text strong style={{ color: THEME.NAVY_DARK }}>{selectedBookingToCancel?.bookingCode}</Text>. Hành động này không thể hoàn tác.
            </Paragraph>
+           
+           {selectedBookingToCancel?.status === 'Confirmed' && (
+             <div style={{ background: '#FFFBE6', border: '1px solid #FFE58F', padding: '12px 16px', borderRadius: 8, marginBottom: 16 }}>
+               <Space align="start">
+                 <WarningCircle size={24} color="#B48600" weight="fill" style={{ marginTop: 2 }}/>
+                 <Text style={{ color: '#8A6D3B', fontSize: 14 }}>
+                   <strong style={{ display: 'block' }}>Chính sách hoàn cọc:</strong>
+                   Khách sạn chỉ hoàn lại 100% tiền cọc nếu bạn hủy trước 24 tiếng so với giờ nhận phòng dự kiến. Hủy sát giờ sẽ mất cọc.
+                 </Text>
+               </Space>
+             </div>
+           )}
+
            <Text strong style={{ display: 'block', marginBottom: 8, color: THEME.NAVY_DARK }}>Lý do hủy phòng của bạn:</Text>
            <TextArea rows={4} placeholder="Ví dụ: Tôi có việc đột xuất, Tôi muốn đổi ngày..." value={cancelReason} onChange={e => setCancelReason(e.target.value)} style={{ borderRadius: 8, padding: 12 }}/>
         </div>
@@ -501,58 +546,117 @@ export default function ClientBookingHistoryPage() {
         </div>
       </Modal>
 
-      {/* DRAWER HIỂN THỊ HÓA ĐƠN TRÊN MÀN HÌNH (Giao diện in ấn đã được tách riêng vào hàm handlePrint) */}
       <Drawer
         title={<Title level={4} style={{ margin: 0, fontFamily: '"Source Serif 4", serif', color: THEME.NAVY_DARK }}>Biên lai lưu trú</Title>}
-        placement="right" width={screens?.md ? 550 : '100%'}
+        placement="right" width={screens?.md ? 600 : '100%'}
         onClose={() => setInvoiceDrawerOpen(false)} open={invoiceDrawerOpen}
         headerStyle={{ borderBottom: `1px solid ${THEME.BORDER}`, padding: '20px 24px' }}
       >
         {selectedInvoiceData ? (
           <div className="vip-receipt-screen">
-            <Row style={{ marginBottom: 12 }}>
-              <Col span={12}><Text className="receipt-text-muted">Mã đặt phòng:</Text></Col>
-              <Col span={12} style={{ textAlign: 'right' }}><Text strong>{selectedInvoiceData.bookingCode}</Text></Col>
-            </Row>
-            <Row style={{ marginBottom: 12 }}>
-              <Col span={12}><Text className="receipt-text-muted">Tổng tiền phòng:</Text></Col>
-              <Col span={12} style={{ textAlign: 'right' }}><Text strong>{new Intl.NumberFormat('vi-VN').format(selectedInvoiceData.totalRoomAmount)}đ</Text></Col>
-            </Row>
-            <Row style={{ marginBottom: 12 }}>
-              <Col span={12}><Text className="receipt-text-muted">Dịch vụ phát sinh:</Text></Col>
-              <Col span={12} style={{ textAlign: 'right' }}><Text strong>{new Intl.NumberFormat('vi-VN').format(selectedInvoiceData.totalServiceAmount)}đ</Text></Col>
+            
+            <div style={{ backgroundColor: '#f8fafc', padding: 16, borderRadius: 8, border: '1px solid #e2e8f0', marginBottom: 24 }}>
+                <Row style={{ marginBottom: 8 }}>
+                  <Col span={8}><Text className="receipt-text-muted">Mã đặt phòng:</Text></Col>
+                  <Col span={16} style={{ textAlign: 'right' }}><Text strong style={{color: THEME.NAVY_DARK}}>{selectedInvoiceData.bookingCode}</Text></Col>
+                </Row>
+                <Row style={{ marginBottom: 8 }}>
+                  <Col span={8}><Text className="receipt-text-muted">Khách hàng:</Text></Col>
+                  <Col span={16} style={{ textAlign: 'right' }}><Text strong>{selectedInvoiceData.guestName}</Text></Col>
+                </Row>
+                <Row>
+                  <Col span={8}><Text className="receipt-text-muted">Ngày xuất HĐ:</Text></Col>
+                  <Col span={16} style={{ textAlign: 'right' }}><Text>{dayjs(selectedInvoiceData.createdAt).format('DD/MM/YYYY HH:mm')}</Text></Col>
+                </Row>
+            </div>
+
+            {/* DANH SÁCH HẠNG PHÒNG ĐÃ CHỌN */}
+            <div style={{ marginBottom: 24 }}>
+                <Title level={5} style={{ color: THEME.NAVY_DARK, display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid #e2e8f0', paddingBottom: 8 }}>
+                    <Bed size={20} color={THEME.GOLD} /> 1. Tiền Phòng
+                </Title>
+                {getRoomDetailsArray().length > 0 ? (
+                    getRoomDetailsArray().map((room, idx) => (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px dashed #f1f5f9' }}>
+                            <div>
+                                <Text strong>{room.roomTypeName}</Text>
+                                <br />
+                                <Text type="secondary" style={{ fontSize: 12, fontStyle: 'italic' }}>
+                                    {room.roomNumber === 'Chưa xếp' ? '(Sẽ xếp phòng khi Check-in)' : `(Phòng: ${room.roomNumber})`}
+                                </Text>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                                <Text strong>{new Intl.NumberFormat('vi-VN').format(room.subTotal)}đ</Text>
+                                <br />
+                                <Text type="secondary" style={{ fontSize: 12 }}>{room.duration} {room.price === room.subTotal / room.duration ? 'đêm' : 'giờ'}</Text>
+                            </div>
+                        </div>
+                    ))
+                ) : <Text type="secondary">Chưa có dữ liệu phòng</Text>}
+            </div>
+
+            {/* DANH SÁCH DỊCH VỤ MUA KÈM */}
+            {getServicesArray().length > 0 && (
+                <div style={{ marginBottom: 24 }}>
+                    <Title level={5} style={{ color: THEME.NAVY_DARK, display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid #e2e8f0', paddingBottom: 8 }}>
+                        <ShoppingCart size={20} color={THEME.GOLD} /> 2. Dịch vụ phát sinh
+                    </Title>
+                    {getServicesArray().map((srv, idx) => (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px dashed #f1f5f9' }}>
+                            <div>
+                                <Text>{srv.serviceName}</Text>
+                                <br />
+                                <Text type="secondary" style={{ fontSize: 12 }}>SL: {srv.quantity}</Text>
+                            </div>
+                            <Text strong>{new Intl.NumberFormat('vi-VN').format(srv.totalAmount)}đ</Text>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            <Divider style={{ margin: '16px 0', borderColor: '#cbd5e1' }} />
+            
+            <Row style={{ marginBottom: 8 }}>
+              <Col span={12}><Text className="receipt-text-muted">Tổng tiền phòng & dịch vụ:</Text></Col>
+              <Col span={12} style={{ textAlign: 'right' }}><Text strong>{new Intl.NumberFormat('vi-VN').format(selectedInvoiceData.totalRoomAmount + selectedInvoiceData.totalServiceAmount)}đ</Text></Col>
             </Row>
             {selectedInvoiceData.discountAmount > 0 && (
-              <Row style={{ marginBottom: 12 }}>
+              <Row style={{ marginBottom: 8 }}>
                 <Col span={12}><Text strong style={{color: '#10b981'}}>Giảm giá Voucher:</Text></Col>
                 <Col span={12} style={{ textAlign: 'right' }}><Text strong style={{color: '#10b981'}}>-{new Intl.NumberFormat('vi-VN').format(selectedInvoiceData.discountAmount)}đ</Text></Col>
               </Row>
             )}
             <Row style={{ marginBottom: 12 }}>
-              <Col span={12}><Text className="receipt-text-muted">Thuế & Phí (10%):</Text></Col>
+              <Col span={12}><Text className="receipt-text-muted">Thuế VAT (10%):</Text></Col>
               <Col span={12} style={{ textAlign: 'right' }}><Text strong>{new Intl.NumberFormat('vi-VN').format(selectedInvoiceData.taxAmount)}đ</Text></Col>
             </Row>
 
-            <Divider style={{ margin: '16px 0', borderColor: '#e2e8f0' }} dashed/>
-            
-            <Row align="middle">
-              <Col span={10}><Text strong style={{ fontSize: 16, textTransform: 'uppercase' }}>TỔNG CỘNG</Text></Col>
+            <Row align="middle" style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: 8, border: `1px solid ${THEME.NAVY_DARK}` }}>
+              <Col span={10}><Text strong style={{ fontSize: 16, textTransform: 'uppercase', color: THEME.NAVY_DARK }}>TỔNG CỘNG</Text></Col>
               <Col span={14} style={{ textAlign: 'right' }}>
                 <Title level={2} style={{ margin: 0, color: THEME.NAVY_DARK }}>{new Intl.NumberFormat('vi-VN').format(selectedInvoiceData.finalTotal)}đ</Title>
               </Col>
             </Row>
-            <Row align="middle" style={{ marginTop: 8 }}>
-              <Col span={10}><Text className="receipt-text-muted">Trạng thái:</Text></Col>
-              <Col span={14} style={{ textAlign: 'right' }}>
-                <Text strong style={{ color: selectedInvoiceData.status === 'Paid' ? '#166534' : '#E11D48' }}>
-                   {selectedInvoiceData.status === 'Paid' ? 'ĐÃ THANH TOÁN' : 'CHƯA THANH TOÁN'}
-                </Text>
+            
+            <Row align="middle" style={{ marginTop: 12, padding: '0 8px' }}>
+              <Col span={12}><Text className="receipt-text-muted">Bạn đã thanh toán / Cọc:</Text></Col>
+              <Col span={12} style={{ textAlign: 'right' }}>
+                <Text strong style={{ color: '#166534', fontSize: 16 }}>{new Intl.NumberFormat('vi-VN').format(selectedInvoiceData.amountPaid)}đ</Text>
               </Col>
             </Row>
 
+            {selectedInvoiceData.status !== 'Paid' && (selectedInvoiceData.finalTotal - selectedInvoiceData.amountPaid) > 0 && (
+                <Row align="middle" style={{ marginTop: 8, padding: '0 8px' }}>
+                <Col span={12}><Text strong style={{ color: '#e11d48' }}>CÒN NỢ (Thanh toán tại quầy):</Text></Col>
+                <Col span={12} style={{ textAlign: 'right' }}>
+                    <Text strong style={{ color: '#e11d48', fontSize: 16 }}>{new Intl.NumberFormat('vi-VN').format(selectedInvoiceData.finalTotal - selectedInvoiceData.amountPaid)}đ</Text>
+                </Col>
+                </Row>
+            )}
+
             <div style={{ marginTop: 40, textAlign: 'center' }}>
                <Button type="primary" size="large" icon={<Printer size={20} />} onClick={handlePrint} style={{ background: THEME.NAVY_DARK, borderRadius: 8, width: '100%' }}>
-                 In Biên Lai (Bản Đẹp)
+                 In Biên Lai
                </Button>
             </div>
           </div>

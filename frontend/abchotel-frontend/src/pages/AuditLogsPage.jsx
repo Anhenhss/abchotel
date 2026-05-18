@@ -1,17 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Typography, Space, Tag, Select, Table, Avatar, Badge, DatePicker, Button, notification } from 'antd';
-import { User, DownloadSimple } from '@phosphor-icons/react';
+import { Card, Typography, Space, Select, Table, Avatar, Badge, DatePicker, Button, notification, Row, Col } from 'antd';
+import { User, DownloadSimple, FileXls, Funnel } from '@phosphor-icons/react';
 import dayjs from 'dayjs';
+import * as XLSX from 'xlsx';
 import { reportApi } from '../api/reportApi';
 import { useSignalR } from '../hooks/useSignalR';
 
 const { Title, Text } = Typography;
 
+// Bảng màu Luxury
 const THEME = {
     NAVY_DARK: '#0D1821', 
     DARK_RED: '#8A1538', 
     COLD_BLUE: '#1C2E4A',
-    BG_LIGHT: '#F8FAFC'
+    BG_LIGHT: '#F8FAFC',
+    GOLD: '#D4AF37'
 };
 
 export default function AuditLogsPage() {
@@ -19,6 +22,7 @@ export default function AuditLogsPage() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // State cho bộ lọc
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
 
@@ -51,15 +55,20 @@ export default function AuditLogsPage() {
           return { ...item, detail: detailObj };
       });
       setLogs(parsedData);
-    } catch (e) { console.error(e); } 
+    } catch (e) { 
+        console.error(e); 
+        api.error({ message: 'Lỗi tải dữ liệu', description: 'Không thể lấy nhật ký hệ thống.' });
+    } 
     finally { if (!isSilent) setLoading(false); }
-  }, []);
+  }, [api]);
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
   useSignalR(() => { fetchLogs(true); });
 
+  // Lấy danh sách nhân viên duy nhất cho Dropdown
   const uniqueUsers = [...new Set(logs.map(item => item.performedBy))].filter(Boolean);
 
+  // Lọc dữ liệu
   const filteredLogs = logs.filter(log => {
     let matchUser = selectedUser ? log.performedBy === selectedUser : true;
     let matchDate = selectedDate ? dayjs(log.createdAt).isSame(selectedDate, 'day') : true;
@@ -67,27 +76,20 @@ export default function AuditLogsPage() {
   });
 
   // =========================================================================
-  // 🔥 THUẬT TOÁN 1: TẠO TÓM TẮT THÔNG MINH CHO DÒNG CHA
+  // 🔥 TẠO TÓM TẮT THÔNG MINH
   // =========================================================================
   const generateSmartSummary = (events, userName) => {
       if (!events || events.length === 0) return "Hoạt động hệ thống.";
 
-      // THUẬT TOÁN NHẬN DIỆN "SAO CHÉP / THÊM HÀNG LOẠT"
       const roomInvEvents = events.filter(e => e.entityType.includes('RoomInventory') || e.entityType.includes('Room_Inventory'));
-      
       if (roomInvEvents.length > 5) {
-          // Nếu có nhiều hơn 5 sự kiện thêm vật tư vào cùng 1 bảng, ta coi đây là thao tác hàng loạt
           const firstMsg = roomInvEvents[0].message;
-          // Tìm số phòng từ message (Dùng regex hoặc cắt chuỗi)
           const roomMatch = firstMsg.match(/phòng\s(\w+)/);
           const roomNum = roomMatch ? roomMatch[1] : "";
-          
           return `${userName} đã thêm hàng loạt ${roomInvEvents.length} vật tư vào phòng ${roomNum}.`;
       }
 
-      // Các logic ưu tiên khác (LossAndDamage, Bookings...)
       const priorityEvent = events.find(e => ['LossAndDamage', 'Bookings', 'Rooms'].some(p => e.entityType.includes(p))) || events[0];
-      
       const message = priorityEvent.message;
       const extra = events.length - 1;
       
@@ -95,25 +97,69 @@ export default function AuditLogsPage() {
   };
 
   // =========================================================================
-  // 🔥 THUẬT TOÁN 2: GOM NHÓM SỰ KIỆN SPAM (TRONG BẢNG CON)
+  // 🔥 GOM NHÓM SỰ KIỆN SPAM
   // =========================================================================
   const groupSpammyEvents = (events) => {
     if (!events) return [];
-    
     const grouped = {};
     events.forEach(ev => {
-        // Gom nhóm dựa trên Loại hành động + Tên bảng + Nội dung message
         const key = `${ev.actionType}_${ev.entityType}_${ev.message}`;
         if (!grouped[key]) {
             grouped[key] = { ...ev, quantity: 0, firstTime: ev.timestamp };
         }
         grouped[key].quantity++;
-        // Cập nhật thời gian mới nhất
         grouped[key].timestamp = ev.timestamp; 
     });
-
-    // Sắp xếp lại theo thời gian mới nhất
     return Object.values(grouped).sort((a, b) => dayjs(b.timestamp).diff(dayjs(a.timestamp)));
+  };
+
+  // =========================================================================
+  // 🔥 XUẤT EXCEL
+  // =========================================================================
+  const handleExportExcel = (dataToExport, fileName) => {
+      if (!dataToExport || dataToExport.length === 0) {
+          api.warning({ message: 'Không có dữ liệu', description: 'Không có dữ liệu nào để xuất.' });
+          return;
+      }
+
+      const excelData = [];
+      
+      dataToExport.forEach(log => {
+          const groupedEvents = groupSpammyEvents(log.detail?.Events);
+          const baseRow = {
+              "Ngày tạo": dayjs(log.createdAt).format('DD/MM/YYYY HH:mm:ss'),
+              "Nhân sự": log.performedBy || 'Hệ thống',
+              "Tóm tắt hành động": generateSmartSummary(log.detail?.Events, log.performedBy || 'Hệ thống')
+          };
+
+          if (groupedEvents.length === 0) {
+              excelData.push({ ...baseRow, "Giờ chi tiết": "", "Loại thao tác": "", "Phân hệ": "", "Nội dung chi tiết": "", "Số lượng thao tác": "" });
+          } else {
+              // Bung dữ liệu bảng con ra các cột chi tiết
+              groupedEvents.forEach(ev => {
+                  excelData.push({
+                      ...baseRow,
+                      "Giờ chi tiết": dayjs(ev.timestamp).format('HH:mm:ss'),
+                      "Loại thao tác": ev.actionType,
+                      "Phân hệ": translateEntity(ev.entityType),
+                      "Nội dung chi tiết": ev.message,
+                      "Số lượng thao tác": ev.quantity > 1 ? `Lặp lại ${ev.quantity} lần` : 1
+                  });
+              });
+          }
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      
+      // Tự động căn chỉnh độ rộng cột
+      const wscols = [
+          { wch: 20 }, { wch: 20 }, { wch: 45 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 50 }, { wch: 15 }
+      ];
+      worksheet['!cols'] = wscols;
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "NhatKyHeThong");
+      XLSX.writeFile(workbook, `${fileName}_${dayjs().format('DDMMYYYY_HHmm')}.xlsx`);
   };
 
   const getActionTag = (type) => {
@@ -151,28 +197,16 @@ export default function AuditLogsPage() {
   ];
 
   const expandedRowRender = (record) => {
-    // 🔥 Sử dụng dữ liệu đã gộp thay vì dữ liệu gốc
     const groupedData = groupSpammyEvents(record.detail?.Events);
-
     const nestedColumns = [
-      { 
-          title: 'Giờ (mới nhất)', dataIndex: 'timestamp', width: 120,
-          render: (val) => <Text type="secondary">{dayjs(val).format('HH:mm:ss')}</Text> 
-      },
-      { 
-          title: 'Hành động', dataIndex: 'actionType', width: 120,
-          render: (val) => getActionTag(val)
-      },
-      { 
-          title: 'Đối tượng', dataIndex: 'entityType', width: 180,
-          render: (val) => <Text>{translateEntity(val)}</Text>
-      },
+      { title: 'Giờ (mới nhất)', dataIndex: 'timestamp', width: 120, render: (val) => <Text type="secondary">{dayjs(val).format('HH:mm:ss')}</Text> },
+      { title: 'Hành động', dataIndex: 'actionType', width: 120, render: (val) => getActionTag(val) },
+      { title: 'Đối tượng', dataIndex: 'entityType', width: 180, render: (val) => <Text>{translateEntity(val)}</Text> },
       { 
           title: 'Nội dung', key: 'message',
           render: (_, record) => (
               <Space>
                   <Text style={{ color: THEME.NAVY_DARK }}>{record.message}</Text>
-                  {/* Hiển thị số lượng nếu bị lặp (ví dụ: Thêm mới 15 lần) */}
                   {record.quantity > 1 && (
                       <Badge count={`x${record.quantity}`} style={{ backgroundColor: '#52c41a' }} />
                   )}
@@ -182,32 +216,90 @@ export default function AuditLogsPage() {
     ];
 
     return (
-        <div style={{ padding: '8px 24px 24px 24px', backgroundColor: THEME.BG_LIGHT }}>
+        <div style={{ padding: '8px 24px 24px 24px', backgroundColor: THEME.BG_LIGHT, borderLeft: `4px solid ${THEME.COLD_BLUE}` }}>
             <Table 
-                columns={nestedColumns} 
-                dataSource={groupedData} 
-                pagination={false} 
+                columns={nestedColumns} dataSource={groupedData} pagination={false} 
                 rowKey={(item) => item.eventId || Math.random().toString()}
-                size="small" className="nested-audit-table" scroll={{ x: 700 }}
+                size="small" scroll={{ x: 700 }}
             />
         </div>
     );
   };
 
-  // ... (Giữ nguyên phần return layout và style của bạn)
   return (
-    <div style={{ animation: 'fadeIn 0.5s ease-in-out' }}>
-        {/* ... */}
-        <Table 
-            columns={columns} 
-            dataSource={filteredLogs} 
-            rowKey="id" 
-            loading={loading}
-            expandable={{ expandedRowRender, expandRowByClick: true }}
-            pagination={{ pageSize: 15 }}
-            className="main-audit-table"
-        />
-        {/* ... */}
+    <div style={{ padding: 24, animation: 'fadeIn 0.5s ease-in-out', minHeight: '100vh', backgroundColor: '#F0F2F5' }}>
+        {contextHolder}
+        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            
+            {/* HEADER & CONTROLS */}
+            <Card style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                <Row justify="space-between" align="middle" gutter={[16, 16]}>
+                    <Col xs={24} md={8}>
+                        <Title level={3} style={{ margin: 0, color: THEME.NAVY_DARK }}>
+                            Nhật ký hệ thống
+                        </Title>
+                        <Text type="secondary">Theo dõi các thay đổi và thao tác</Text>
+                    </Col>
+                    
+                    <Col xs={24} md={16}>
+                        <Row gutter={[12, 12]} justify="end">
+                            {/* BỘ LỌC */}
+                            <Col>
+                                <Select
+                                    allowClear
+                                    placeholder={<span><Funnel size={16} style={{ verticalAlign: 'middle', marginRight: 4 }}/> Nhân viên</span>}
+                                    style={{ width: 180 }}
+                                    onChange={setSelectedUser}
+                                    options={uniqueUsers.map(u => ({ label: u, value: u }))}
+                                />
+                            </Col>
+                            <Col>
+                                <DatePicker 
+                                    placeholder="Chọn ngày" 
+                                    style={{ width: 150 }} 
+                                    format="DD/MM/YYYY"
+                                    onChange={setSelectedDate}
+                                    allowClear
+                                />
+                            </Col>
+                            
+                            {/* NÚT XUẤT EXCEL */}
+                            <Col>
+                                <Button 
+                                    icon={<DownloadSimple size={18} />} 
+                                    onClick={() => handleExportExcel(filteredLogs, 'AuditLogs_Filtered')}
+                                    disabled={filteredLogs.length === 0}
+                                >
+                                    Xuất bộ lọc
+                                </Button>
+                            </Col>
+                            <Col>
+                                <Button 
+                                    type="primary" 
+                                    icon={<FileXls size={18} />} 
+                                    style={{ backgroundColor: THEME.COLD_BLUE }}
+                                    onClick={() => handleExportExcel(logs, 'AuditLogs_All')}
+                                >
+                                    Xuất toàn bộ
+                                </Button>
+                            </Col>
+                        </Row>
+                    </Col>
+                </Row>
+            </Card>
+
+            {/* BẢNG DỮ LIỆU */}
+            <Card style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', overflow: 'hidden' }} bodyStyle={{ padding: 0 }}>
+                <Table 
+                    columns={columns} 
+                    dataSource={filteredLogs} 
+                    rowKey={(record) => record.id || Math.random().toString()} 
+                    loading={loading}
+                    expandable={{ expandedRowRender, expandRowByClick: true }}
+                    pagination={{ pageSize: 15, showSizeChanger: false, position: ['bottomCenter'] }}
+                />
+            </Card>
+        </Space>
     </div>
   );
 }
