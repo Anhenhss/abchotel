@@ -114,21 +114,22 @@ export default function CheckoutPage() {
         guestName: values.guestName,
         guestPhone: values.guestPhone,
         guestEmail: values.guestEmail,
-        identityNumber: values.identityNumber,
-        specialRequests: values.specialRequests,
+        identityNumber: values.identityNumber || '',
+        specialRequests: values.specialRequests || '',
         voucherCode: appliedVoucher,
-        priceType: priceType,
+        priceType: priceType || 'DAILY',
         rooms: selectedRooms.map(r => ({
           roomTypeId: r.roomTypeId || r.id,
-          roomId: null, 
-          checkInDate: checkIn,
-          checkOutDate: checkOut,
-          quantity: 1,
+          roomId: r.roomId || null, 
+          // 🔥 Đã chuẩn hóa ngày tháng sang định dạng chuẩn ISO để C# không bị lỗi 400
+          checkInDate: dayjs(checkIn).format('YYYY-MM-DDTHH:mm:ss'),
+          checkOutDate: dayjs(checkOut).format('YYYY-MM-DDTHH:mm:ss'),
+          quantity: r.quantity || 1,
           priceType: priceType
         })),
         services: selectedServices ? selectedServices.map(s => ({
-          serviceId: s.serviceId,
-          quantity: s.quantity
+          serviceId: s.serviceId || s.id,
+          quantity: s.quantity || 1
         })) : []
       };
 
@@ -158,8 +159,14 @@ export default function CheckoutPage() {
       }
 
     } catch (error) {
-      console.error(error);
-      api.error({ message: 'Lỗi thanh toán', description: error.message || 'Có lỗi xảy ra khi tạo đơn hàng.' });
+      console.error("Chi tiết lỗi từ Server:", error.response?.data);
+      // 🔥 Bắt và hiển thị CHÍNH XÁC nguyên nhân lỗi từ Backend thay vì báo lỗi 400 chung chung
+      const errorMsg = error.response?.data?.message 
+                    || JSON.stringify(error.response?.data?.errors) 
+                    || error.message 
+                    || 'Có lỗi xảy ra khi tạo đơn hàng.';
+                    
+      api.error({ message: 'Lỗi hệ thống', description: errorMsg });
       setLoading(false);
     }
   };

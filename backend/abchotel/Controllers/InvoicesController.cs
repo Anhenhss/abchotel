@@ -78,16 +78,17 @@ namespace abchotel.Controllers
             return Ok(new { message = "Đã xác nhận hoàn tiền thành công." });
         }
 
-        // 🔥 THÊM LẠI: isDeposit để thu 20%
+        // 🔥 Đã bổ sung [FromQuery] decimal? amount để Admin truyền số tiền tự nhập xuống
         [HttpPost("{id}/create-vnpay-url")]
         [AllowAnonymous]
-        public async Task<IActionResult> CreateVnPayUrl(int id, [FromQuery] bool isDeposit = false)
+        public async Task<IActionResult> CreateVnPayUrl(int id, [FromQuery] bool isDeposit = false, [FromQuery] decimal? amount = null)
         {
             var invoice = await _invoiceService.GetInvoiceByIdAsync(id);
             if (invoice == null) return NotFound(new { message = "Không tìm thấy hóa đơn" });
             if (invoice.Status == "Paid") return BadRequest(new { message = "Hóa đơn này đã được thanh toán" });
 
-            decimal amountToPay = isDeposit ? Math.Round((invoice.FinalTotal) * 0.20m) : invoice.BalanceDue;
+            // Sửa lỗi sập BalanceDue
+            decimal amountToPay = amount ?? (isDeposit ? Math.Round((invoice.FinalTotal) * 0.20m) : (invoice.FinalTotal - invoice.AmountPaid));
             string orderInfo = $"Thanh toan {(isDeposit ? "coc 20%" : "toan bo")} hoa don {id} cho don dat phong {invoice.BookingCode}";
 
             string paymentUrl = _vnPayService.CreatePaymentUrl(HttpContext, id, amountToPay, orderInfo);
@@ -106,9 +107,9 @@ namespace abchotel.Controllers
                 var invoice = await _invoiceService.GetInvoiceByIdAsync(response.InvoiceId);
                 if (invoice != null && invoice.Status != "Paid")
                 {
-                    // Lấy số tiền thực tế khách đã thanh toán qua cổng về
                     var vnpAmountStr = Request.Query["vnp_Amount"].ToString();
-                    decimal actualAmountPaid = string.IsNullOrEmpty(vnpAmountStr) ? invoice.BalanceDue : (Convert.ToDecimal(vnpAmountStr) / 100);
+                    // Sửa lỗi sập BalanceDue
+                    decimal actualAmountPaid = string.IsNullOrEmpty(vnpAmountStr) ? (invoice.FinalTotal - invoice.AmountPaid) : (Convert.ToDecimal(vnpAmountStr) / 100);
 
                     var paymentRequest = new PaymentRequest
                     {
@@ -127,16 +128,15 @@ namespace abchotel.Controllers
             return GenerateAutoCloseHtml(false, response.Message);
         }
 
-        // 🔥 THÊM LẠI: isDeposit để thu 20%
         [HttpPost("{id}/create-momo-url")]
         [AllowAnonymous] 
-        public async Task<IActionResult> CreateMoMoUrl(int id, [FromQuery] bool isDeposit = false)
+        public async Task<IActionResult> CreateMoMoUrl(int id, [FromQuery] bool isDeposit = false, [FromQuery] decimal? amount = null)
         {
             var invoice = await _invoiceService.GetInvoiceByIdAsync(id);
             if (invoice == null) return NotFound(new { message = "Không tìm thấy hóa đơn" });
             if (invoice.Status == "Paid") return BadRequest(new { message = "Hóa đơn này đã được thanh toán" });
 
-            decimal amountToPay = isDeposit ? Math.Round((invoice.FinalTotal) * 0.20m) : invoice.BalanceDue;
+            decimal amountToPay = amount ?? (isDeposit ? Math.Round((invoice.FinalTotal) * 0.20m) : (invoice.FinalTotal - invoice.AmountPaid));
             string orderInfo = $"Thanh toan {(isDeposit ? "coc 20%" : "toan bo")} don dat phong {invoice.BookingCode}";
 
             try 
@@ -162,7 +162,8 @@ namespace abchotel.Controllers
                 if (invoice != null && invoice.Status != "Paid")
                 {
                     var momoAmountStr = Request.Query["amount"].ToString();
-                    decimal actualAmountPaid = string.IsNullOrEmpty(momoAmountStr) ? invoice.BalanceDue : Convert.ToDecimal(momoAmountStr);
+                    // Sửa lỗi sập BalanceDue
+                    decimal actualAmountPaid = string.IsNullOrEmpty(momoAmountStr) ? (invoice.FinalTotal - invoice.AmountPaid) : Convert.ToDecimal(momoAmountStr);
 
                     var paymentRequest = new PaymentRequest
                     {

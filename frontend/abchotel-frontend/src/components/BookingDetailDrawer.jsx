@@ -165,13 +165,13 @@ export default function BookingDetailDrawer({ isOpen, onClose, bookingCode, onSu
       const safeAmount = Number(values.amountPaid); 
 
       if (values.paymentMethod === 'VNPay') {
-          const res = await invoiceApi.createVnPayUrl(invoiceData.id);
+          const res = await invoiceApi.createVnPayUrl(invoiceData.id, false, safeAmount);
           window.open(res.url, '_blank'); 
           setIsWaitingPayment(true);      
           return; 
       }
       if (values.paymentMethod === 'MoMo') {
-          const res = await invoiceApi.createMoMoUrl(invoiceData.id);
+          const res = await invoiceApi.createMoMoUrl(invoiceData.id, false, safeAmount);
           window.open(res.url, '_blank'); 
           setIsWaitingPayment(true);     
           return;

@@ -7,8 +7,17 @@ export const invoiceApi = {
   payCash: (data) => axiosClient.post('/Invoices/pay', data),
   markRefunded: (id) => axiosClient.post(`/Invoices/${id}/mark-refunded`),
 
-  createVnPayUrl: (id, isDeposit = false) => axiosClient.post(`/Invoices/${id}/create-vnpay-url?isDeposit=${isDeposit}`),
-  createMoMoUrl: (id, isDeposit = false) => axiosClient.post(`/Invoices/${id}/create-momo-url?isDeposit=${isDeposit}`),
+  createVnPayUrl: (id, isDeposit = false, amount = null) => {
+    let url = `/Invoices/${id}/create-vnpay-url?isDeposit=${isDeposit}`;
+    if (amount) url += `&amount=${amount}`;
+    return axiosClient.post(url);
+  },
+  
+  createMoMoUrl: (id, isDeposit = false, amount = null) => {
+    let url = `/Invoices/${id}/create-momo-url?isDeposit=${isDeposit}`;
+    if (amount) url += `&amount=${amount}`;
+    return axiosClient.post(url);
+  },
   
   addService: (invoiceId, data) => axiosClient.post(`/Invoices/${invoiceId}/add-service`, data),
   addDamage: (invoiceId, data) => axiosClient.post(`/Invoices/${invoiceId}/add-damage`, data),

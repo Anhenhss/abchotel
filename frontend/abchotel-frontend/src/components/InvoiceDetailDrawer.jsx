@@ -124,15 +124,14 @@ export default function InvoiceDetailDrawer({ isOpen, onClose, invoiceId, onSucc
       setLoading(true);
       const safeAmount = Number(values.amountPaid); 
 
-      // 🔥 3. MỞ TAB MỚI VÀ BẬT VÒNG QUAY CHỜ ĐỢI
       if (values.paymentMethod === 'VNPay') {
-          const res = await invoiceApi.createVnPayUrl(invoiceId);
+          const res = await invoiceApi.createVnPayUrl(invoiceId, false, safeAmount);
           window.open(res.url, '_blank'); 
           setIsWaitingPayment(true);      
           return;
       }
       if (values.paymentMethod === 'MoMo') {
-          const res = await invoiceApi.createMoMoUrl(invoiceId);
+          const res = await invoiceApi.createMoMoUrl(invoiceId, false, safeAmount);
           window.open(res.url, '_blank'); 
           setIsWaitingPayment(true);      
           return;
